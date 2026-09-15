@@ -1,0 +1,17 @@
+# Tooling environments
+.venv/
+__pycache__/
+*.egg-info/
+node_modules/
+dist/
+
+# Local source material (paper PDFs, reference clones) — kept out of the repo
+/resources/
+
+# Local eval output and scratch state
+runs/
+.wikiskill/
+
+# Secrets and machine-local settings
+.env
+.claude/settings.local.json

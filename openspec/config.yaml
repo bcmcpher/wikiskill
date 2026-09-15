@@ -1,0 +1,46 @@
+schema: spec-driven
+
+context: |
+  Project: wikiskill — an in-harness package that logs what agent skills and subagents do with a model,
+  captures what the user had to correct, distils a persistent wiki of failure/success patterns, and
+  proposes gated refinements. Based on WikiSkill (arXiv 2608.27454). Background and rationale live in
+  docs/research/ and docs/design/architecture.md.
+
+  Targets: OpenCode driven by open models behind any OpenAI-compatible endpoint is PRIMARY. Claude Code
+  is SECONDARY (the maintainer develops there). The point is comparing and refining the same skills
+  across models and harnesses, so anything that touches runs or logs keeps harness, provider and model
+  explicit. Do not design Anthropic-only or Claude-Code-only behaviour into the core.
+
+  Stack: harness-neutral core in Python (uv, pyproject; stdlib first, pydantic allowed for schemas),
+  exposed as the `wikiskill` CLI. Thin adapters: an OpenCode plugin in TypeScript (OpenCode hooks are
+  JS/TS) and Claude Code hooks that call the Python CLI by explicit path. wikiskill's own skills,
+  commands and meta-agents are single-source markdown built into each harness layout.
+
+  Storage: ${XDG_DATA_HOME:-~/.local/share}/wikiskill/<collection>/{raw,wiki,evals}. Config:
+  ${XDG_CONFIG_HOME:-~/.config}/wikiskill/. Nothing is written into a skill's source repository except
+  patches the user explicitly applies.
+
+  Principles: verifier-first scoring (LLM judges only for rubric dimensions, never the model under
+  test); logging is fail-open and makes no model calls; explicit evaluations run in fresh isolated
+  headless sessions, never in the calling session; unrun or skipped evaluations are reported as such
+  with a reason; local models are weak and slow, so every model-facing contract has validation, bounded
+  retries, and a preflight check.
+
+  Compute: the development laptop is CPU-only (no discrete GPU; Ollama defaults to a 4096-token
+  context). Designs are endpoint-agnostic and must not assume a local GPU.
+
+  First real collection: ~/Projects/claude/data-science-harness (DSH). This repository never edits it.
+
+rules:
+  proposal:
+    - Keep the Why section under 1000 characters.
+    - State dependencies on other changes as prose bullets under Impact.
+  specs:
+    - Every requirement states SHALL or MUST in its first sentence and has at least one WHEN/THEN scenario.
+    - Name the harness explicitly when a requirement is harness-specific.
+    - Keep each change at or under 10 requirement deltas.
+  design:
+    - Write risks as "[Risk] → Mitigation" and end with Open Questions.
+  tasks:
+    - Start with "## 0. Minimal working core" naming the smallest shippable slice and what is deferred.
+    - End with a Verify group of concrete commands, including `openspec validate <id> --strict`.
