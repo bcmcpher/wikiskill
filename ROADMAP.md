@@ -21,9 +21,9 @@ Step 1 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/).
 
-`add-logging-safeguards` is not a step. It is a post-hoc amendment to two of step 1's capabilities,
-recording three behaviours that a review of the implementation added after the change was archived.
-It reorders nothing below and blocks nothing.
+`add-logging-safeguards` is also done and archived. It is not a step: it is a post-hoc amendment to
+two of step 1's capabilities, recording three behaviours that a review of the implementation added
+after step 1 was archived. It reorders nothing below and blocks nothing.
 
 | # | Change | Capabilities | Hard dependencies | Why here |
 |---|---|---|---|---|

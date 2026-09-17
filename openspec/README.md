@@ -34,7 +34,8 @@ Implementation order and the reasoning behind it live in [`ROADMAP.md`](../ROADM
 carry no order; prose inside changes refers to other changes by id.
 
 Step 1 is done and archived under [`changes/archive/`](changes/archive/); its capabilities are in
-[`specs/`](specs/).
+[`specs/`](specs/), as is `add-logging-safeguards`, an amendment to two of them rather than a step of
+its own.
 
 | # | Change | Capabilities | Hard dependencies |
 |---|---|---|---|
