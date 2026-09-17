@@ -34,5 +34,8 @@ record exists. A harness-neutral raw log, filled passively by a thin OpenCode pl
 - Writes only under the wikiskill XDG config and data directories and the chosen OpenCode config
   directory; never into a collection's source repository.
 - First on the roadmap (`ROADMAP.md`); every other change depends on it.
-- Targets the OpenCode 1.18.x plugin API. The user's global OpenCode config pins
-  `@opencode-ai/plugin` 1.14.22 while the binary is 1.18.25 — the plugin pins its own version.
+- Targets the OpenCode plugin API at **1.18.31 or newer**. The plugin declares its own floor
+  (`^1.18.31`) rather than inheriting the user's global OpenCode config, which pins
+  `@opencode-ai/plugin` 1.14.22 against a much newer binary. The harness is updated often, so
+  drift is *detected* rather than pinned away: contract tests run against recorded payloads and
+  every event carries `harness_version`.

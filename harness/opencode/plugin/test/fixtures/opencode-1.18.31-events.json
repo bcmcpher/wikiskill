@@ -1,0 +1,268 @@
+{
+  "_provenance": {
+    "captured_from": "opencode 1.18.31",
+    "captured_at": "2026-09-17",
+    "how": "a throwaway plugin dumping every `event` hook payload during `opencode run` against a local Ollama endpoint",
+    "note": "Real payloads, unedited apart from selecting one of each type. The run failed at the first tool call because the model did not support tools, which is why the session.error fixture is genuine too."
+  },
+  "events": {
+    "session.created": {
+      "id": "evt_0b0e5f88d001yYxIAvXAs4HAen",
+      "type": "session.created",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "info": {
+          "id": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+          "slug": "lucky-forest",
+          "version": "1.18.31",
+          "projectID": "global",
+          "directory": "/tmp/wikiskill-capture",
+          "path": "tmp/wikiskill-capture",
+          "title": "New session - 2026-09-17T19:44:16.523Z",
+          "permission": [
+            {
+              "permission": "question",
+              "pattern": "*",
+              "action": "deny"
+            },
+            {
+              "permission": "plan_enter",
+              "pattern": "*",
+              "action": "deny"
+            },
+            {
+              "permission": "plan_exit",
+              "pattern": "*",
+              "action": "deny"
+            }
+          ],
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1789674256523,
+            "updated": 1789674256523
+          }
+        }
+      }
+    },
+    "session.updated": {
+      "id": "evt_0b0e5f910001Zb79jv5qUz0l17",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "info": {
+          "id": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+          "slug": "lucky-forest",
+          "projectID": "global",
+          "directory": "/tmp/wikiskill-capture",
+          "path": "tmp/wikiskill-capture",
+          "title": "New session - 2026-09-17T19:44:16.523Z",
+          "agent": "build",
+          "model": {
+            "id": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest",
+            "providerID": "ollama",
+            "variant": "default"
+          },
+          "version": "1.18.31",
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "permission": [
+            {
+              "permission": "question",
+              "pattern": "*",
+              "action": "deny"
+            },
+            {
+              "permission": "plan_enter",
+              "pattern": "*",
+              "action": "deny"
+            },
+            {
+              "permission": "plan_exit",
+              "pattern": "*",
+              "action": "deny"
+            }
+          ],
+          "time": {
+            "created": 1789674256523,
+            "updated": 1789674256650
+          }
+        }
+      }
+    },
+    "message.updated": {
+      "id": "evt_0b0e5f960001FiFxOZbe3b3rY6",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "info": {
+          "id": "msg_0b0e5f90a00128BIzRw5pJZuXH",
+          "role": "user",
+          "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+          "time": {
+            "created": 1789674256650
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "ollama",
+            "modelID": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest"
+          }
+        }
+      }
+    },
+    "message.updated:user": {
+      "id": "evt_0b0e5fee3001NCLCr0XNSCY1yK",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1789674256650
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "ollama",
+            "modelID": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest"
+          },
+          "id": "msg_0b0e5f90a00128BIzRw5pJZuXH",
+          "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+          "summary": {
+            "diffs": []
+          }
+        }
+      }
+    },
+    "message.part.updated": {
+      "id": "evt_0b0e5fde0001D1nmaAm0dQRIr5",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "part": {
+          "type": "text",
+          "text": "\"Use the wikiskill-smoke skill now.\"",
+          "messageID": "msg_0b0e5f90a00128BIzRw5pJZuXH",
+          "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+          "id": "prt_0b0e5f95d001rdBQXiTl0mzg5e"
+        },
+        "time": 1789674257888
+      }
+    },
+    "session.status": {
+      "id": "evt_0b0e5fe00001y0mg8Wnz6pDARU",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    "message.updated:assistant": {
+      "id": "evt_0b0e60368001MxzJmctM1jJgAU",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "info": {
+          "id": "msg_0b0e5fe08001YBsyBmtyNtMkR8",
+          "parentID": "msg_0b0e5f90a00128BIzRw5pJZuXH",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "/tmp/wikiskill-capture",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "modelID": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest",
+          "providerID": "ollama",
+          "time": {
+            "created": 1789674257928,
+            "completed": 1789674259304
+          },
+          "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+          "error": {
+            "name": "APIError",
+            "data": {
+              "message": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest does not support tools",
+              "statusCode": 400,
+              "isRetryable": false,
+              "responseHeaders": {
+                "content-length": "143",
+                "content-type": "application/json",
+                "date": "Thu, 17 Sep 2026 19:44:19 GMT"
+              },
+              "responseBody": "{\"error\":{\"message\":\"hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest does not support tools\",\"type\":\"api_error\",\"param\":null,\"code\":null}}\n",
+              "metadata": {
+                "url": "http://localhost:11434/v1/chat/completions"
+              }
+            }
+          }
+        }
+      }
+    },
+    "session.error": {
+      "id": "evt_0b0e60366001epA4MGk5dQYtNL",
+      "type": "session.error",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+        "error": {
+          "name": "APIError",
+          "data": {
+            "message": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest does not support tools",
+            "statusCode": 400,
+            "isRetryable": false,
+            "responseHeaders": {
+              "content-length": "143",
+              "content-type": "application/json",
+              "date": "Thu, 17 Sep 2026 19:44:19 GMT"
+            },
+            "responseBody": "{\"error\":{\"message\":\"hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest does not support tools\",\"type\":\"api_error\",\"param\":null,\"code\":null}}\n",
+            "metadata": {
+              "url": "http://localhost:11434/v1/chat/completions"
+            }
+          }
+        }
+      }
+    },
+    "session.idle": {
+      "id": "evt_0b0e60367001Z5GLcmiPqGH2VS",
+      "type": "session.idle",
+      "properties": {
+        "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ"
+      }
+    }
+  },
+  "chat_message": {
+    "sessionID": "ses_f4f1a0774ffepL3wqqJ5f72ctQ",
+    "model": {
+      "providerID": "ollama",
+      "modelID": "hf.co/mattritchey/DeepAnalyze-8B-Q4_K_M-GGUF:latest"
+    }
+  }
+}

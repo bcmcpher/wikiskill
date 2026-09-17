@@ -86,8 +86,10 @@ and resolves `role_model` through the alias table. Build output goes to `dist/` 
 
 ## Risks / Trade-offs
 
-- [OpenCode plugin API or event shapes drift between versions] → pin `@opencode-ai/plugin`; contract
-  tests over recorded event fixtures; record `harness_version` on every event.
+- [OpenCode plugin API or event shapes drift between versions] → declare a floor of `^1.18.31` for
+  `@opencode-ai/plugin` rather than an exact pin, because the harness is updated regularly;
+  contract tests over payloads recorded from a real session; record `harness_version` on every
+  event, so a drift is visible in the log itself rather than only at install time.
 - [Logging private work] → opt-in watch list, local-only storage, redaction on by default.
 - [Missed activations when a model reads skill text some other way] → path-based `read` detection;
   `wikiskill log stats` reports sessions with watched-path reads but no activation.

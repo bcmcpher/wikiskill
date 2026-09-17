@@ -9,7 +9,7 @@ are in `docs/research/` and `docs/design/architecture.md`.
 ```
 openspec/
   config.yaml                 # context + per-artifact rules (read by `openspec instructions`)
-  specs/<capability>/spec.md  # main specs — empty until the first change is archived
+  specs/<capability>/spec.md  # main specs — filled as each change is archived
   changes/<change-id>/
     .openspec.yaml  README.md
     proposal.md  design.md  tasks.md
@@ -33,9 +33,12 @@ openspec/
 Implementation order and the reasoning behind it live in [`ROADMAP.md`](../ROADMAP.md). Change ids
 carry no order; prose inside changes refers to other changes by id.
 
+Step 1 is done and archived under [`changes/archive/`](changes/archive/); its capabilities are in
+[`specs/`](specs/).
+
 | # | Change | Capabilities | Hard dependencies |
 |---|---|---|---|
-| 1 | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
+| 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
 | 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring | 1 |
 | 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 |
 | 4 | `add-correction-capture` | correction-signal | 1 |

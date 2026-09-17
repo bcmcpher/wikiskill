@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bcmcpher/wikiskill/schemas/raw-event.schema.json",
+  "title": "wikiskill raw event",
+  "description": "One line of a harness-neutral raw trace log. Every event carries harness, provider and model identity so the same skill can be compared across both.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "ts",
+    "origin",
+    "harness",
+    "harness_version",
+    "provider",
+    "model",
+    "collection",
+    "session_id",
+    "root_session_id",
+    "type",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Major version of this schema. A reader that does not support the major version must refuse the file rather than misread it. New event types are a minor addition and do not bump this.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_id": {
+      "description": "ULID, Crockford base32, lexicographically sortable by creation time.",
+      "type": "string",
+      "pattern": "^[0-7][0-9ABCDEFGHJKMNPQRSTVWXYZ]{25}$"
+    },
+    "ts": { "type": "string", "format": "date-time" },
+    "origin": {
+      "description": "live = ordinary use; eval = an explicit evaluation run.",
+      "enum": ["live", "eval"]
+    },
+    "harness": { "enum": ["opencode", "claude-code"] },
+    "harness_version": { "type": "string", "minLength": 1 },
+    "provider": {
+      "description": "Provider id as the harness reports it (ollama, vllm, anthropic, ...). 'unknown' when the harness did not say.",
+      "type": "string",
+      "minLength": 1
+    },
+    "model": { "type": "string", "minLength": 1 },
+    "collection": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "root_session_id": {
+      "description": "Session that owns the log file. A child session writes into its root's file so a delegation chain reads as one trajectory.",
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_session_id": { "type": ["string", "null"] },
+    "component": {
+      "description": "The watched component this event is attributed to, or null for events outside any activation.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "name", "source_hash"],
+          "properties": {
+            "kind": { "enum": ["skill", "agent", "command"] },
+            "name": { "type": "string", "minLength": 1 },
+            "source_hash": {
+              "description": "SHA-256 of the component's main file as it was at activation time, or null when the file could not be read.",
+              "type": ["string", "null"],
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "type": {
+      "description": "Event type. This enum grows by minor addition; add-correction-capture adds user_turn, output_edit, note and repeat_activation.",
+      "enum": [
+        "session_start",
+        "component_activated",
+        "delegation",
+        "tool_call",
+        "assistant_turn",
+        "step_usage",
+        "error",
+        "session_end"
+      ]
+    },
+    "payload": { "type": "object" },
+    "redactions": {
+      "description": "One entry per kind of secret removed from this event's payload.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "count"],
+        "properties": {
+          "kind": {
+            "enum": ["env_value", "api_key", "token", "private_key", "password", "url_credentials"]
+          },
+          "count": { "type": "integer", "minimum": 1 },
+          "field": { "type": "string" }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "session_start" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cwd": { "type": ["string", "null"] },
+              "title": { "type": ["string", "null"] },
+              "agent": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "component_activated" } }, "required": ["type"] },
+      "then": {
+        "description": "An activation must name the component it activated.",
+        "properties": {
+          "component": { "not": { "type": "null" } },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["trigger"],
+            "properties": {
+              "trigger": {
+                "description": "How the activation was detected. 'read' means the model read the component's source file directly instead of invoking it.",
+                "enum": ["skill_tool", "task_tool", "command", "read"]
+              },
+              "source_path": { "type": ["string", "null"] },
+              "input_summary": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "required": ["component"]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "delegation" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subagent_type", "child_session_id"],
+            "properties": {
+              "subagent_type": { "type": "string", "minLength": 1 },
+              "child_session_id": { "type": ["string", "null"] },
+              "description": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "tool_call" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tool", "ok", "output_length", "output_truncated"],
+            "properties": {
+              "tool": { "type": "string", "minLength": 1 },
+              "call_id": { "type": ["string", "null"] },
+              "ok": { "type": "boolean" },
+              "input": { "type": ["object", "null"] },
+              "output": {
+                "description": "Tool output, redacted, and truncated to the logger's output bound.",
+                "type": ["string", "null"]
+              },
+              "output_length": {
+                "description": "Length of the original output before truncation.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "output_truncated": { "type": "boolean" },
+              "output_hash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+              "error": { "type": ["string", "null"] },
+              "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "assistant_turn" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text_length"],
+            "properties": {
+              "text": { "type": ["string", "null"] },
+              "text_length": { "type": "integer", "minimum": 0 },
+              "finish_reason": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "step_usage" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tokens"],
+            "properties": {
+              "tokens": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "input": { "type": ["integer", "null"], "minimum": 0 },
+                  "output": { "type": ["integer", "null"], "minimum": 0 },
+                  "reasoning": { "type": ["integer", "null"], "minimum": 0 },
+                  "cache_read": { "type": ["integer", "null"], "minimum": 0 },
+                  "cache_write": { "type": ["integer", "null"], "minimum": 0 }
+                }
+              },
+              "cost": { "type": ["number", "null"], "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "error" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["message"],
+            "properties": {
+              "message": { "type": "string" },
+              "where": { "type": ["string", "null"] },
+              "fatal": { "type": ["boolean", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "session_end" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reason": { "type": ["string", "null"] },
+              "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@wikiskill/opencode-logger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Passive raw-trace logger for OpenCode sessions that touch a watched skill or subagent",
+  "main": "wikiskill-logger.ts",
+  "scripts": {
+    "test": "bun test test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.18.31",
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -5,13 +5,13 @@ retrieval and triggering from what it measures. In OpenCode and Claude Code, tri
 what a skill is: a skill the model never loads contributes nothing. So wikiskill measures both, and
 separates them.
 
-OpenCode 1.18.25 runs headless with `opencode run --format json`, emitting completed tool parts,
-step-finish parts with tokens, and errors. `opencode export <sessionID>` returns full sessions,
-including child sessions created by the `task` tool. In `run`, any permission set to `ask` is rejected
-automatically. Configuration can be supplied inline (`OPENCODE_CONFIG_CONTENT`), project config
-disabled (`OPENCODE_DISABLE_PROJECT_CONFIG`), and Claude Code skill discovery disabled
-(`OPENCODE_DISABLE_CLAUDE_CODE`). There is no switch to ignore global config, so each run gets its own
-XDG directories.
+OpenCode (1.18.31 or newer) runs headless with `opencode run --format json`, emitting completed tool
+parts, step-finish parts with tokens, and errors. `opencode export <sessionID>` returns full
+sessions, including child sessions created by the `task` tool. In `run`, any permission set to `ask`
+is rejected automatically. Configuration can be supplied inline (`OPENCODE_CONFIG_CONTENT`), project
+config disabled (`OPENCODE_DISABLE_PROJECT_CONFIG`), and Claude Code skill discovery disabled
+(`OPENCODE_DISABLE_CLAUDE_CODE`). There is no switch to ignore global config, so each run gets its
+own XDG directories.
 
 Local open models fail in characteristic ways:
 - a context window too small for OpenCode's system prompt and tool schemas

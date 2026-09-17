@@ -254,7 +254,7 @@ Order and rationale: [`ROADMAP.md`](../../ROADMAP.md).
 
 | # | Change | Capabilities | Hard dependencies |
 |---|---|---|---|
-| 1 | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
+| 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
 | 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring | 1 |
 | 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 |
 | 4 | `add-correction-capture` | correction-signal | 1 |

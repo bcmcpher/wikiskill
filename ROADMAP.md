@@ -17,9 +17,13 @@ carry no order; this file is the single source for sequencing. Design background
 
 ## Sequence
 
+Step 1 is **done**: implemented, archived under
+[`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
+[`openspec/specs/`](openspec/specs/).
+
 | # | Change | Capabilities | Hard dependencies | Why here |
 |---|---|---|---|---|
-| 1 | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
+| 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
 | 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
 | 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 | First real results, and an early stress test of preflight and open-model tool calling. |
 | 4 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
@@ -35,6 +39,15 @@ carry no order; this file is the single source for sequencing. Design background
 - **Milestone A:** OpenCode logs validate against the raw schema. A data-science-harness routing report
   exists per open model under OFF and ROUTED — or states which models failed preflight and why.
 - The pilot's passive-use tasks (its group 4) wait for Milestone C; Phase 2 stays deferred.
+
+**Milestone A progress.** The schema half holds: logs written by the OpenCode logger validate against
+`schemas/raw-event.schema.json` with zero errors, checked both from the plugin's own mapper and from
+the installed artifact driven with payloads captured from a real OpenCode 1.18.31 session. Not yet
+shown: a live OpenCode-driven session producing those logs, because **no locally reachable endpoint
+completes a tool call** — one model rejects tools outright, the others produce nothing within the
+default context on a CPU-only machine (see the archived change's task 5.3 for the four attempts). That
+is the first concrete evidence for the preflight check `add-explicit-eval` introduces, and it is what
+the routing report will have to state per model.
 
 ### B — Signals in both harnesses (4–5)
 

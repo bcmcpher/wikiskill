@@ -1,0 +1,54 @@
+[project]
+name = "wikiskill"
+version = "0.1.0"
+description = "Logs what agent skills and subagents do with a model, across harnesses, and distils a wiki of patterns"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "jsonschema>=4.21",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+wikiskill = "wikiskill.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wikiskill"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "wikiskill/_schemas"
+"harness/source" = "wikiskill/_source"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ISC", "PL", "RUF"]
+ignore = [
+    "PLR0913",  # a validator that reports every problem takes the arguments it takes
+    "PLR2004",  # magic values in tests are the point
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["wikiskill", "conftest"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests embed manifest bodies and JSON as literals, where wrapping hurts readability, and
+# import inside a test when the import is part of what the test is describing.
+"tests/*" = ["PLR0915", "E501", "PLC0415"]
