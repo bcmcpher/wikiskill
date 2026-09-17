@@ -113,3 +113,28 @@ describe("output bounds", () => {
     expect(result.text.endsWith("é")).toBe(true)
   })
 })
+
+describe("truncation boundaries", () => {
+  test("a multibyte character is never cut in half", () => {
+    // Each emoji is 4 UTF-8 bytes, so a 10-byte limit has to stop after the second one.
+    const text = "\u{1f9ea}".repeat(8)
+    const limited = bound(text, 10)
+    expect(limited.truncated).toBe(true)
+    expect(Buffer.byteLength(limited.text, "utf8")).toBeLessThanOrEqual(10)
+    expect(limited.text).toBe("\u{1f9ea}\u{1f9ea}")
+    // No replacement character, and no lone surrogate half.
+    expect(limited.text).not.toContain("\ufffd")
+    expect(JSON.parse(JSON.stringify(limited.text))).toBe(limited.text)
+    // The recorded length stays the true one, in characters.
+    expect(limited.length).toBe(text.length)
+  })
+
+  test("a large output is bounded without a per-character rescan", () => {
+    const text = "\u00e9".repeat(500_000)
+    const started = Date.now()
+    const limited = bound(text, 16 * 1024)
+    expect(Buffer.byteLength(limited.text, "utf8")).toBeLessThanOrEqual(16 * 1024)
+    expect(limited.truncated).toBe(true)
+    expect(Date.now() - started).toBeLessThan(1_000)
+  })
+})

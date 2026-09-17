@@ -38,5 +38,5 @@ export function isUlid(value: string): boolean {
 
 /** RFC 3339 in UTC with millisecond precision — what the Python reader expects. */
 export function timestamp(now: number = Date.now()): string {
-  return new Date(now).toISOString().replace(/\.(\d{3})Z$/, ".$1Z")
+  return new Date(now).toISOString()
 }

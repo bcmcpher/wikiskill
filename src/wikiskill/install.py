@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import __version__, paths
-from .build import build
+from .build import BUILD_MARKER, build
 from .collection import Collection
 from .rawlog import content_hash
 
@@ -110,6 +110,9 @@ def install(
             result.warnings.extend(built.warnings)
             built_dir = built.out_dir
         for file in sorted(p for p in built_dir.rglob("*") if p.is_file()):
+            # The marker identifies a build directory; it is not part of the layout.
+            if file.name == BUILD_MARKER:
+                continue
             staged[str(file.relative_to(built_dir))] = file
         for relative, file in _logger_files(harness).items():
             staged[relative] = file
@@ -162,12 +165,11 @@ def _logger_files(harness: str) -> dict[str, Path]:
 
 
 def _plugin_source(harness: str) -> Path:
-    here = Path(__file__).resolve().parent
-    for candidate in (here / "_harness" / harness / "plugin",
-                      here.parent.parent / "harness" / harness / "plugin"):
-        if candidate.is_dir():
-            return candidate
-    return here.parent.parent / "harness" / harness / "plugin"
+    """The harness logger's source tree, in the wheel or in a checkout."""
+    try:
+        return paths.packaged_data(f"{harness}-plugin")
+    except KeyError as exc:
+        raise InstallError(f"no packaged logger for harness {harness!r}") from exc
 
 
 def _sync(

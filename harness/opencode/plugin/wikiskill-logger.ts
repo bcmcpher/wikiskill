@@ -16,6 +16,7 @@ import {
   DEFAULT_OPTIONS,
   detectActivation,
   detectCommandActivation,
+  isDelegation,
   mapActivation,
   mapAssistantTurn,
   mapDelegation,
@@ -27,11 +28,13 @@ import {
   stringField,
   type ActivationHint,
   type MapperOptions,
+  type TextPartInfo,
   type ToolCallInfo,
 } from "./wikiskill/mapper"
 import { watchedComponentFor, watches } from "./wikiskill/match"
 import { envSecrets } from "./wikiskill/redact"
 import { SessionRegistry, type EventFactory } from "./wikiskill/sessions"
+import { ToolCallStates, outcomeOf, type ToolPartInfo } from "./wikiskill/toolstate"
 import { appendEvent, logError } from "./wikiskill/writer"
 import type { CollectionConfig, ComponentKind, RawEvent } from "./wikiskill/types"
 
@@ -42,6 +45,7 @@ export const wikiskillLogger = async () => {
   const config = new ConfigSource()
   const origin = process.env.WIKISKILL_ORIGIN === "eval" ? "eval" : "live"
   const registry = new SessionRegistry(200, origin)
+  const toolStates = new ToolCallStates()
   const envValues = envSecrets(process.env)
   let lastPrune = Date.now()
 
@@ -77,6 +81,58 @@ export const wikiskillLogger = async () => {
     }
   }
 
+  const configFor = (name: string): CollectionConfig | undefined =>
+    collections().find((collection) => collection.collection === name)
+
+  /**
+   * Start logging a session for the collections an ancestor is already logging.
+   *
+   * Flushing is the whole point: a child session is usually only known to belong to a logged
+   * trajectory once its `task` call has finished, by which time everything it did is sitting in its
+   * own buffer. Adding it to `logging` without flushing would write the subagent's remaining events
+   * and silently drop its actual work.
+   */
+  const adopt = (sessionId: string): void => {
+    for (const name of registry.inherited(sessionId)) {
+      const collection = configFor(name)
+      if (!collection) continue
+      for (const event of registry.activate(sessionId, collection)) write(collection, event)
+    }
+  }
+
+  /**
+   * Record a terminal tool part.
+   *
+   * Whichever of the part and the `tool.execute.after` hook describes a call first is the one that
+   * writes it, which is why both claim the call id. The part is the only source of a duration, and
+   * the only source at all for a failed call — the hook does not fire when a tool throws.
+   */
+  const recordToolPart = (part: ToolPartInfo, now: number): void => {
+    const sessionId = part.sessionID
+    const outcome = outcomeOf(part)
+    if (!sessionId || !outcome) return
+    toolStates.note(part.callID, outcome)
+    if (!toolStates.claim(part.callID)) return
+    const state = part.state ?? {}
+    const call: ToolCallInfo = {
+      tool: String(part.tool ?? ""),
+      callID: part.callID,
+      args: state.input ?? {},
+      output: typeof state.output === "string" ? state.output : "",
+      metadata: state.metadata ?? {},
+      error: outcome.error ?? undefined,
+      durationMs: outcome.durationMs ?? undefined,
+    }
+    emit(sessionId, (collection) =>
+      mapToolCall(
+        call,
+        registry.identity(sessionId, collection.collection),
+        optionsFor(collection),
+        now,
+      ),
+    )
+  }
+
   /**
    * Begin logging a session for every collection that watches the activated component.
    *
@@ -97,6 +153,8 @@ export const wikiskillLogger = async () => {
       write(collection, mapActivation(hint, hash, identity, inputSummary, now))
     }
     registry.setComponent(sessionId, { kind: hint.kind, name: hint.name, source_hash: hash })
+    // Children spawned before the activation was recognised are part of this trajectory too.
+    for (const child of registry.descendants(sessionId)) adopt(child)
   }
 
   /** A component counts as watched if any configured collection watches it. */
@@ -136,6 +194,8 @@ export const wikiskillLogger = async () => {
             const info = properties.info
             if (!info?.id) return
             registry.link(info.id, info.parentID)
+            // A child created while its parent is already logging starts logging immediately.
+            adopt(info.id)
             registry.noteIdentity(info.id, {
               harnessVersion: info.version,
               directory: info.directory ?? null,
@@ -180,15 +240,31 @@ export const wikiskillLogger = async () => {
             if (part.type === "text") {
               // Parts carry no role; the user's own message is a text part too.
               const isAssistant = registry.isAssistantMessage(part.messageID)
+              // Only the final update of a streamed part is recorded. Buffering the deltas as well
+              // would push hundreds of factories that all evaluate to null through the ring and
+              // evict the history the buffer exists to keep.
+              if (!isAssistant || part.synthetic || !part.time?.end) return
+              // Snapshot the fields used, rather than closing over a part the harness still owns.
+              const text: TextPartInfo = {
+                type: "text",
+                text: typeof part.text === "string" ? part.text : "",
+                messageID: part.messageID,
+                synthetic: false,
+                time: { start: part.time?.start, end: part.time.end },
+              }
               emit(part.sessionID, (collection) =>
                 mapAssistantTurn(
-                  part,
+                  text,
                   registry.identity(part.sessionID, collection.collection),
                   optionsFor(collection),
-                  isAssistant,
+                  true,
                   now,
                 ),
               )
+            } else if (part.type === "tool") {
+              // Tool parts are where an outcome lives: the `tool.execute.after` hook reports neither
+              // timing nor failure, and does not fire at all for a failed call.
+              recordToolPart(part as ToolPartInfo, now)
             } else if (part.type === "step-finish") {
               emit(part.sessionID, (collection) =>
                 mapStepUsage(part, registry.identity(part.sessionID, collection.collection), now),
@@ -280,12 +356,17 @@ export const wikiskillLogger = async () => {
         if (!sessionId || ready(now).length === 0) return
         registry.clearIdle(sessionId)
 
+        // The hook's own payload carries no timing and no error; a tool part may already have
+        // reported both for this call.
+        const outcome = toolStates.outcome(input.callID)
         const call: ToolCallInfo = {
           tool: String(input.tool ?? ""),
           callID: input.callID,
           args: input.args ?? {},
           output: typeof output?.output === "string" ? output.output : "",
           metadata: output?.metadata ?? {},
+          error: outcome?.error ?? undefined,
+          durationMs: outcome?.durationMs ?? undefined,
         }
 
         const hint = detectActivation(call, anyWatchesName, anyWatchedPath)
@@ -295,23 +376,31 @@ export const wikiskillLogger = async () => {
           startLogging(sessionId, hint, summary, now)
         }
 
-        // A child session of a logged session is logged too, into its root's file.
+        // A child session of a logged session is logged too, into its root's file — and it is
+        // adopted rather than merely linked, so what it did before this call returned is flushed.
         const childId = stringField(call.metadata ?? {}, "sessionID", "sessionId", "session_id")
-        if (childId && childId !== sessionId) registry.link(childId, sessionId)
+        if (childId && childId !== sessionId) {
+          registry.link(childId, sessionId)
+          adopt(childId)
+        }
 
         // A delegation is recorded before the `task` call that produced it, so the chain reads in
         // order; every tool call, delegating or not, is then recorded as itself.
-        emit(sessionId, (collection) =>
-          mapDelegation(call, registry.identity(sessionId, collection.collection), now),
-        )
-        emit(sessionId, (collection) =>
-          mapToolCall(
-            call,
-            registry.identity(sessionId, collection.collection),
-            optionsFor(collection),
-            now,
-          ),
-        )
+        if (isDelegation(call)) {
+          emit(sessionId, (collection) =>
+            mapDelegation(call, registry.identity(sessionId, collection.collection), now),
+          )
+        }
+        if (toolStates.claim(call.callID)) {
+          emit(sessionId, (collection) =>
+            mapToolCall(
+              call,
+              registry.identity(sessionId, collection.collection),
+              optionsFor(collection),
+              now,
+            ),
+          )
+        }
       } catch (error) {
         logError(errorLog(), "tool.execute.after", error)
       }

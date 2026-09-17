@@ -36,7 +36,7 @@ def validate(collection: Collection | str, raw_dir: Path | None = None) -> Valid
     for file in rawlog.log_files(root):
         report.files += 1
         try:
-            for number, event in enumerate(rawlog.read_events(file), start=1):
+            for number, event in rawlog.numbered_events(file):
                 report.events += 1
                 if event.get("type") == "component_activated":
                     report.activations += 1
@@ -96,8 +96,10 @@ def stats(collection: Collection | str, raw_dir: Path | None = None) -> Stats:
                 summary.by_type[event.get("type", "?")] += 1
                 summary.by_model[f"{event.get('provider')}/{event.get('model')}"] += 1
                 component = event.get("component")
-                if component:
-                    summary.by_component[f"{component['kind']}:{component['name']}"] += 1
+                if isinstance(component, dict):
+                    kind = component.get("kind") or "?"
+                    name = component.get("name") or "?"
+                    summary.by_component[f"{kind}:{name}"] += 1
                 if event.get("type") == "component_activated":
                     activated = True
                 elif (
@@ -106,7 +108,7 @@ def stats(collection: Collection | str, raw_dir: Path | None = None) -> Stats:
                     and _mentions_watched(event.get("payload") or {}, watched_paths)
                 ):
                     touched_watched = True
-        except rawlog.RawLogError as exc:
+        except (rawlog.RawLogError, OSError) as exc:
             summary.errors.append(str(exc))
             continue
         if touched_watched and not activated:
@@ -138,11 +140,12 @@ def tail(
     root = Path(raw_dir) if raw_dir is not None else paths.raw_dir(name)
 
     seen: set[str] = set()
+    sizes: dict[Path, int] = {}
     recent: list[dict[str, Any]] = []
     for file in rawlog.log_files(root):
-        for event in rawlog.read_events(file):
+        for event in _events_of(file, sizes):
             recent.append(event)
-            seen.add(event["event_id"])
+            seen.add(_event_key(event))
     recent.sort(key=lambda e: e.get("event_id", ""))
     for event in recent[-count:]:
         yield event
@@ -151,9 +154,40 @@ def tail(
         time.sleep(poll_seconds)
         fresh = []
         for file in rawlog.log_files(root):
-            for event in rawlog.read_events(file):
-                if event["event_id"] not in seen:
-                    seen.add(event["event_id"])
+            # Only a file that grew can hold anything new, so following a collection does not
+            # re-parse every log it has ever written on each poll.
+            try:
+                size = file.stat().st_size
+            except OSError:
+                continue
+            if sizes.get(file) == size:
+                continue
+            for event in _events_of(file, sizes):
+                key = _event_key(event)
+                if key not in seen:
+                    seen.add(key)
                     fresh.append(event)
         fresh.sort(key=lambda e: e.get("event_id", ""))
         yield from fresh
+
+
+def _events_of(file: Path, sizes: dict[Path, int]) -> list[dict[str, Any]]:
+    """The events of one file, recording its size. A file that cannot be read is skipped.
+
+    A follow loop must survive one bad log: a single truncated line or a log from a future schema
+    version should not end a `tail -f` that is watching a whole collection.
+    """
+    try:
+        events = list(rawlog.read_events(file))
+        sizes[file] = file.stat().st_size
+    except (rawlog.RawLogError, OSError):
+        return []
+    return events
+
+
+def _event_key(event: dict[str, Any]) -> str:
+    """What identifies an event for de-duplication, without assuming the line is well formed."""
+    event_id = event.get("event_id")
+    if isinstance(event_id, str) and event_id:
+        return event_id
+    return json.dumps(event, sort_keys=True, default=str)

@@ -229,6 +229,8 @@ export function mapToolCall(
       ok: !call.error,
       input: (input as Record<string, unknown> | null) ?? null,
       output: limited.text,
+      // The length of what the tool produced, before redaction or truncation touched it, so the
+      // record says how much there was even though it does not hold all of it.
       output_length: raw.length,
       output_truncated: limited.truncated,
       output_hash: null,
@@ -339,14 +341,25 @@ export function mapActivation(
   )
 }
 
+/**
+ * Whether a completed call is a delegation, i.e. whether `mapDelegation` would record one.
+ *
+ * Exposed so a caller can decide *before* buffering: a factory that will evaluate to null still
+ * takes a slot in the pre-activation ring, and most tool calls are not delegations.
+ */
+export function isDelegation(call: ToolCallInfo): boolean {
+  const tool = call.tool?.toLowerCase() ?? ""
+  if (!TASK_TOOLS.has(tool)) return false
+  return Boolean(stringField(call.args ?? {}, "subagent_type", "subagentType", "agent", "name"))
+}
+
 /** The child session a `task` call spawned, if the harness reported one. */
 export function mapDelegation(
   call: ToolCallInfo,
   identity: Identity,
   now = Date.now(),
 ): RawEvent | null {
-  const tool = call.tool?.toLowerCase() ?? ""
-  if (!TASK_TOOLS.has(tool)) return null
+  if (!isDelegation(call)) return null
   const args = call.args ?? {}
   const metadata = call.metadata ?? {}
   const subagent = stringField(args, "subagent_type", "subagentType", "agent", "name")

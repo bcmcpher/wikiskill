@@ -223,10 +223,14 @@ def cmd_log_tail(args: argparse.Namespace) -> int:
             if args.json:
                 print(json.dumps(event, separators=(",", ":")))
             else:
-                component = event.get("component") or {}
+                component = event.get("component")
+                if not isinstance(component, dict):
+                    component = {}
                 label = f"{component.get('kind', '-')}:{component.get('name', '-')}"
+                # A hand-edited or truncated line still gets a row: tail is how a broken log is
+                # looked at, so it must not be the thing that refuses to read one.
                 print(
-                    f"{event['ts']}  {event['type']:20} {label:32} "
+                    f"{event.get('ts', '-')}  {event.get('type', '-')!s:20} {label:32} "
                     f"{event.get('provider')}/{event.get('model')}"
                 )
     except KeyboardInterrupt:

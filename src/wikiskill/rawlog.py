@@ -149,8 +149,12 @@ def log_files(raw_root: str | os.PathLike[str]) -> list[Path]:
     return sorted(p for p in root.glob("*/*.jsonl") if not p.name.startswith("_"))
 
 
-def read_events(path: str | os.PathLike[str]) -> Iterator[dict[str, Any]]:
-    """Yield the events of one log file.
+def numbered_events(path: str | os.PathLike[str]) -> Iterator[tuple[int, dict[str, Any]]]:
+    """Yield ``(line number, event)`` for one log file.
+
+    The line number is the real one in the file, which is what a caller has to report for the
+    reader to be any use in finding a bad event. Counting yielded events instead would drift by
+    one for every blank line above it.
 
     Raises UnsupportedSchemaVersion on the first line carrying an unknown major version, before
     yielding anything from it, so a caller cannot half-consume a file it cannot understand.
@@ -168,14 +172,20 @@ def read_events(path: str | os.PathLike[str]) -> Iterator[dict[str, Any]]:
             if not isinstance(event, dict):
                 raise RawLogError(f"{file_path}:{number}: expected a JSON object")
             check_supported(event.get("schema_version"), path=file_path, line=number)
-            yield event
+            yield number, event
+
+
+def read_events(path: str | os.PathLike[str]) -> Iterator[dict[str, Any]]:
+    """Yield the events of one log file, for callers that do not need line numbers."""
+    for _, event in numbered_events(path):
+        yield event
 
 
 def validate_file(path: str | os.PathLike[str]) -> list[ValidationProblem]:
     """Every schema problem in one log file. Propagates UnsupportedSchemaVersion."""
     file_path = Path(path)
     problems: list[ValidationProblem] = []
-    for number, event in enumerate(read_events(file_path), start=1):
+    for number, event in numbered_events(file_path):
         for message in schema_errors(event):
             location, _, detail = message.partition(": ")
             problems.append(ValidationProblem(file_path, number, detail, location))

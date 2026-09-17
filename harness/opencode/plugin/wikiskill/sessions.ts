@@ -35,6 +35,8 @@ export interface SessionState {
   logging: Set<string>
   buffer: EventFactory[]
   startedAt: number
+  /** When this session was last touched, which is what decides whether it is stale. */
+  lastSeenAt: number
   /** Whether a session_end has already been recorded for the current idle period. */
   idle: boolean
 }
@@ -79,10 +81,14 @@ export class SessionRegistry {
         logging: new Set(),
         buffer: [],
         startedAt: Date.now(),
+        lastSeenAt: Date.now(),
         idle: false,
       }
       this.sessions.set(id, state)
     }
+    // Any access is activity: pruning goes by when a session was last touched, not when it began,
+    // so a long conversation is never dropped mid-flight.
+    state.lastSeenAt = Date.now()
     return state
   }
 
@@ -93,8 +99,10 @@ export class SessionRegistry {
   /**
    * Record a session's parentage.
    *
-   * A child of a logged session is always logged, into its root's file, so a delegation chain reads
-   * as one trajectory even if the child never touches a watched component itself.
+   * Parentage only; it deliberately does not start logging the child. A child of a logged session
+   * must be *activated* for each inherited collection so that whatever it buffered before the link
+   * is flushed — see `inherited`. Granting `logging` here instead would silently discard the child's
+   * history, which for a subagent is its whole trajectory.
    */
   link(id: string, parentId: string | null | undefined): SessionState {
     const state = this.ensure(id)
@@ -108,9 +116,49 @@ export class SessionRegistry {
       state.harnessVersion =
         state.harnessVersion === UNKNOWN ? parent.harnessVersion : state.harnessVersion
       state.origin = parent.origin
-      for (const collection of parent.logging) state.logging.add(collection)
     }
     return state
+  }
+
+  /**
+   * Collections an ancestor is logging that this session has not started logging yet.
+   *
+   * The caller activates the session for each one, which flushes what the session buffered before
+   * the relationship was known. A `task` call is only recognised as an activation once it has
+   * *finished*, so a child session routinely accumulates its entire trajectory before anyone knows
+   * it should be logged.
+   */
+  inherited(id: string): string[] {
+    const state = this.sessions.get(id)
+    if (!state) return []
+    const names = new Set<string>()
+    const seen = new Set<string>([id])
+    let parent = state.parentId ? this.sessions.get(state.parentId) : undefined
+    while (parent && !seen.has(parent.id)) {
+      seen.add(parent.id)
+      for (const collection of parent.logging) {
+        if (!state.logging.has(collection)) names.add(collection)
+      }
+      parent = parent.parentId ? this.sessions.get(parent.parentId) : undefined
+    }
+    return [...names]
+  }
+
+  /** Every session descended from `id`, so an activation can reach children already in flight. */
+  descendants(id: string): string[] {
+    const found: string[] = []
+    const frontier = [id]
+    const seen = new Set<string>([id])
+    while (frontier.length > 0) {
+      const current = frontier.pop()!
+      for (const [childId, state] of this.sessions) {
+        if (state.parentId !== current || seen.has(childId)) continue
+        seen.add(childId)
+        found.push(childId)
+        frontier.push(childId)
+      }
+    }
+    return found
   }
 
   noteIdentity(
@@ -225,11 +273,17 @@ export class SessionRegistry {
     this.sessions.delete(id)
   }
 
-  /** Drop state for sessions untouched for `maxAgeMs`, so a long-lived server does not grow. */
+  /**
+   * Drop state for sessions untouched for `maxAgeMs`, so a long-lived server does not grow.
+   *
+   * Logged sessions are pruned on the same terms as any other. Exempting them would mean exactly
+   * the sessions holding the most state are the ones never released, and a session silent for
+   * `maxAgeMs` is over in every practical sense.
+   */
   prune(maxAgeMs: number, now = Date.now()): number {
     let removed = 0
     for (const [id, state] of this.sessions) {
-      if (now - state.startedAt > maxAgeMs && state.logging.size === 0) {
+      if (now - state.lastSeenAt > maxAgeMs) {
         this.sessions.delete(id)
         removed += 1
       }

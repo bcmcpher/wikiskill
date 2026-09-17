@@ -57,20 +57,46 @@ def logger_error_log(collection: str) -> Path:
     return raw_dir(collection) / "_logger-errors.log"
 
 
+#: Data the installed CLI reads at runtime: where it sits inside the package, and where it sits in
+#: a checkout. Every entry must be shipped by the wheel — `pyproject.toml`'s `force-include` maps
+#: the checkout path onto the packaged one, and `tests/test_packaging.py` checks that it still does.
+PACKAGED_DATA: dict[str, tuple[str, str]] = {
+    "schema": ("_schemas/raw-event.schema.json", "schemas/raw-event.schema.json"),
+    "source": ("_source", "harness/source"),
+    "opencode-plugin": ("_harness/opencode/plugin", "harness/opencode/plugin"),
+}
+
+
+def package_dir() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def packaged_data(kind: str) -> Path:
+    """Locate packaged data, whether running from a checkout or an installed wheel.
+
+    Returns the checkout location when neither exists, so the caller can report the path it wanted.
+    """
+    packaged, in_checkout = PACKAGED_DATA[kind]
+    here = package_dir()
+    for candidate in (here / packaged, here.parent.parent / in_checkout):
+        if candidate.exists():
+            return candidate
+    return here.parent.parent / in_checkout
+
+
 def schema_path() -> Path:
     """The raw event schema, whether running from a checkout or an installed wheel."""
-    here = Path(__file__).resolve().parent
-    for candidate in (here / "_schemas" / "raw-event.schema.json",
-                      here.parent.parent / "schemas" / "raw-event.schema.json"):
-        if candidate.is_file():
-            return candidate
-    raise FileNotFoundError("raw-event.schema.json not found next to the package or in ./schemas")
+    found = packaged_data("schema")
+    if not found.is_file():
+        raise FileNotFoundError(
+            f"raw-event.schema.json not found next to the package or at {found}"
+        )
+    return found
 
 
 def source_tree() -> Path:
     """wikiskill's own single-source component tree."""
-    here = Path(__file__).resolve().parent
-    for candidate in (here / "_source", here.parent.parent / "harness" / "source"):
-        if candidate.is_dir():
-            return candidate
-    raise FileNotFoundError("harness/source not found next to the package or in ./harness")
+    found = packaged_data("source")
+    if not found.is_dir():
+        raise FileNotFoundError(f"harness/source not found next to the package or at {found}")
+    return found

@@ -313,3 +313,214 @@ describe("redaction reaches the file", () => {
     expect(blob).toContain("[REDACTED:")
   })
 })
+
+describe("delegation", () => {
+  const CHILD = "ses_9c21bb3310ceqT8mzzR4d91xKW"
+
+  /** A completed tool call in an arbitrary session, as the hook delivers it. */
+  const callIn = (sessionID: string, callID: string, command: string): [any, any] => [
+    { tool: "bash", sessionID, callID, args: { command } },
+    { title: "bash", output: "done", metadata: {} },
+  ]
+
+  test("a subagent's work before the task call returns is logged, not dropped", async () => {
+    // The real order of a delegation: the child session runs to completion, and only when the
+    // `task` call returns does the harness reveal which parent it belonged to.
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    await hooks["tool.execute.after"](...callIn(CHILD, "call_child_1", "datalad create"))
+    await hooks["tool.execute.after"](...callIn(CHILD, "call_child_2", "datalad save"))
+    await hooks["tool.execute.after"](...toolCall(tools.task))
+
+    const childCalls = logLines().filter((e) => e.session_id === CHILD)
+    expect(childCalls.map((e) => e.payload.input.command)).toEqual([
+      "datalad create",
+      "datalad save",
+    ])
+    // Into the root's file, under the root's id, so the chain reads as one trajectory.
+    expect(childCalls.every((e) => e.root_session_id === SESSION)).toBe(true)
+    expect(readdirSync(join(rawDir, childCalls[0].ts.slice(0, 10)))).toEqual([`${SESSION}.jsonl`])
+  })
+
+  test("a watched agent's own child session is logged even though it finished first", async () => {
+    // Here nothing was logging while the child ran: the activation *is* the task call.
+    writeRuntime({ watch: { skill: [], agent: ["datalad-doer"], command: [] } })
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+
+    await hooks["tool.execute.after"](...callIn(CHILD, "call_child_1", "datalad create"))
+    await hooks["tool.execute.after"](...toolCall(tools.task))
+
+    const lines = logLines()
+    expect(lines.map((e) => e.type)).toContain("component_activated")
+    expect(lines.map((e) => e.type)).toContain("delegation")
+    const child = lines.filter((e) => e.session_id === CHILD)
+    expect(child.map((e) => e.payload.input.command)).toEqual(["datalad create"])
+  })
+
+  test("a child session created while logging is logged from its first event", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    await hooks.event({
+      event: {
+        type: "session.created",
+        properties: { info: { id: CHILD, parentID: SESSION, version: RECORDED_VERSION } },
+      },
+    })
+
+    const starts = logLines().filter((e) => e.type === "session_start" && e.session_id === CHILD)
+    expect(starts).toHaveLength(1)
+    expect(starts[0].parent_session_id).toBe(SESSION)
+  })
+})
+
+describe("tool outcomes", () => {
+  const toolPart = (state: any, callID = "call_fail") => ({
+    type: "message.part.updated",
+    properties: {
+      part: { type: "tool", sessionID: SESSION, callID, tool: "bash", messageID: "msg_a", state },
+    },
+  })
+
+  test("a failed tool call is recorded as failed, with its duration", async () => {
+    // `tool.execute.after` never fires for a failed call, so the tool part is the only record of it.
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    await hooks.event({
+      event: toolPart({
+        status: "error",
+        error: "exit status 1",
+        input: { command: "false" },
+        time: { start: 1_000, end: 1_250 },
+      }),
+    })
+
+    const call = logLines().find((e) => e.type === "tool_call" && e.payload.tool === "bash")
+    expect(call.payload.ok).toBe(false)
+    expect(call.payload.error).toBe("exit status 1")
+    expect(call.payload.duration_ms).toBe(250)
+  })
+
+  test("a completed call carries a real duration and is written once", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    const state = {
+      status: "completed",
+      input: { command: "echo hi" },
+      output: "hi",
+      metadata: {},
+      time: { start: 5_000, end: 5_040 },
+    }
+    await hooks.event({ event: toolPart(state, "call_ok") })
+    await hooks["tool.execute.after"](
+      { tool: "bash", sessionID: SESSION, callID: "call_ok", args: state.input },
+      { title: "bash", output: "hi", metadata: {} },
+    )
+
+    const calls = logLines().filter((e) => e.type === "tool_call" && e.payload.tool === "bash")
+    expect(calls).toHaveLength(1)
+    expect(calls[0].payload.ok).toBe(true)
+    expect(calls[0].payload.duration_ms).toBe(40)
+  })
+
+  test("a running call is not recorded until it finishes", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    await hooks.event({
+      event: toolPart({ status: "running", input: { command: "sleep 1" }, time: { start: 1 } }),
+    })
+
+    expect(logLines().filter((e) => e.payload?.tool === "bash")).toEqual([])
+  })
+})
+
+describe("the pre-activation buffer", () => {
+  test("streaming deltas do not evict the history the buffer exists to keep", async () => {
+    // A streamed reply used to push one factory per delta into the ring, all of which evaluate to
+    // nothing, shifting out the real events that preceded the activation.
+    writeRuntime({ buffer_size: 4 })
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks.event({
+      event: {
+        type: "message.updated",
+        properties: { info: { id: "msg_stream", sessionID: SESSION, role: "assistant" } },
+      },
+    })
+    await hooks["tool.execute.after"](
+      { tool: "bash", sessionID: SESSION, callID: "call_early", args: { command: "echo early" } },
+      { title: "bash", output: "early", metadata: {} },
+    )
+
+    for (let i = 0; i < 50; i++) {
+      await hooks.event({
+        event: {
+          type: "message.part.updated",
+          properties: {
+            part: {
+              type: "text",
+              sessionID: SESSION,
+              messageID: "msg_stream",
+              text: `partial ${i}`,
+              time: { start: 1_000 },
+            },
+          },
+        },
+      })
+    }
+
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    const commands = logLines()
+      .filter((e) => e.type === "tool_call")
+      .map((e) => e.payload.input?.command)
+    expect(commands).toContain("echo early")
+    // And no half-written turn from a delta that never ended.
+    expect(logLines().filter((e) => e.type === "assistant_turn")).toEqual([])
+  })
+
+  test("a finished turn is still recorded once the session is logging", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await hooks.event({
+      event: {
+        type: "message.updated",
+        properties: { info: { id: "msg_done", sessionID: SESSION, role: "assistant" } },
+      },
+    })
+    await hooks.event({
+      event: {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            type: "text",
+            sessionID: SESSION,
+            messageID: "msg_done",
+            text: "the answer",
+            time: { start: 1_000, end: 1_200 },
+          },
+        },
+      },
+    })
+
+    const turn = logLines().find((e) => e.type === "assistant_turn")
+    expect(turn.payload.text).toBe("the answer")
+  })
+})

@@ -26,9 +26,16 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/wikiskill"]
 
+# The schema, the neutral source tree and the OpenCode plugin are data the installed CLI reads at
+# runtime, so they have to travel in the wheel — `wikiskill install` resolves them under the package
+# (see paths.schema_path, paths.source_tree, install._plugin_source) before falling back to the
+# development checkout. The plugin is listed file by file on purpose: its directory also holds
+# node_modules, tests and lockfiles, none of which belong in a wheel.
 [tool.hatch.build.targets.wheel.force-include]
 "schemas" = "wikiskill/_schemas"
 "harness/source" = "wikiskill/_source"
+"harness/opencode/plugin/wikiskill-logger.ts" = "wikiskill/_harness/opencode/plugin/wikiskill-logger.ts"
+"harness/opencode/plugin/wikiskill" = "wikiskill/_harness/opencode/plugin/wikiskill"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

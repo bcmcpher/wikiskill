@@ -43,10 +43,13 @@ export function matchesAny(name: string, patterns: string[]): boolean {
 export function watches(config: CollectionConfig, kind: ComponentKind, name: string): boolean {
   const patterns = config.watch[kind] ?? []
   if (matchesAny(name, patterns)) return true
-  const bare = name.includes("/") ? name.slice(name.lastIndexOf("/") + 1) : name
+  // Only an unqualified name falls back to the pattern's last segment. Stripping the qualifier from
+  // the *pattern* as well would make `other-plugin/preregister` match `govern/preregister`, and log
+  // a different plugin's component under a watched name.
+  if (name.includes("/")) return false
   return patterns.some((pattern) => {
     const patternBare = pattern.includes("/") ? pattern.slice(pattern.lastIndexOf("/") + 1) : pattern
-    return globToRegExp(patternBare).test(bare)
+    return globToRegExp(patternBare).test(name)
   })
 }
 
@@ -63,8 +66,23 @@ export function watchedComponentFor(
 ): WatchedComponent | null {
   if (!candidate) return null
   for (const component of config.watched) {
-    const path = component.path
-    if (candidate === path || candidate.endsWith(path) || path.endsWith(candidate)) return component
+    if (samePath(candidate, component.path)) return component
   }
   return null
+}
+
+/**
+ * Whether two paths name the same file, allowing one to be a relative form of the other.
+ *
+ * A suffix has to begin at a directory boundary and carry a directory of its own: models do read
+ * relative paths, but treating a bare `SKILL.md` as a match would attribute an activation to
+ * whichever watched component happened to be listed first.
+ */
+function samePath(candidate: string, path: string): boolean {
+  if (candidate === path) return true
+  const [longer, shorter] = candidate.length >= path.length ? [candidate, path] : [path, candidate]
+  const relative = shorter.replace(/^\/+/, "")
+  // A directory of its own is what makes the suffix specific enough to trust.
+  if (!relative.includes("/")) return false
+  return longer.endsWith(`/${relative}`)
 }

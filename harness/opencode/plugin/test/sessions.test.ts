@@ -103,16 +103,72 @@ describe("the ring buffer is bounded", () => {
 })
 
 describe("delegation chains", () => {
-  test("a child of a logged session is logged, into its root's file", () => {
+  test("a child of a logged session inherits its collections, into its root's file", () => {
     const registry = registryWithSession()
     registry.activate("ses_root", config)
 
     registry.link("ses_child", "ses_root")
 
+    // Linking records parentage; the child starts logging when the caller activates it, which is
+    // what flushes whatever the child buffered before the link.
+    expect(registry.inherited("ses_child")).toEqual(["dsh"])
+    registry.activate("ses_child", config)
     expect(registry.isLogging("ses_child")).toBe(true)
     const child = registry.identity("ses_child", "dsh")
     expect(child.root_session_id).toBe("ses_root")
     expect(child.parent_session_id).toBe("ses_root")
+  })
+
+  test("a subagent's work before the link is flushed, not dropped", () => {
+    // The order a real delegation happens in: the child runs and finishes, and only then does the
+    // `task` call return and reveal that it belonged to a logged trajectory.
+    const registry = registryWithSession()
+    for (let i = 0; i < 3; i++) bufferTurn(registry, "ses_child", i)
+    registry.activate("ses_root", config)
+
+    registry.link("ses_child", "ses_root")
+    const flushed = registry.inherited("ses_child").flatMap((name) =>
+      registry.activate("ses_child", collection({ collection: name })),
+    )
+
+    expect(flushed).toHaveLength(3)
+    expect(flushed.map((event) => (event.payload.input as any).command)).toEqual([
+      "echo 0",
+      "echo 1",
+      "echo 2",
+    ])
+    expect(flushed.every((event) => event.root_session_id === "ses_root")).toBe(true)
+  })
+
+  test("an inherited collection is reported once, and not again after it is activated", () => {
+    const registry = registryWithSession()
+    registry.activate("ses_root", config)
+    registry.link("ses_child", "ses_root")
+    registry.activate("ses_child", config)
+    expect(registry.inherited("ses_child")).toEqual([])
+  })
+
+  test("a grandchild inherits through a parent that is not logging itself", () => {
+    const registry = registryWithSession()
+    registry.activate("ses_root", config)
+    registry.link("ses_child", "ses_root")
+    registry.link("ses_grandchild", "ses_child")
+    expect(registry.inherited("ses_grandchild")).toEqual(["dsh"])
+  })
+
+  test("descendants are found so a late activation can reach children in flight", () => {
+    const registry = registryWithSession()
+    registry.link("ses_child", "ses_root")
+    registry.link("ses_other", "ses_root")
+    registry.link("ses_grandchild", "ses_child")
+    registry.link("ses_unrelated", "ses_elsewhere")
+
+    expect(registry.descendants("ses_root").sort()).toEqual([
+      "ses_child",
+      "ses_grandchild",
+      "ses_other",
+    ])
+    expect(registry.descendants("ses_grandchild")).toEqual([])
   })
 
   test("a grandchild still resolves to the original root", () => {
@@ -136,6 +192,7 @@ describe("delegation chains", () => {
     const registry = registryWithSession()
     registry.link("ses_child", "ses_root")
     expect(registry.isLogging("ses_child")).toBe(false)
+    expect(registry.inherited("ses_child")).toEqual([])
   })
 })
 
@@ -188,11 +245,20 @@ describe("housekeeping", () => {
     expect(registry.size).toBe(0)
   })
 
-  test("a logged session is kept even when idle", () => {
+  test("a logged session is released too, once it has gone quiet", () => {
+    // Exempting logged sessions would keep exactly the ones holding the most state forever.
     const registry = registryWithSession()
     registry.activate("ses_root", config)
-    registry.prune(6 * 60 * 60 * 1000, Date.now() + 10 * 60 * 60 * 1000)
-    expect(registry.peek("ses_root")).toBeDefined()
+    expect(registry.prune(6 * 60 * 60 * 1000, Date.now() + 10 * 60 * 60 * 1000)).toBe(1)
+  })
+
+  test("staleness follows the last activity, not the session's start", () => {
+    const registry = registryWithSession()
+    const ttl = 60
+    // `identity` is what every write goes through, so it counts as activity.
+    registry.identity("ses_root", "dsh")
+    expect(registry.prune(ttl, Date.now() + 10)).toBe(0)
+    expect(registry.prune(ttl, Date.now() + 10_000)).toBe(1)
   })
 })
 

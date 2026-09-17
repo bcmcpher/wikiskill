@@ -160,8 +160,11 @@ export function bound(text: string, limitBytes: number): BoundedOutput {
   if (Buffer.byteLength(text, "utf8") <= limitBytes) {
     return { text, length, truncated: false }
   }
-  // Cut on a character boundary at or below the byte limit.
-  let end = Math.min(text.length, limitBytes)
-  while (end > 0 && Buffer.byteLength(text.slice(0, end), "utf8") > limitBytes) end -= 1
-  return { text: text.slice(0, end), length, truncated: true }
+  // Cut in bytes, then step back off a partial UTF-8 sequence. Cutting the JS string instead would
+  // be quadratic (a byte-length scan of the whole prefix per step) and can split a surrogate pair,
+  // leaving a lone half in the log line.
+  const bytes = Buffer.from(text, "utf8")
+  let end = limitBytes
+  while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end -= 1
+  return { text: bytes.subarray(0, end).toString("utf8"), length, truncated: true }
 }

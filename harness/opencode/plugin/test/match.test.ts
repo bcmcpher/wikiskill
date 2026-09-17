@@ -60,3 +60,29 @@ describe("watched paths", () => {
     expect(watchedComponentFor(config, "")).toBeNull()
   })
 })
+
+describe("false activations", () => {
+  test("a qualified name is not matched by another plugin's copy of it", () => {
+    // `govern/preregister` is watched; a same-named skill from a different plugin is not the same
+    // component and must not be logged under the watched name.
+    expect(watches(config, "skill", "other-plugin/preregister")).toBe(false)
+    expect(watches(config, "skill", "govern/preregister")).toBe(true)
+    // An unqualified name still matches, because OpenCode reports skills bare.
+    expect(watches(config, "skill", "preregister")).toBe(true)
+  })
+
+  test("a bare file name does not match a watched component", () => {
+    // A relative read of `SKILL.md` used to match whichever watched component came first.
+    expect(watchedComponentFor(config, "SKILL.md")).toBeNull()
+    expect(watchedComponentFor(config, "/SKILL.md")).toBeNull()
+  })
+
+  test("a relative path matches only on a directory boundary", () => {
+    expect(watchedComponentFor(config, "preregister/SKILL.md")?.name).toBe("govern/preregister")
+    expect(watchedComponentFor(config, "skills/preregister/SKILL.md")?.name).toBe(
+      "govern/preregister",
+    )
+    // Same tail characters, different directory.
+    expect(watchedComponentFor(config, "/other/notpreregister/SKILL.md")).toBeNull()
+  })
+})
