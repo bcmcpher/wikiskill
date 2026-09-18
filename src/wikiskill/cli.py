@@ -282,6 +282,30 @@ def cmd_suite_check(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- eval
 
 
+def _report_preflight(backend, models: list[str], layout) -> int:
+    """Check every model and say what it would cost the run, without running anything.
+
+    Worth its own mode because the answer is what decides whether a suite is worth starting at all,
+    and because on a harness-served model the check itself spends tokens.
+    """
+    checks = {model: backend.preflight(model) for model in models}
+    for model, checked in checks.items():
+        print(f"\n{model}: {'ok' if checked.ok else 'unusable'}")
+        for key in ("via", "models_listed", "probe_tools", "context_tokens", "context_source"):
+            if key in checked.details:
+                print(f"    {key}: {checked.details[key]}")
+        for problem in checked.problems:
+            print(f"  - {problem}")
+    layout.write_manifest(
+        {
+            "run_id": layout.run_id,
+            "preflight_only": True,
+            "preflight": {model: checked.as_dict() for model, checked in checks.items()},
+        }
+    )
+    return OK if all(checked.ok for checked in checks.values()) else 1
+
+
 def cmd_eval(args: argparse.Namespace) -> int:
     loaded = suite_mod.load(args.suite)
     coll = _collection_for(args.collection)
@@ -311,9 +335,15 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
     run_id = runner_base.new_run_id()
     layout = runner_base.RunLayout.create(coll.name if coll else loaded.name, run_id)
-    endpoint = preflight_mod.Endpoint(
-        base_url=args.base_url,
-        api_key=os.environ.get(args.api_key_env) if args.api_key_env else None,
+    # No --base-url means the harness resolves the model itself, credential included, so there is
+    # no endpoint for wikiskill to address and preflight goes through the harness instead.
+    endpoint = (
+        preflight_mod.Endpoint(
+            base_url=args.base_url,
+            api_key=os.environ.get(args.api_key_env) if args.api_key_env else None,
+        )
+        if args.base_url
+        else None
     )
     backend = opencode_backend.OpenCodeBackend(
         collection=coll,
@@ -327,6 +357,9 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
     print(f"run {run_id}  suite {loaded.name}  {len(models)} model(s)  {', '.join(conditions)}")
     print(f"  results  {layout.root}")
+
+    if args.preflight_only:
+        return _report_preflight(backend, models, layout)
     try:
         run = run_mod.run_suite(
             loaded,
@@ -450,8 +483,13 @@ def _add_eval_parser(sub) -> None:
     ev.add_argument("--task", action="append", default=None, help="run only this task id")
     ev.add_argument(
         "--base-url",
-        default="http://localhost:11434/v1",
-        help="OpenAI-compatible endpoint serving the models under test",
+        default=None,
+        metavar="URL",
+        help=(
+            "OpenAI-compatible endpoint serving the models under test, e.g. "
+            "http://localhost:11434/v1 for Ollama. Omit it when the harness serves the model "
+            "itself, and preflight probes through the harness instead"
+        ),
     )
     ev.add_argument("--api-key-env", default=None, help="environment variable holding its API key")
     ev.add_argument(
@@ -459,6 +497,11 @@ def _add_eval_parser(sub) -> None:
         type=int,
         default=16384,
         help="minimum context window preflight accepts; 0 skips the check",
+    )
+    ev.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="check each model and stop, without running the suite",
     )
     ev.add_argument("--opencode", default="opencode", help="path to the opencode executable")
     ev.set_defaults(func=cmd_eval)

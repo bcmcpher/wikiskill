@@ -319,3 +319,138 @@ def test_units_cover_every_model_condition_task_and_repeat():
     assert len(units) == 2 * 2 * 3
     assert units[0].model == "m1", "a model is finished before the next one is pulled"
     assert units[-1].model == "m2"
+
+
+# --------------------------------------------------------------------------- harness preflight
+
+
+@pytest.fixture
+def harness_backend(tmp_path, toy_collection):
+    """A backend for a model the harness resolves itself, so there is no endpoint to address."""
+    layout = runner_base.RunLayout.create("toy", RUN_ID, base=tmp_path)
+    return backend_mod.OpenCodeBackend(
+        collection=toy_collection,
+        endpoint=None,
+        layout=layout,
+        suite_root=tmp_path,
+        executable="/nonexistent/opencode",
+    )
+
+
+def test_a_harness_served_model_gets_no_synthetic_provider_block(harness_backend):
+    """Declaring one would replace the credential and routing the harness supplies for its own."""
+    config = harness_backend.config_for(unit())
+
+    assert "provider" not in config
+    assert config["mcp"] == {}, "isolation is unchanged by leaving the provider alone"
+    assert config["share"] == "disabled"
+
+
+def test_the_probe_passes_on_a_real_tool_call():
+    stream = backend_mod._parse_stream(
+        (OPENCODE / "probe-tool-call.ndjson").read_text(encoding="utf-8")
+    )
+
+    assert backend_mod._stream_tool_calls(stream) == ["write"]
+    assert (
+        backend_mod.probe_verdict(stream, produced_file=True, model="opencode/big-pickle") is None
+    )
+
+
+def test_the_file_alone_proves_the_call():
+    """A stream shape this parser has not seen must not fail a model that did the work."""
+    assert backend_mod.probe_verdict([], produced_file=True, model="m") is None
+
+
+def test_a_printed_tool_call_fails_the_probe():
+    stream = [{"part": {"type": "text", "text": '{"tool_call": {"name": "write"}}'}}]
+    verdict = backend_mod.probe_verdict(stream, produced_file=False, model="m")
+
+    assert verdict is not None
+    assert "printed a tool call instead of making one" in verdict
+
+
+def test_a_probe_error_is_reported_in_the_harness_own_words():
+    stream = [{"type": "error", "error": {"data": {"message": "model does not support tools"}}}]
+    verdict = backend_mod.probe_verdict(stream, produced_file=False, model="m")
+
+    assert "does not support tools" in verdict
+
+
+def test_a_silent_probe_names_the_file_it_did_not_write():
+    stream = [{"part": {"type": "text", "text": "Sure, I would create that file."}}]
+    verdict = backend_mod.probe_verdict(stream, produced_file=False, model="m")
+
+    assert "probe.txt" in verdict
+
+
+CATALOG = {
+    "opencode": {"models": {"big-pickle": {"limit": {"context": 200000, "output": 32000}}}},
+    "tiny": {"models": {"small": {"limit": {"output": 512}}}},
+}
+
+
+def test_context_comes_from_the_catalog_the_run_itself_fetched():
+    context, source = backend_mod.catalog_context(CATALOG, "opencode/big-pickle")
+
+    assert context == 200000
+    assert "models.dev" in source
+
+
+def test_a_model_the_catalog_does_not_describe_reports_no_context():
+    assert backend_mod.catalog_context(CATALOG, "tiny/small") == (None, "unknown")
+    assert backend_mod.catalog_context(CATALOG, "who/knows") == (None, "unknown")
+
+
+def test_an_unlisted_model_is_refused_before_a_single_token_is_spent(harness_backend, monkeypatch):
+    probed = []
+    monkeypatch.setattr(type(harness_backend), "version", lambda self: "1.18.31")
+    monkeypatch.setattr(
+        type(harness_backend), "_harness_models", lambda self, env: ["opencode/big-pickle"]
+    )
+    monkeypatch.setattr(
+        type(harness_backend), "_probe", lambda self, *a: probed.append(a) or ([], False)
+    )
+
+    result = harness_backend.preflight("opencode/no-such-model")
+
+    assert result.ok is False
+    assert probed == [], "a name the harness does not offer is not worth paying to probe"
+    assert "does not offer" in result.reason
+    assert "big-pickle" in result.reason, "and the reason names what it does offer"
+
+
+def test_a_tool_calling_model_with_a_large_context_passes(harness_backend, monkeypatch):
+    stream = backend_mod._parse_stream(
+        (OPENCODE / "probe-tool-call.ndjson").read_text(encoding="utf-8")
+    )
+    monkeypatch.setattr(type(harness_backend), "version", lambda self: "1.18.31")
+    monkeypatch.setattr(
+        type(harness_backend), "_harness_models", lambda self, env: ["opencode/big-pickle"]
+    )
+    monkeypatch.setattr(type(harness_backend), "_probe", lambda self, *a: (stream, True))
+    monkeypatch.setattr(backend_mod, "_read_catalog", lambda cache_root: CATALOG)
+
+    result = harness_backend.preflight("opencode/big-pickle")
+
+    assert result.ok, result.problems
+    assert result.details["via"] == "harness"
+    assert result.details["context_tokens"] == 200000
+    assert result.details["probe_tools"] == ["write"]
+
+
+def test_a_small_context_is_refused_with_the_number_and_its_source(harness_backend, monkeypatch):
+    monkeypatch.setattr(type(harness_backend), "version", lambda self: "1.18.31")
+    monkeypatch.setattr(type(harness_backend), "_harness_models", lambda self, env: [])
+    monkeypatch.setattr(type(harness_backend), "_probe", lambda self, *a: ([], True))
+    monkeypatch.setattr(
+        backend_mod,
+        "_read_catalog",
+        lambda cache_root: {"opencode": {"models": {"cramped": {"limit": {"context": 8192}}}}},
+    )
+
+    result = harness_backend.preflight("opencode/cramped")
+
+    assert result.ok is False
+    assert "8192-token context" in result.reason
+    assert "models.dev" in result.reason

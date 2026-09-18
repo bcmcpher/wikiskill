@@ -63,8 +63,16 @@ the routing report will have to state per model.
 That preflight now exists and says so. Run against the local Ollama endpoint on 2026-09-18,
 `ollama/qwen2.5-coder:1.5b` was refused on two counts — it answers a tool-call probe with text, and
 it is served with Ollama's 4096-token default against a 16k minimum — so a three-task suite under OFF
-and ROUTED skipped all six units and reported both reasons rather than recording six zeroes. The
-measurement half of Milestone A therefore still waits on a usable endpoint, not on wikiskill.
+and ROUTED skipped all six units and reported both reasons rather than recording six zeroes.
+
+A usable endpoint has since been found, and finding it corrected the preflight. `opencode/big-pickle`
+is served by OpenCode's own free tier, which refuses a direct HTTP request
+(`FreeTierError: OpenCode's free tier can only be used from within OpenCode`) while working perfectly
+through `opencode run` — so the original probe would have rejected a model the runner can drive. The
+probe now takes whichever path the units will take, and on 2026-09-18 that model passed: a real
+`write` tool call and a 200000-token context, at no cost and with no API key. The measurement half of
+Milestone A is therefore unblocked, and what remains before a routing number exists is verifiers
+(task 4.2), not hardware.
 
 ### B — Signals in both harnesses (4–5)
 

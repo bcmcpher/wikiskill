@@ -33,6 +33,17 @@ Deferred:
   normalise into raw events with `origin: eval`.
 - [x] 2.5 Preflight: reachability, model listing, tool-call probe, and context of at least 16k, with
   actionable failure messages.
+  - **Amended 2026-09-18.** The probe now takes the path a unit takes. A direct HTTP probe is right
+    only when wikiskill addresses the endpoint itself; when the harness holds the credential it is
+    wrong twice over — OpenCode's free tier answers a direct POST with
+    `FreeTierError: OpenCode's free tier can only be used from within OpenCode`, so the gate would
+    refuse a model the runner can drive, and it tests a path no unit uses. `--base-url` is now
+    opt-in: without it `OpenCodeBackend.harness_preflight` lists models with `opencode models`,
+    probes with `opencode run` in its own isolated root, and reads the context from the models.dev
+    catalog that run fetched. Verified both ways on 2026-09-18: `opencode/big-pickle` passes
+    (`probe_tools: ['write']`, 200000-token context, exit 0) and `ollama/qwen2.5-coder:1.5b` still
+    fails on both its original counts. Added `--preflight-only`, since on a harness-served model the
+    check itself costs tokens and the answer decides whether a suite is worth starting.
 - [ ] 2.6 Outcome classification including `tool_call_as_text`, `infra_error`, and `skipped` with reason.
 
 ## 3. Conditions, repeats, matrix

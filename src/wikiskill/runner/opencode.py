@@ -48,6 +48,17 @@ _BLOCKED_MARKERS = ("wikiskill evaluation guard", "permission denied by", "rejec
 #: Shapes a model emits when it describes a tool call instead of making one.
 _TOOL_SHAPED = ('"tool_call"', '"function_call"', "<tool_call>", '"tool_name"', '"arguments":')
 
+#: The probe a harness-mediated preflight runs. It asks for something no prose can fake: a file on
+#: disk. Deliberately not a skill — preflight asks whether the model can drive tools at all,
+#: which is a precondition for routing, not a measurement of it.
+PROBE_PROMPT = (
+    "Create a file named probe.txt whose only contents are the word OK. "
+    "Use your tools; do not describe the steps."
+)
+PROBE_FILE = "probe.txt"
+PROBE_TIMEOUT_S = 300
+PROBE_LIST_TIMEOUT_S = 120
+
 _SKILL_TOOLS = {"skill", "skills"}
 _TASK_TOOLS = {"task", "agent"}
 
@@ -82,7 +93,7 @@ class OpenCodeBackend(Backend):
         self,
         *,
         collection: Collection | None,
-        endpoint: Endpoint,
+        endpoint: Endpoint | None,
         layout,
         suite_root: Path,
         executable: str = "opencode",
@@ -121,7 +132,127 @@ class OpenCodeBackend(Backend):
         return self._version
 
     def preflight(self, model: str) -> PreflightResult:
-        return check(self.endpoint, _model_id(model), min_context=self.min_context)
+        """Check a model along the path its units will actually take.
+
+        With an endpoint the runner can address itself, that is plain OpenAI-compatible HTTP.
+        Without one the harness holds the credential, and a direct probe would be wrong twice over:
+        it may be refused for reasons the run would never hit — OpenCode's own free tier answers a
+        direct POST with `FreeTierError: can only be used from within OpenCode` — and it tests a
+        path no unit uses. So the probe goes through `opencode run` instead.
+        """
+        if self.endpoint is not None:
+            return check(self.endpoint, _model_id(model), min_context=self.min_context)
+        return self.harness_preflight(model)
+
+    def harness_preflight(self, model: str) -> PreflightResult:
+        """Reachability, model listing, a tool-call probe and context, all through the harness."""
+        details: dict[str, Any] = {"via": "harness", "model": model}
+        root = Path(self.layout.root) / "preflight" / model.replace("/", "-").replace(":", "-")
+        for name in ("config", "data", "state", "cache"):
+            (root / name).mkdir(parents=True, exist_ok=True)
+        env = self._env(root, self._config(model), list(BASE_DENY))
+
+        try:
+            details["harness_version"] = self.version()
+        except RunnerError as exc:
+            return PreflightResult(model=model, ok=False, problems=(str(exc),), details=details)
+
+        listed = self._harness_models(env)
+        details["models_listed"] = len(listed)
+        if listed and model not in listed:
+            provider_id = _split_model(model)[0]
+            near = ", ".join(sorted(m for m in listed if m.startswith(f"{provider_id}/"))[:3])
+            hint = f" This provider offers: {near}." if near else ""
+            return PreflightResult(
+                model=model,
+                ok=False,
+                problems=(
+                    (
+                        f"{self.executable} does not offer {model!r}. Check the name against "
+                        f"`{self.executable} models`, or fix the manifest's alias table.{hint}"
+                    ),
+                ),
+                details=details,
+            )
+
+        problems: list[str] = []
+        stream, made_file = self._probe(model, root, env)
+        details["probe_tools"] = _stream_tool_calls(stream)
+        details["probe_wrote_file"] = made_file
+        verdict = probe_verdict(stream, produced_file=made_file, model=model)
+        if verdict:
+            problems.append(verdict)
+
+        if self.min_context > 0:
+            context, source = catalog_context(_read_catalog(root / "cache"), model)
+            details["context_tokens"] = context
+            details["context_source"] = source
+            if context is None:
+                problems.append(
+                    f"could not establish the context window {self.executable} serves {model} "
+                    "with. Re-run with --min-context 0 to accept it unchecked, once you know it is "
+                    f"at least {self.min_context} tokens."
+                )
+            elif context < self.min_context:
+                problems.append(
+                    f"{model} is served with a {context}-token context ({source}), below the "
+                    f"{self.min_context} tokens OpenCode's system prompt and tool schemas need. "
+                    "Choose a model with a larger context for this suite."
+                )
+
+        return PreflightResult(
+            model=model, ok=not problems, problems=tuple(problems), details=details
+        )
+
+    def _harness_models(self, env: dict[str, str]) -> list[str]:
+        """Every `provider/model` the harness offers, as it reports them itself."""
+        try:
+            done = subprocess.run(
+                [self.executable, "models"],
+                capture_output=True,
+                text=True,
+                timeout=PROBE_LIST_TIMEOUT_S,
+                env=env,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return []
+        return [line.strip() for line in done.stdout.splitlines() if "/" in line.strip()]
+
+    def _probe(self, model: str, root: Path, env: dict[str, str]) -> tuple[list[dict], bool]:
+        """Ask the model to do one thing no amount of prose can fake: write a file with a tool."""
+        workdir = root / "work"
+        if workdir.exists():
+            shutil.rmtree(workdir)
+        workdir.mkdir(parents=True)
+        _git_init(workdir)
+        try:
+            done = subprocess.run(
+                [
+                    self.executable,
+                    "run",
+                    "--format",
+                    "json",
+                    "--dir",
+                    str(workdir),
+                    "-m",
+                    model,
+                    PROBE_PROMPT,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=PROBE_TIMEOUT_S,
+                env=env,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return _probe_failure(f"the probe did not finish within {PROBE_TIMEOUT_S}s"), False
+        except OSError as exc:
+            return _probe_failure(str(exc)), False
+        (root / "probe.ndjson").write_text(done.stdout, encoding="utf-8")
+        if done.stderr:
+            (root / "probe.stderr").write_text(done.stderr, encoding="utf-8")
+        return _parse_stream(done.stdout), (workdir / PROBE_FILE).is_file()
 
     # ------------------------------------------------------------------ isolation
 
@@ -188,20 +319,21 @@ class OpenCodeBackend(Backend):
 
     def config_for(self, unit: Unit) -> dict[str, Any]:
         """The inline config a unit runs under. Only the target provider, and no MCP at all."""
-        provider_id, model_id = _split_model(unit.model)
+        return self._config(unit.model)
+
+    def _config(self, model: str) -> dict[str, Any]:
+        """The same config a preflight probe runs under, which is the point: they must match.
+
+        A provider the harness resolves itself gets no block here. Declaring one would replace the
+        credential and routing OpenCode supplies for its own models with a bare OpenAI-compatible
+        endpoint, and the isolation the rest of this config buys is unaffected either way.
+        """
+        provider_id, model_id = _split_model(model)
         config: dict[str, Any] = {
             "$schema": "https://opencode.ai/config.json",
             "autoupdate": False,
             "share": "disabled",
             "mcp": {},
-            "provider": {
-                provider_id: {
-                    "npm": "@ai-sdk/openai-compatible",
-                    "name": provider_id,
-                    "options": {"baseURL": self.endpoint.root},
-                    "models": {model_id: {"name": model_id}},
-                }
-            },
             "permission": {
                 "edit": "allow",
                 "webfetch": "deny",
@@ -209,12 +341,24 @@ class OpenCodeBackend(Backend):
                 "bash": {"*": "allow"},
             },
         }
+        if self.endpoint is not None:
+            config["provider"] = {
+                provider_id: {
+                    "npm": "@ai-sdk/openai-compatible",
+                    "name": provider_id,
+                    "options": {"baseURL": self.endpoint.root},
+                    "models": {model_id: {"name": model_id}},
+                }
+            }
         if self.guard_plugin is not None:
             config["plugin"] = [str(self.guard_plugin)]
         return config
 
     def env_for(self, unit: Unit, root: Path) -> dict[str, str]:
         """The environment one unit runs in: isolated XDG, inline config, discovery switched off."""
+        return self._env(root, self.config_for(unit), list(BASE_DENY) + list(unit.task.guard_deny))
+
+    def _env(self, root: Path, config: dict[str, Any], deny: list[str]) -> dict[str, str]:
         env = dict(os.environ)
         env.update(
             {
@@ -222,10 +366,10 @@ class OpenCodeBackend(Backend):
                 "XDG_DATA_HOME": str(root / "data"),
                 "XDG_STATE_HOME": str(root / "state"),
                 "XDG_CACHE_HOME": str(root / "cache"),
-                "OPENCODE_CONFIG_CONTENT": json.dumps(self.config_for(unit)),
+                "OPENCODE_CONFIG_CONTENT": json.dumps(config),
                 "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
                 "OPENCODE_DISABLE_CLAUDE_CODE": "1",
-                "WIKISKILL_GUARD_DENY": json.dumps(list(BASE_DENY) + list(unit.task.guard_deny)),
+                "WIKISKILL_GUARD_DENY": json.dumps(deny),
                 # The logger plugin is inert without a runtime config, and this run has none: eval
                 # events come from `normalize`, so nothing writes the log twice.
                 "WIKISKILL_ORIGIN": "eval",
@@ -840,6 +984,102 @@ def _split_model(model: str) -> tuple[str, str]:
 
 def _model_id(model: str) -> str:
     return _split_model(model)[1]
+
+
+def _probe_failure(message: str) -> list[dict[str, Any]]:
+    """A stream standing in for one the harness never produced, so one reader handles both."""
+    return [{"type": "error", "error": {"data": {"message": message}}}]
+
+
+def _stream_tool_calls(stream: list[dict[str, Any]]) -> list[str]:
+    """The tools a `run --format json` stream shows the model actually calling."""
+    names = []
+    for event in stream:
+        part = event.get("part")
+        if not isinstance(part, dict) or part.get("type") != "tool":
+            continue
+        if ((part.get("state") or {}).get("status")) in ("completed", "error"):
+            names.append(str(part.get("tool") or "unknown"))
+    return names
+
+
+def _stream_text(stream: list[dict[str, Any]]) -> str:
+    chunks = []
+    for event in stream:
+        part = event.get("part")
+        if isinstance(part, dict) and part.get("type") == "text":
+            text = part.get("text")
+            if isinstance(text, str):
+                chunks.append(text)
+    return "\n".join(chunks)
+
+
+def _stream_error(stream: list[dict[str, Any]]) -> str | None:
+    for event in stream:
+        if event.get("type") != "error":
+            continue
+        data = (event.get("error") or {}).get("data") or {}
+        message = data.get("message") or (event.get("error") or {}).get("name")
+        if message:
+            return str(message)
+    return None
+
+
+def probe_verdict(stream: list[dict[str, Any]], *, produced_file: bool, model: str) -> str | None:
+    """What the tool-call probe proved. `None` means it passed.
+
+    Either a tool ran or the file exists — both are proof of a real call, and the second survives a
+    stream shape this parser has not seen. Everything else is a reason the model would score zero
+    for causes that have nothing to do with the skills under test.
+    """
+    if produced_file or _stream_tool_calls(stream):
+        return None
+    error = _stream_error(stream)
+    if error:
+        return (
+            f"{model} failed the tool-call probe: {error}. A model that cannot be given tools "
+            "cannot drive a skill; choose a tool-calling model for this suite."
+        )
+    if any(marker in _stream_text(stream) for marker in _TOOL_SHAPED):
+        return (
+            f"{model} printed a tool call instead of making one. Skills are driven by real tool "
+            "calls, so this model would score zero regardless of the skills under test."
+        )
+    return (
+        f"{model} answered the tool-call probe with text instead of calling a tool, and wrote no "
+        f"{PROBE_FILE}. Skills are driven by tool calls, so this model would score zero for "
+        "reasons that have nothing to do with the skills under test."
+    )
+
+
+def _read_catalog(cache_root: Path) -> dict[str, Any]:
+    """The models.dev catalog the harness fetched into this probe's own cache.
+
+    Read from the run's cache rather than the developer's, so preflight reports what the isolated
+    run was told, not what some other configuration happens to hold.
+    """
+    path = cache_root / "opencode" / "models.json"
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def catalog_context(catalog: dict[str, Any], model: str) -> tuple[int | None, str]:
+    """The context window the catalog advertises for a model, and where the number came from.
+
+    Unlike Ollama, a hosted provider's context is a property of the model rather than of a server
+    setting, so the catalog is the authority and there is no local override to consult.
+    """
+    provider_id, model_id = _split_model(model)
+    entry = ((catalog.get(provider_id) or {}).get("models") or {}).get(model_id)
+    if not isinstance(entry, dict):
+        return None, "unknown"
+    context = (entry.get("limit") or {}).get("context")
+    if isinstance(context, int) and context > 0:
+        return context, f"the models.dev catalog entry for {provider_id}/{model_id}"
+    return None, "unknown"
 
 
 def _component_roots(source) -> list[Path]:
