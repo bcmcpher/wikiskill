@@ -36,6 +36,11 @@ first time.
   outcome classification.
 - `eval-scoring`: verifiers, rubric judging, metrics, and reports.
 
+### Modified Capabilities
+
+- `trace-log`: an event with `origin: eval` also carries the run id, suite, task id, condition, and
+  repeat index, so an evaluation trajectory reads back from the log without a side file.
+
 ## Impact
 
 - **Depends on `add-trace-logging`** for the raw schema, collection manifest, alias tables, and
@@ -46,3 +51,5 @@ first time.
   probe in `add-dsh-pilot`. `add-claude-code-adapter` adds a second backend.
 - New: `src/wikiskill/{suite,runner/,score/,report}.py`, `schemas/task-suite.schema.json`,
   `harness/opencode/guard/`, `harness/source/commands/wikiskill-eval.md`.
+- Changed: `schemas/raw-event.schema.json` gains an optional `eval` block, required exactly when
+  `origin` is `eval`. Existing live events stay valid, so the major `schema_version` does not move.

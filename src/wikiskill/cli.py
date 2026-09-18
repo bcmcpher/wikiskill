@@ -8,17 +8,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from collections import Counter
 from pathlib import Path
 
 from . import __version__, logtools, paths
 from . import collection as collection_mod
 from . import install as install_mod
+from . import report as report_mod
+from . import suite as suite_mod
 from .build import HARNESSES, BuildError, build, dist_dir
 from .collection import Collection, ManifestError, Source
 from .frontmatter import FrontmatterError
 from .install import SCOPES, InstallError
 from .rawlog import RawLogError
+from .runner import base as runner_base
+from .runner import opencode as opencode_backend
+from .runner import preflight as preflight_mod
+from .runner import run as run_mod
+from .runner.base import RunnerError
+from .suite import SuiteError
 
 OK, FAILED, MISUSE = 0, 1, 2
 
@@ -238,6 +248,134 @@ def cmd_log_tail(args: argparse.Namespace) -> int:
     return OK
 
 
+# --------------------------------------------------------------------------- suite
+
+
+def cmd_suite_check(args: argparse.Namespace) -> int:
+    failed = 0
+    for raw in args.file:
+        path = Path(raw)
+        try:
+            loaded = suite_mod.load(path)
+        except SuiteError as exc:
+            failed += 1
+            print(f"suite {exc.path or path}  FAILED")
+            for problem in exc.problems:
+                print(f"  ! {problem}")
+            continue
+        splits = Counter(task.split for task in loaded.tasks)
+        spread = ", ".join(f"{name} {splits[name]}" for name in suite_mod.SPLITS if splits[name])
+        print(f"suite {loaded.name}  ({loaded.path})")
+        print(f"  {len(loaded.tasks)} tasks  [{spread}]")
+        for task in loaded.tasks:
+            route = ", ".join(task.expect.names()) or "-"
+            print(
+                f"    {task.id:32} x{task.repeats}  route {route}  "
+                f"{len(task.verifiers)} verifiers{'  rubric' if task.rubric else ''}"
+            )
+        print("  ok")
+    if failed:
+        print(f"\n{failed} of {len(args.file)} suites failed", file=sys.stderr)
+    return FAILED if failed else OK
+
+
+# --------------------------------------------------------------------------- eval
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    loaded = suite_mod.load(args.suite)
+    coll = _collection_for(args.collection)
+    conditions = [c.strip() for c in args.condition.split(",") if c.strip()]
+    unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
+    if unknown:
+        print(f"error: unknown condition(s): {', '.join(unknown)}", file=sys.stderr)
+        return MISUSE
+
+    models = _eval_models(args, coll)
+    if not models:
+        print(
+            "error: no models to run. Pass --models, or add a [targets] opencode list to the "
+            "collection manifest.",
+            file=sys.stderr,
+        )
+        return MISUSE
+
+    tasks = None
+    if args.task:
+        wanted = set(args.task)
+        tasks = [task for task in loaded.tasks if task.id in wanted]
+        missing = sorted(wanted - {task.id for task in tasks})
+        if missing:
+            print(f"error: no such task(s) in {loaded.name}: {', '.join(missing)}", file=sys.stderr)
+            return MISUSE
+
+    run_id = runner_base.new_run_id()
+    layout = runner_base.RunLayout.create(coll.name if coll else loaded.name, run_id)
+    endpoint = preflight_mod.Endpoint(
+        base_url=args.base_url,
+        api_key=os.environ.get(args.api_key_env) if args.api_key_env else None,
+    )
+    backend = opencode_backend.OpenCodeBackend(
+        collection=coll,
+        endpoint=endpoint,
+        layout=layout,
+        suite_root=loaded.root,
+        executable=args.opencode,
+        min_context=args.min_context,
+        output_limit_bytes=coll.output_limit_bytes if coll else 16 * 1024,
+    )
+
+    print(f"run {run_id}  suite {loaded.name}  {len(models)} model(s)  {', '.join(conditions)}")
+    print(f"  results  {layout.root}")
+    try:
+        run = run_mod.run_suite(
+            loaded,
+            backend,
+            collection=coll,
+            models=models,
+            conditions=conditions,
+            tasks=tasks,
+            layout=layout,
+            run_id=run_id,
+            on_event=lambda line: print(f"  {line}", flush=True),
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return MISUSE
+
+    report = report_mod.write(layout, run.results, run_mod.load_manifest(layout))
+    print()
+    for outcome, count in sorted((report.get("outcomes") or {}).items()):
+        print(f"  {outcome:18} {count}")
+    print(f"  events written     {run.events_written}")
+    print(f"  report             {layout.report_md}")
+    unfinished = report.get("not_run") or []
+    if unfinished:
+        print(f"  not run            {len(unfinished)} (listed in the report)")
+    scored_any = any(row.get("repeats") for row in report.get("rows") or [])
+    return OK if scored_any else FAILED
+
+
+def _eval_models(args: argparse.Namespace, coll: Collection | None) -> list[str]:
+    """Concrete `provider/model` strings, resolving manifest aliases where one is given."""
+    requested = list(args.models or [])
+    if not requested and coll is not None:
+        requested = list(coll.targets.get("opencode", ()))
+    resolved = []
+    for name in requested:
+        concrete = name if "/" in name else None
+        if concrete is None and coll is not None:
+            concrete = coll.resolve_alias("opencode", name)
+        if concrete is None:
+            print(
+                f"warning: {name!r} is not a provider/model and the manifest maps no alias for it",
+                file=sys.stderr,
+            )
+            continue
+        resolved.append(concrete)
+    return resolved
+
+
 # --------------------------------------------------------------------------- build / install
 
 
@@ -260,9 +398,7 @@ def cmd_build(args: argparse.Namespace) -> int:
 def cmd_install(args: argparse.Namespace) -> int:
     target = Path(args.target).expanduser() if args.target else None
     if args.uninstall:
-        result = install_mod.uninstall(
-            args.harness, args.scope, target=target, force=args.force
-        )
+        result = install_mod.uninstall(args.harness, args.scope, target=target, force=args.force)
         print(f"uninstalled from {result.target}")
         for path in result.removed:
             print(f"  removed  {path}")
@@ -293,6 +429,41 @@ def cmd_install(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- parser
 
 
+def _add_eval_parser(sub) -> None:
+    ev = sub.add_parser("eval", help="run a task suite in fresh isolated headless sessions")
+    ev.add_argument("--suite", required=True, help="task suite file")
+    ev.add_argument(
+        "--collection", default=None, help="collection under test (required for ROUTED)"
+    )
+    ev.add_argument(
+        "--models",
+        nargs="+",
+        default=None,
+        metavar="MODEL",
+        help="provider/model strings, or aliases from the manifest (default: its opencode targets)",
+    )
+    ev.add_argument(
+        "--condition",
+        default="off,routed",
+        help="comma-separated: off, routed (default off,routed)",
+    )
+    ev.add_argument("--task", action="append", default=None, help="run only this task id")
+    ev.add_argument(
+        "--base-url",
+        default="http://localhost:11434/v1",
+        help="OpenAI-compatible endpoint serving the models under test",
+    )
+    ev.add_argument("--api-key-env", default=None, help="environment variable holding its API key")
+    ev.add_argument(
+        "--min-context",
+        type=int,
+        default=16384,
+        help="minimum context window preflight accepts; 0 skips the check",
+    )
+    ev.add_argument("--opencode", default="opencode", help="path to the opencode executable")
+    ev.set_defaults(func=cmd_eval)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wikiskill",
@@ -301,9 +472,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"wikiskill {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    collection_cmd = sub.add_parser(
-        "collection", help="declare and check watched collections"
-    )
+    collection_cmd = sub.add_parser("collection", help="declare and check watched collections")
     coll = collection_cmd.add_subparsers(dest="subcommand", required=True)
 
     init = coll.add_parser("init", help="write a manifest for a source directory")
@@ -344,6 +513,17 @@ def build_parser() -> argparse.ArgumentParser:
     log.choices["tail"].add_argument("-f", "--follow", action="store_true")
     log.choices["tail"].add_argument("--json", action="store_true")
 
+    suite_cmd = sub.add_parser("suite", help="validate task suites").add_subparsers(
+        dest="subcommand", required=True
+    )
+    suite_check = suite_cmd.add_parser(
+        "check", help="validate a suite and flag prompts that name their own expected route"
+    )
+    suite_check.add_argument("file", nargs="+", help="task suite file")
+    suite_check.set_defaults(func=cmd_suite_check)
+
+    _add_eval_parser(sub)
+
     build_cmd = sub.add_parser("build", help="generate a harness layout from the neutral source")
     build_cmd.add_argument("--harness", choices=HARNESSES, required=True)
     build_cmd.add_argument("--collection", default=None, help="manifest supplying the alias table")
@@ -367,7 +547,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (ManifestError, BuildError, InstallError, RawLogError, FrontmatterError) as exc:
+    except (
+        ManifestError,
+        BuildError,
+        InstallError,
+        RawLogError,
+        FrontmatterError,
+        SuiteError,
+        RunnerError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return FAILED
     except FileNotFoundError as exc:

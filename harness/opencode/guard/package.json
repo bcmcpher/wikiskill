@@ -1,0 +1,17 @@
+{
+  "name": "@wikiskill/opencode-guard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Refuses the command patterns an evaluation task denies, inside an isolated eval run only",
+  "main": "wikiskill-guard.ts",
+  "scripts": {
+    "test": "bun test test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.18.31",
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.5.0"
+  }
+}

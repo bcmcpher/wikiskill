@@ -8,8 +8,10 @@ Based on [WikiSkill](https://arxiv.org/abs/2608.27454), which produces its execu
 benchmark runs. wikiskill produces them from ordinary use as well, which is why everything it
 records carries harness, provider and model identity.
 
-**Status:** `add-trace-logging` (roadmap step 1) is implemented. Steps 2–8 are designed and not yet
-built — see [`ROADMAP.md`](ROADMAP.md).
+**Status:** `add-trace-logging` (roadmap step 1) is implemented, and `add-explicit-eval` (step 2) has
+its minimal working core: task suites, the OpenCode eval backend with isolation and preflight, the
+OFF and ROUTED conditions, routing metrics and reports. Steps 3–8 are designed and not yet built —
+see [`ROADMAP.md`](ROADMAP.md).
 
 ## What works today
 
@@ -35,6 +37,31 @@ wikiskill log tail data-science-harness -f
 A worked manifest with an open-model alias table is in
 [`examples/collections/data-science-harness.toml`](examples/collections/data-science-harness.toml).
 
+### Explicit evaluation
+
+Passive logs cannot answer "is this skill better on model X than model Y?". A task suite can: the
+same prompts, across a list of models, with and without the collection, repeated.
+
+```bash
+wikiskill suite check examples/suites/toy-routing.yaml
+
+wikiskill eval --suite examples/suites/toy-routing.yaml \
+  --collection data-science-harness \
+  --models ollama/qwen2.5-coder:1.5b \
+  --condition off,routed
+```
+
+Every run happens in a **fresh headless OpenCode session** with its own XDG directories, an inline
+config carrying only the target provider, project config and Claude Code discovery switched off, no
+MCP servers, and a guard plugin refusing the commands the task denies. Results land in
+`${XDG_DATA_HOME:-~/.local/share}/wikiskill/<collection>/evals/<run-id>/` as `run.json`,
+`results.jsonl`, `report.json` and `report.md`, and the trajectories are appended to the raw log with
+`origin: eval`.
+
+Before any task runs, each model is preflighted for reachability, tool calling and context window.
+A model that fails is skipped with an actionable message rather than scoring zero — on a CPU-only
+laptop with Ollama's 4096-token default, that is the usual outcome, and the report says so.
+
 ## What it records, and what it will not
 
 - Only sessions that activate a **watched** skill, agent or command are logged. A session that never
@@ -55,9 +82,12 @@ A worked manifest with an open-model alias table is in
 |---|---|
 | `src/wikiskill/` | the harness-neutral Python core and the `wikiskill` CLI |
 | `schemas/raw-event.schema.json` | the versioned raw event schema — the contract between harnesses |
+| `schemas/task-suite.schema.json` | the declarative task suite format |
 | `harness/opencode/plugin/` | the OpenCode logger (TypeScript), with its own contract tests |
+| `harness/opencode/guard/` | the evaluation guard, installed only into an eval run's own config |
 | `harness/source/` | wikiskill's own skills, commands and agents, authored once |
 | `examples/collections/` | worked manifests |
+| `examples/suites/` | a small worked task suite |
 | `openspec/` | the change proposals, specs and roadmap this is built from |
 | `docs/design/architecture.md` | why it is shaped this way |
 
@@ -70,6 +100,7 @@ Storage follows XDG: config in `${XDG_CONFIG_HOME:-~/.config}/wikiskill/`, data 
 uv sync --extra dev
 uv run pytest                                 # Python core, and the cross-language contract
 cd harness/opencode/plugin && bun test test   # the OpenCode mapper against recorded events
+cd harness/opencode/guard && bun test test    # the evaluation guard's deny patterns
 ```
 
 The OpenCode logger targets the plugin API at **1.18.31 or newer**. Its mapper tests run against

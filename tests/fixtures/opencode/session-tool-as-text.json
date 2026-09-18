@@ -1,0 +1,32 @@
+{
+  "info": {
+    "id": "ses_text0000000000000000001",
+    "directory": "/tmp/eval/work",
+    "title": "toy",
+    "agent": "build",
+    "version": "1.18.31",
+    "time": { "created": 1789755730349, "updated": 1789755740349 }
+  },
+  "messages": [
+    {
+      "info": {
+        "id": "msg_text0001",
+        "role": "assistant",
+        "sessionID": "ses_text0000000000000000001",
+        "providerID": "ollama",
+        "modelID": "gemma2:2b",
+        "time": { "created": 1789755731000, "completed": 1789755740000 }
+      },
+      "parts": [
+        {
+          "type": "text",
+          "id": "prt_text0001",
+          "sessionID": "ses_text0000000000000000001",
+          "messageID": "msg_text0001",
+          "text": "I will call {\"tool_call\": {\"name\": \"skill\", \"arguments\": {\"name\": \"dataset-release\"}}}",
+          "time": { "start": 1789755739000, "end": 1789755740000 }
+        }
+      ]
+    }
+  ]
+}

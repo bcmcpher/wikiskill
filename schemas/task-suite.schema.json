@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bcmcpher/wikiskill/schemas/task-suite.schema.json",
+  "title": "wikiskill task suite",
+  "description": "A declarative set of evaluation tasks: prompts, expected routes, verifiers, rubric references, splits, fixtures and required capabilities. Tasks are data, so adding one changes no shared code.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["suite", "tasks"],
+  "properties": {
+    "suite": {
+      "description": "Suite id. Reported with every result, so it has to survive being put in a filename.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "description": { "type": "string" },
+    "defaults": {
+      "description": "Applied to any task that does not set them itself.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "properties": {
+        "repeats": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "timeout_s": { "type": "integer", "minimum": 1 },
+        "max_steps": { "type": "integer", "minimum": 1 },
+        "requires": { "$ref": "#/$defs/requires" },
+        "guard": { "$ref": "#/$defs/guard" }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "$defs": {
+    "split": {
+      "description": "Which split a task belongs to. Refinement reads train, tuning reads val, and test is held out.",
+      "enum": ["train", "val", "test"]
+    },
+    "requires": {
+      "description": "Capabilities the run environment must provide. An unmet requirement skips the task with a reason; it is never scored as a failure.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "guard": {
+      "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "properties": {
+        "deny": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "route": {
+      "description": "The route a correct run takes: which component should be activated, and which agents it should reach.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "skill": { "type": "string", "minLength": 1 },
+        "agent": { "type": "string", "minLength": 1 },
+        "agents": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "command": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verifier": {
+      "description": "A deterministic check run in the task's workdir after the session. Verifiers decide pass or fail; a rubric judge only scores its own dimensions.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "properties": { "kind": { "const": "command" } },
+          "required": ["kind", "run"]
+        },
+        {
+          "properties": { "kind": { "const": "file_exists" } },
+          "required": ["kind", "path"]
+        },
+        {
+          "properties": { "kind": { "const": "regex" } },
+          "required": ["kind", "pattern"]
+        }
+      ],
+      "properties": {
+        "kind": { "enum": ["command", "file_exists", "regex"] },
+        "run": {
+          "description": "command: the shell command to run in the workdir.",
+          "type": "string",
+          "minLength": 1
+        },
+        "expect_exit": { "type": "integer", "default": 0 },
+        "path": {
+          "description": "file_exists: a path relative to the workdir. Absolute paths are rejected.",
+          "type": "string",
+          "minLength": 1
+        },
+        "pattern": {
+          "description": "regex: a Python regular expression.",
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "description": "regex: what the pattern is matched against.",
+          "enum": ["final_text", "file", "transcript"],
+          "default": "final_text"
+        },
+        "negate": {
+          "description": "Pass when the check does NOT hold.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["id", "prompt", "split"],
+      "properties": {
+        "id": {
+          "description": "Unique within the suite, and usable as a directory name.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "prompt": {
+          "description": "The user turn the model sees. It must not name the skill, agent or plugin it is expected to route to.",
+          "type": "string",
+          "minLength": 1
+        },
+        "split": { "$ref": "#/$defs/split" },
+        "expect": { "$ref": "#/$defs/route" },
+        "verifiers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/verifier" }
+        },
+        "rubric": {
+          "description": "Path to a rubric file, relative to the suite file.",
+          "type": "string",
+          "minLength": 1
+        },
+        "fixtures": {
+          "description": "Directory copied into the run's workdir, relative to the suite file.",
+          "type": "string",
+          "minLength": 1
+        },
+        "requires": { "$ref": "#/$defs/requires" },
+        "guard": { "$ref": "#/$defs/guard" },
+        "followups": {
+          "description": "Scripted user turns sent after the first response. Not a simulated user.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "repeats": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "timeout_s": { "type": "integer", "minimum": 1 },
+        "max_steps": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

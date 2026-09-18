@@ -1,0 +1,101 @@
+{
+  "info": {
+    "id": "ses_root0000000000000000001",
+    "slug": "mighty-forest",
+    "projectID": "global",
+    "directory": "/tmp/eval/work",
+    "path": "",
+    "title": "Cut version 1.0 of the dataset",
+    "agent": "build",
+    "model": { "id": "qwen2.5-coder:1.5b", "providerID": "ollama", "variant": "" },
+    "version": "1.18.31",
+    "cost": 0,
+    "tokens": { "input": 0, "output": 0, "reasoning": 0, "cache": { "read": 0, "write": 0 } },
+    "time": { "created": 1789755730349, "updated": 1789755760349 }
+  },
+  "messages": [
+    {
+      "info": {
+        "id": "msg_user0001",
+        "role": "user",
+        "sessionID": "ses_root0000000000000000001",
+        "time": { "created": 1789755730441 }
+      },
+      "parts": [
+        {
+          "type": "text",
+          "id": "prt_user0001",
+          "sessionID": "ses_root0000000000000000001",
+          "messageID": "msg_user0001",
+          "text": "Cut version 1.0 of the dataset so the paper can cite a fixed version."
+        }
+      ]
+    },
+    {
+      "info": {
+        "id": "msg_asst0001",
+        "role": "assistant",
+        "sessionID": "ses_root0000000000000000001",
+        "providerID": "ollama",
+        "modelID": "qwen2.5-coder:1.5b",
+        "time": { "created": 1789755731143, "completed": 1789755760000 }
+      },
+      "parts": [
+        {
+          "type": "tool",
+          "id": "prt_tool0001",
+          "callID": "call_skill_1",
+          "tool": "skill",
+          "sessionID": "ses_root0000000000000000001",
+          "messageID": "msg_asst0001",
+          "state": {
+            "status": "completed",
+            "input": { "name": "dataset-release" },
+            "output": "Loaded skill dataset-release",
+            "metadata": { "dir": "/tmp/eval/config/opencode/skills/dataset-release" },
+            "time": { "start": 1789755731200, "end": 1789755731900 }
+          }
+        },
+        {
+          "type": "tool",
+          "id": "prt_tool0002",
+          "callID": "call_task_1",
+          "tool": "task",
+          "sessionID": "ses_root0000000000000000001",
+          "messageID": "msg_asst0001",
+          "state": {
+            "status": "completed",
+            "input": {
+              "subagent_type": "datalad-doer",
+              "description": "tag the dataset"
+            },
+            "output": "child finished",
+            "metadata": { "sessionID": "ses_child000000000000000001" },
+            "time": { "start": 1789755732000, "end": 1789755750000 }
+          }
+        },
+        {
+          "type": "step-finish",
+          "id": "prt_step0001",
+          "sessionID": "ses_root0000000000000000001",
+          "messageID": "msg_asst0001",
+          "cost": 0,
+          "tokens": {
+            "input": 1200,
+            "output": 90,
+            "reasoning": 0,
+            "cache": { "read": 0, "write": 0 }
+          }
+        },
+        {
+          "type": "text",
+          "id": "prt_text0002",
+          "sessionID": "ses_root0000000000000000001",
+          "messageID": "msg_asst0001",
+          "text": "Tagged the dataset as v1.0 and wrote CHANGELOG.md.",
+          "time": { "start": 1789755759000, "end": 1789755760000 }
+        }
+      ]
+    }
+  ]
+}

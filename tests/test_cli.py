@@ -261,7 +261,9 @@ def test_sync_keeps_other_collections_published(xdg, plugin_source, opencode_sou
     assert "dsh, oc" in capsys.readouterr().out
 
 
-def test_install_with_one_collection_keeps_the_others_published(xdg, tmp_path, plugin_source, opencode_source):
+def test_install_with_one_collection_keeps_the_others_published(
+    xdg, tmp_path, plugin_source, opencode_source
+):
     write_manifest(xdg, "dsh", manifest_for(plugin_source))
     write_manifest(
         xdg,
@@ -309,3 +311,83 @@ def test_install_warns_when_no_collection_is_configured(xdg, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "the logger will record nothing" in out
     assert "collection init" in out
+
+
+# --------------------------------------------------------------------------- suite / eval
+
+
+SUITE = """
+suite: toy
+tasks:
+  - id: release
+    prompt: Cut version 1.0 so the paper can cite a fixed version.
+    split: val
+    expect: { skill: disseminate/dataset-release }
+"""
+
+LEAKY_SUITE = """
+suite: toy
+tasks:
+  - id: release
+    prompt: Run the dataset-release skill.
+    split: val
+    expect: { skill: disseminate/dataset-release }
+"""
+
+
+def test_suite_check_reports_a_valid_suite(tmp_path, capsys):
+    path = tmp_path / "toy.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+
+    assert main(["suite", "check", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "suite toy" in out
+    assert "1 tasks  [val 1]" in out
+    assert "  ok" in out
+
+
+def test_suite_check_fails_on_a_prompt_that_names_its_route(tmp_path, capsys):
+    path = tmp_path / "leaky.yaml"
+    path.write_text(LEAKY_SUITE, encoding="utf-8")
+
+    assert main(["suite", "check", str(path)]) == 1
+    captured = capsys.readouterr()
+    assert "dataset-release" in captured.out
+    assert "1 of 1 suites failed" in captured.err
+
+
+def test_eval_refuses_an_unknown_condition(tmp_path, capsys):
+    path = tmp_path / "toy.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+
+    assert main(["eval", "--suite", str(path), "--condition", "sideways"]) == 2
+    assert "unknown condition" in capsys.readouterr().err
+
+
+def test_eval_refuses_to_run_with_no_models(xdg, tmp_path, capsys):
+    path = tmp_path / "toy.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+
+    assert main(["eval", "--suite", str(path), "--condition", "off"]) == 2
+    assert "no models to run" in capsys.readouterr().err
+
+
+def test_eval_needs_a_collection_for_the_routed_condition(xdg, tmp_path, capsys):
+    path = tmp_path / "toy.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+
+    code = main(
+        [
+            "eval",
+            "--suite",
+            str(path),
+            "--models",
+            "ollama/qwen2.5-coder:1.5b",
+            "--condition",
+            "routed",
+            "--min-context",
+            "0",
+        ]
+    )
+    assert code == 2
+    assert "needs a collection" in capsys.readouterr().err

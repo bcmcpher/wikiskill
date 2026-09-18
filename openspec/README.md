@@ -37,10 +37,15 @@ Step 1 is done and archived under [`changes/archive/`](changes/archive/); its ca
 [`specs/`](specs/), as is `add-logging-safeguards`, an amendment to two of them rather than a step of
 its own.
 
+Step 2's capabilities are in [`specs/`](specs/) too, synced ahead of archiving: its minimal working
+core is implemented and `add-explicit-eval` stays active for the rest. Where a synced requirement
+runs ahead of the code — INJECTED, verifiers, the rubric judge, the data-science-harness adapter —
+the change's `tasks.md` is what says so.
+
 | # | Change | Capabilities | Hard dependencies |
 |---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
-| 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring | 1 |
+| 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 |
 | 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 |
 | 4 | `add-correction-capture` | correction-signal | 1 |
 | 5 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 4 |

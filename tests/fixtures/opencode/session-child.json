@@ -1,0 +1,42 @@
+{
+  "info": {
+    "id": "ses_child000000000000000001",
+    "parentID": "ses_root0000000000000000001",
+    "projectID": "global",
+    "directory": "/tmp/eval/work",
+    "title": "datalad-doer",
+    "agent": "datalad-doer",
+    "model": { "id": "qwen2.5-coder:1.5b", "providerID": "ollama" },
+    "version": "1.18.31",
+    "time": { "created": 1789755732100, "updated": 1789755749000 }
+  },
+  "messages": [
+    {
+      "info": {
+        "id": "msg_child0001",
+        "role": "assistant",
+        "sessionID": "ses_child000000000000000001",
+        "providerID": "ollama",
+        "modelID": "qwen2.5-coder:1.5b",
+        "time": { "created": 1789755732200, "completed": 1789755749000 }
+      },
+      "parts": [
+        {
+          "type": "tool",
+          "id": "prt_child0001",
+          "callID": "call_bash_1",
+          "tool": "bash",
+          "sessionID": "ses_child000000000000000001",
+          "messageID": "msg_child0001",
+          "state": {
+            "status": "error",
+            "input": { "command": "git push origin main" },
+            "error": "blocked by the wikiskill evaluation guard: git push origin main matches deny pattern git push*",
+            "metadata": {},
+            "time": { "start": 1789755733000, "end": 1789755733050 }
+          }
+        }
+      ]
+    }
+  ]
+}

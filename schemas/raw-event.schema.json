@@ -36,6 +36,30 @@
       "description": "live = ordinary use; eval = an explicit evaluation run.",
       "enum": ["live", "eval"]
     },
+    "eval": {
+      "description": "Which explicit evaluation produced this event. Present exactly when origin is 'eval', so an eval trajectory can be read back per task, condition and repeat without a side file.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["run_id", "suite", "task_id", "condition", "repeat"],
+      "properties": {
+        "run_id": {
+          "description": "ULID of the evaluation run, matching its directory under <collection>/evals/.",
+          "type": "string",
+          "pattern": "^[0-7][0-9ABCDEFGHJKMNPQRSTVWXYZ]{25}$"
+        },
+        "suite": { "type": "string", "minLength": 1 },
+        "task_id": { "type": "string", "minLength": 1 },
+        "condition": {
+          "description": "off = no collection; routed = normal discovery; injected = component text forced in.",
+          "enum": ["off", "routed", "injected"]
+        },
+        "repeat": {
+          "description": "Zero-based index of this repeat of the task under this condition.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "harness": { "enum": ["opencode", "claude-code"] },
     "harness_version": { "type": "string", "minLength": 1 },
     "provider": {
@@ -104,6 +128,12 @@
     }
   },
   "allOf": [
+    {
+      "description": "Evaluation provenance rides on the event, and only on evaluation events.",
+      "if": { "properties": { "origin": { "const": "eval" } }, "required": ["origin"] },
+      "then": { "required": ["eval"] },
+      "else": { "not": { "required": ["eval"] } }
+    },
     {
       "if": { "properties": { "type": { "const": "session_start" } }, "required": ["type"] },
       "then": {

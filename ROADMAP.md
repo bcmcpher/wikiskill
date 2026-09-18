@@ -21,6 +21,13 @@ Step 1 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/).
 
+Step 2 is **in progress**: its minimal working core is implemented — the task-suite format and
+`wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
+and ROUTED conditions, route metrics, and `report.json`/`report.md`. Still open in that change:
+the data-science-harness adapter (1.3), the full outcome taxonomy (2.6), INJECTED (3.2), worker
+limits (3.3), verifiers (4.2), the rubric judge (4.3), matrix statistics (4.5) and the
+`/wikiskill-eval` command (4.6).
+
 `add-logging-safeguards` is also done and archived. It is not a step: it is a post-hoc amendment to
 two of step 1's capabilities, recording three behaviours that a review of the implementation added
 after step 1 was archived. It reorders nothing below and blocks nothing.
@@ -28,7 +35,7 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | # | Change | Capabilities | Hard dependencies | Why here |
 |---|---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
-| 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
+| 2 ◐ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
 | 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 | First real results, and an early stress test of preflight and open-model tool calling. |
 | 4 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 5 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 4 | Captures sessions where most development happens; adds the harness axis. |
@@ -52,6 +59,12 @@ completes a tool call** — one model rejects tools outright, the others produce
 default context on a CPU-only machine (see the archived change's task 5.3 for the four attempts). That
 is the first concrete evidence for the preflight check `add-explicit-eval` introduces, and it is what
 the routing report will have to state per model.
+
+That preflight now exists and says so. Run against the local Ollama endpoint on 2026-09-18,
+`ollama/qwen2.5-coder:1.5b` was refused on two counts — it answers a tool-call probe with text, and
+it is served with Ollama's 4096-token default against a 16k minimum — so a three-task suite under OFF
+and ROUTED skipped all six units and reported both reasons rather than recording six zeroes. The
+measurement half of Milestone A therefore still waits on a usable endpoint, not on wikiskill.
 
 ### B — Signals in both harnesses (4–5)
 

@@ -1,0 +1,38 @@
+# A three-task routing suite over wikiskill's own components, small enough to run on a laptop.
+#
+# It exists to exercise the runner end to end — preflight, isolation, OFF versus ROUTED, the report —
+# not to say anything about how good the skill is. The real suites are the collection's own fixtures,
+# read in place by the data-science-harness adapter.
+#
+#     wikiskill eval --suite examples/suites/toy-routing.yaml --collection wikiskill-self \
+#       --models ollama/qwen2.5-coder:1.5b --condition off,routed
+#
+# Prompts deliberately never name the skill they expect: `wikiskill suite check` rejects one that
+# does, because a prompt that names the route instructs it instead of testing it.
+
+suite: toy-routing
+description: Does the model reach wikiskill's own tracing skill when a session needs one?
+
+defaults:
+  repeats: 1
+  timeout_s: 600
+  max_steps: 20
+
+tasks:
+  - id: start-recording
+    prompt: I want a record of what my agents actually do with this project's skills. Set that up.
+    split: val
+    expect: { skill: wikiskill-trace }
+
+  - id: inspect-history
+    prompt: Show me what my agents have been doing lately and whether anything is being recorded.
+    split: val
+    expect: { skill: wikiskill-trace }
+
+  - id: unrelated-control
+    prompt: Rename the variable `n` to `count` in the file I am about to open.
+    split: val
+    # A near-miss control: nothing in the collection should fire here, so an activation is a false
+    # positive rather than a miss. It declares no route at all, and is judged by its verifier.
+    verifiers:
+      - { kind: regex, target: final_text, pattern: "count", negate: false }

@@ -1,0 +1,130 @@
+{
+  "info": {
+    "id": "ses_f4a3ed652ffecYIWtPMgVDXDul",
+    "slug": "mighty-forest",
+    "projectID": "global",
+    "directory": "/tmp/wsk/probe/work",
+    "path": "",
+    "title": "New session - 2026-09-18T18:22:10.349Z",
+    "agent": "build",
+    "model": {
+      "id": "gemma3:1b",
+      "providerID": "ollama",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1789755730349,
+      "updated": 1789755731502
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1789755730441
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "ollama",
+          "modelID": "gemma3:1b"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0b5c12a09001C1T4yjO3hnOPA3",
+        "sessionID": "ses_f4a3ed652ffecYIWtPMgVDXDul"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"Say hello in three words.\"",
+          "id": "prt_0b5c12a13001Bmz5yvHkhxoZ6Y",
+          "sessionID": "ses_f4a3ed652ffecYIWtPMgVDXDul",
+          "messageID": "msg_0b5c12a09001C1T4yjO3hnOPA3"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0b5c12a09001C1T4yjO3hnOPA3",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/tmp/wsk/probe/work",
+          "root": "/tmp/wsk/probe/work"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "modelID": "gemma3:1b",
+        "providerID": "ollama",
+        "time": {
+          "created": 1789755731143,
+          "completed": 1789755733551
+        },
+        "error": {
+          "name": "APIError",
+          "data": {
+            "message": "registry.ollama.ai/library/gemma3:1b does not support tools",
+            "statusCode": 400,
+            "isRetryable": false,
+            "responseHeaders": {
+              "content-length": "128",
+              "content-type": "application/json",
+              "date": "Fri, 18 Sep 2026 18:22:13 GMT"
+            },
+            "responseBody": "{\"error\":{\"message\":\"registry.ollama.ai/library/gemma3:1b does not support tools\",\"type\":\"api_error\",\"param\":null,\"code\":null}}\n",
+            "metadata": {
+              "url": "http://localhost:11434/v1/chat/completions"
+            }
+          }
+        },
+        "id": "msg_0b5c12cc7001KTWHLaOGMW9JiK",
+        "sessionID": "ses_f4a3ed652ffecYIWtPMgVDXDul"
+      },
+      "parts": []
+    }
+  ]
+}

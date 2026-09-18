@@ -62,8 +62,10 @@ def logger_error_log(collection: str) -> Path:
 #: the checkout path onto the packaged one, and `tests/test_packaging.py` checks that it still does.
 PACKAGED_DATA: dict[str, tuple[str, str]] = {
     "schema": ("_schemas/raw-event.schema.json", "schemas/raw-event.schema.json"),
+    "suite-schema": ("_schemas/task-suite.schema.json", "schemas/task-suite.schema.json"),
     "source": ("_source", "harness/source"),
     "opencode-plugin": ("_harness/opencode/plugin", "harness/opencode/plugin"),
+    "opencode-guard": ("_harness/opencode/guard", "harness/opencode/guard"),
 }
 
 
@@ -90,6 +92,16 @@ def schema_path() -> Path:
     if not found.is_file():
         raise FileNotFoundError(
             f"raw-event.schema.json not found next to the package or at {found}"
+        )
+    return found
+
+
+def suite_schema_path() -> Path:
+    """The task suite schema, whether running from a checkout or an installed wheel."""
+    found = packaged_data("suite-schema")
+    if not found.is_file():
+        raise FileNotFoundError(
+            f"task-suite.schema.json not found next to the package or at {found}"
         )
     return found
 

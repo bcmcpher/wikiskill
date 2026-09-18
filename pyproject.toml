@@ -36,6 +36,9 @@ packages = ["src/wikiskill"]
 "harness/source" = "wikiskill/_source"
 "harness/opencode/plugin/wikiskill-logger.ts" = "wikiskill/_harness/opencode/plugin/wikiskill-logger.ts"
 "harness/opencode/plugin/wikiskill" = "wikiskill/_harness/opencode/plugin/wikiskill"
+# The evaluation guard is a second, separate plugin: it is installed only into an explicit eval
+# run's own isolated config, never into a user's.
+"harness/opencode/guard/wikiskill-guard.ts" = "wikiskill/_harness/opencode/guard/wikiskill-guard.ts"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
