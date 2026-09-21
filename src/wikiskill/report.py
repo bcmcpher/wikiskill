@@ -74,12 +74,38 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
             "pass_rate": rate,
             "pass_basis": basis,
             "failed_verifiers": _failed_verifiers(usable),
+            "rubric": _rubric(usable),
             "tokens": dict(tokens),
             "wall_time_ms": sum(result.get("duration_ms") or 0 for result in usable),
             "outcomes": dict(Counter(result["outcome"] for result in group)),
         }
     )
     return row
+
+
+def _rubric(usable: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The rubric dimensions across a task's repeats, counted by level.
+
+    Reported beside the pass rate and never folded into it: a judge scores dimensions, verifiers
+    decide outcomes. Levels are counted rather than averaged, because a rubric's anchors are names
+    and the mean of `partial` and `complete` is not a thing.
+    """
+    graded = [result["rubric"] for result in usable if isinstance(result.get("rubric"), dict)]
+    if not graded:
+        return None
+    errors = sorted({entry["error"] for entry in graded if entry.get("error")})
+    levels: dict[str, Counter] = {}
+    for entry in graded:
+        for score in entry.get("consensus") or []:
+            levels.setdefault(score["dimension"], Counter())[score["level"]] += 1
+    if not levels and errors:
+        return {"error": errors[0], "graded": 0}
+    return {
+        "id": next((entry.get("rubric") for entry in graded if entry.get("rubric")), None),
+        "graded": len(graded) - len(errors),
+        "dimensions": {name: dict(counts) for name, counts in sorted(levels.items())},
+        **({"error": errors[0]} if errors else {}),
+    }
 
 
 def _failed_verifiers(usable: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -228,6 +254,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             for chosen, count in sorted(row.items(), key=lambda item: -item[1]):
                 lines.append(f"| {expected} | {chosen} | {count} |")
 
+    lines += _rubric_lines(report.get("rows") or [])
     lines += _derived_lines(report.get("derived") or {})
     lines += ["", "## Not run", ""]
     entries = report.get("not_run") or []
@@ -244,6 +271,32 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- **{entry['kind']}** {where or entry.get('model', '')}: {entry['reason']}"
             )
     return "\n".join(lines) + "\n"
+
+
+def _rubric_lines(rows: list[dict[str, Any]]) -> list[str]:
+    """Rubric dimensions per row, stated as counts and never as a pass rate."""
+    graded = [row for row in rows if row.get("rubric")]
+    if not graded:
+        return []
+    lines = [
+        "",
+        "## Rubric dimensions",
+        "",
+        "Scored by a judge, reported beside the pass rate and never folded into it.",
+        "",
+    ]
+    for row in graded:
+        rubric = row["rubric"]
+        header = f"- **{row['task_id']}** / {row['model']} / {row['condition']}"
+        if rubric.get("id"):
+            header += f" — `{rubric['id']}`"
+        lines.append(header + ":")
+        for name, counts in (rubric.get("dimensions") or {}).items():
+            tally = ", ".join(f"{level} x{count}" for level, count in sorted(counts.items()))
+            lines.append(f"  - {name}: {tally}")
+        if rubric.get("error"):
+            lines.append(f"  - not graded: {rubric['error']}")
+    return lines
 
 
 def _derived_lines(derived: dict[str, Any]) -> list[str]:

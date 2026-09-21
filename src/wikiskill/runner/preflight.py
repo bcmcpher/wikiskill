@@ -75,7 +75,7 @@ class Endpoint:
         return self.root[: -len("/v1")] if self.root.endswith("/v1") else self.root
 
 
-def _request(
+def request_json(
     url: str,
     *,
     payload: dict[str, Any] | None = None,
@@ -133,7 +133,7 @@ def ollama_context(endpoint: Endpoint, model: str, *, timeout: int) -> tuple[int
     served = int(configured) if configured and configured.isdigit() else OLLAMA_DEFAULT_CONTEXT
     source = "OLLAMA_CONTEXT_LENGTH" if configured else "Ollama's 4096-token default"
 
-    status, body = _request(
+    status, body = request_json(
         f"{endpoint.native_root}/api/show", payload={"model": model}, timeout=timeout
     )
     if status == 200 and isinstance(body, dict):
@@ -164,7 +164,7 @@ def check(
     details: dict[str, Any] = {"base_url": endpoint.root, "model": model}
 
     try:
-        status, listing = _request(
+        status, listing = request_json(
             f"{endpoint.root}/models", api_key=endpoint.api_key, timeout=timeout
         )
     except (urllib.error.URLError, OSError, TimeoutError) as exc:
@@ -212,7 +212,7 @@ def check(
             details=details,
         )
 
-    status, completion = _request(
+    status, completion = request_json(
         f"{endpoint.root}/chat/completions",
         payload={
             "model": model,

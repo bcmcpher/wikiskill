@@ -225,6 +225,8 @@ class Trajectory:
     #: Whether every verifier passed. `None` when the task declares no verifiers, so "nothing was
     #: checked" is never reported as "everything passed".
     passed: bool | None = None
+    #: The rubric panel's answer, or why there was none. Never touches `passed`.
+    rubric: dict[str, Any] | None = None
 
     @property
     def scored(self) -> bool:
@@ -249,6 +251,7 @@ class Trajectory:
             "activations": self.activations,
             "verifiers": self.verifiers,
             "passed": self.passed,
+            "rubric": self.rubric,
             "expected": {
                 "primary": self.unit.task.expect.primary,
                 "agents": list(self.unit.task.expect.agents),

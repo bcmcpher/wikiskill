@@ -130,7 +130,26 @@ Deferred:
     task rather than a broken harness. A second report carried both bases side by side:
     `inspect-history` at `pass_basis: "route"` (route@1 0%) next to `unrelated-control` at
     `"verifier"`. This is Milestone A's first pass/fail number.
-- [ ] 4.3 Rubric judge on the judge role endpoint, blind to the expected route; 1 or 3 judges per rubric.
+- [x] 4.3 Rubric judge on the judge role endpoint, blind to the expected route; 1 or 3 judges per rubric.
+  - `rubric.py` loads the format data-science-harness already writes: dimensions with named anchors,
+    `type: binary` where a dimension has two states, and an optional `judges: 3`. Anchor order *is*
+    the scale, so nothing assumes `none`/`partial`/`complete`.
+  - `score/judge.py` enforces the three rules rather than documenting them. Blind: the prompt
+    carries the rubric, the artifacts and the final answer, and never the expected route — there is
+    a test that reads the sent payload and looks for it. Not a model under test: refused before the
+    first unit runs, not after the matrix has been graded by a model grading itself. Its own
+    endpoint, from `roles.judge`.
+  - A judge never touches `passed`. It runs after the verifiers, its dimensions are counted rather
+    than averaged (the mean of `partial` and `complete` is not a thing), and a judge that cannot be
+    reached is an absent opinion, not a failed unit.
+  - Three judges settle by majority; a tie between two levels goes to the worse one, because the
+    benefit of the doubt is not the judge's to give, and a genuine three-way split is reported as
+    `split` rather than averaged away. The settled level keeps the winning judge's own words.
+  - **Verified live on 2026-09-21** with `gemma2:2b` on local Ollama grading a `big-pickle` run —
+    a judge that is not a model under test, and one that does not need tool calling, which is why
+    a local model that fails preflight can still serve. Both dimensions scored with real reasons
+    (*"The notes explicitly name specific files and folders, including `.git/`..."*), beside a
+    verifier verdict the judge could not touch.
 - [x] 4.4 `report.json` and `report.md`: pass rate, tokens, time, outcome classes, unrun/skipped with
   reasons.
 - [x] 4.5 Derived routing loss, content value, transfer and regression rates; exact McNemar across

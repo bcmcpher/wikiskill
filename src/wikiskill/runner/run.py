@@ -12,6 +12,7 @@ which the harness command launches as its own process.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import threading
 import time
@@ -21,7 +22,10 @@ from pathlib import Path
 from typing import Any
 
 from .. import __version__, paths, rawlog
-from ..collection import Collection
+from ..collection import Collection, Role
+from ..rubric import Rubric, RubricError
+from ..rubric import load as load_rubric
+from ..score import judge as judge_mod
 from ..score import verify
 from ..suite import Suite, Task
 from .base import (
@@ -37,6 +41,7 @@ from .base import (
     skipped,
     units_for,
 )
+from .preflight import Endpoint
 
 
 @dataclass
@@ -62,6 +67,56 @@ class RunResult:
         for result in self.results:
             tally[result["outcome"]] = tally.get(result["outcome"], 0) + 1
         return tally
+
+
+@dataclass
+class Panel:
+    """The judge a run consults, and the rubrics it has already read.
+
+    Built once per run: a rubric is read from disk, the judge's endpoint is resolved from the
+    collection's `roles.judge`, and a judge that is also under test is refused before any unit runs
+    rather than after the whole matrix has been graded by a model grading itself.
+    """
+
+    endpoint: Any
+    model: str
+    suite_root: Path
+    models_under_test: tuple[str, ...]
+    _cache: dict[str, Rubric | str] = field(default_factory=dict)
+
+    def rubric(self, reference: str) -> Rubric | str:
+        """The loaded rubric, or the reason it could not be loaded."""
+        if reference not in self._cache:
+            try:
+                self._cache[reference] = load_rubric(self.suite_root / reference)
+            except RubricError as exc:
+                self._cache[reference] = "; ".join(exc.problems)
+        return self._cache[reference]
+
+
+def panel_for(
+    collection: Collection | None, suite: Suite, models: list[str]
+) -> tuple[Panel | None, str | None]:
+    """The run's judge, or the reason it has none. A missing judge is stated, never assumed."""
+    if not any(task.rubric for task in suite.tasks):
+        return None, None
+    if collection is None:
+        return None, "no collection, so no `roles.judge` to grade with"
+    role: Role | None = collection.roles.get("judge")
+    if role is None:
+        return None, f"collection {collection.name!r} declares no `roles.judge`"
+    if not role.base_url:
+        return None, "`roles.judge` has no `base_url`, so there is nothing to ask"
+
+    key = os.environ.get(role.api_key_env) if role.api_key_env else None
+    panel = Panel(
+        endpoint=Endpoint(role.base_url, key),
+        model=role.model,
+        suite_root=suite.root,
+        models_under_test=tuple(models),
+    )
+    judge_mod.refuse_self_judging(role.model, models)
+    return panel, None
 
 
 def missing_capabilities(task: Task) -> list[str]:
@@ -108,6 +163,7 @@ def run_suite(
         )
 
     report = on_event or (lambda _line: None)
+    panel, no_judge = panel_for(collection, suite, models)
     started = time.time()
     run = RunResult(
         layout=where,
@@ -116,6 +172,9 @@ def run_suite(
         conditions=conditions,
         workers=max(1, workers),
     )
+
+    if no_judge:
+        report(f"no rubric judge: {no_judge}")
 
     for model in models:
         report(f"preflight {model}")
@@ -153,13 +212,16 @@ def run_suite(
         lanes = max(1, min(run.workers, len(mine)))
         if lanes == 1:
             for unit in mine:
-                record(_run_unit(unit, backend, run, report))
+                record(_run_unit(unit, backend, run, report, panel=panel, no_judge=no_judge))
             continue
         report(f"{model}: {lanes} workers")
         with ThreadPoolExecutor(max_workers=lanes) as pool:
             # `map` yields in submission order, so `results.jsonl` reads the same however many
             # lanes ran: a report should not depend on which unit happened to finish first.
-            for trajectory in pool.map(lambda u: _run_unit(u, backend, run, report), mine):
+            for trajectory in pool.map(
+                lambda u: _run_unit(u, backend, run, report, panel=panel, no_judge=no_judge),
+                mine,
+            ):
                 record(trajectory)
 
     where.write_manifest(
@@ -174,7 +236,15 @@ def run_suite(
     return run
 
 
-def _run_unit(unit: Unit, backend: Backend, run: RunResult, report) -> Trajectory:
+def _run_unit(
+    unit: Unit,
+    backend: Backend,
+    run: RunResult,
+    report,
+    *,
+    panel: Panel | None = None,
+    no_judge: str | None = None,
+) -> Trajectory:
     preflight = run.preflight.get(unit.model)
     if preflight is not None and not preflight.ok:
         return skipped(unit, f"preflight failed for {unit.model}: {preflight.reason}")
@@ -191,6 +261,7 @@ def _run_unit(unit: Unit, backend: Backend, run: RunResult, report) -> Trajector
     report(f"{unit.condition:7} {unit.model}  {unit.task.id} (repeat {unit.repeat})")
     trajectory = backend.execute(unit)
     _verify(trajectory, report)
+    _judge(trajectory, panel, no_judge, report)
     report(f"  {trajectory.outcome}" + (f": {trajectory.error}" if trajectory.error else ""))
     return trajectory
 
@@ -226,6 +297,46 @@ def _verify(trajectory: Trajectory, report) -> None:
     trajectory.passed = passed
     kept = sum(1 for result in results if result.passed)
     report(f"  verifiers {kept}/{len(results)} passed")
+
+
+def _judge(trajectory: Trajectory, panel: Panel | None, no_judge: str | None, report) -> None:
+    """Score the task's rubric, last and least authoritatively.
+
+    A judge never touches `passed`. It runs after the verifiers so that its dimensions are read
+    beside a pass rate that was already decided deterministically, and a judge that cannot be
+    reached is recorded as an absent opinion rather than a failed unit — the model under test is not
+    responsible for the grader being down.
+    """
+    reference = trajectory.unit.task.rubric
+    if not reference or not trajectory.scored:
+        return
+    if panel is None:
+        trajectory.rubric = {"rubric": reference, "error": no_judge or "no judge configured"}
+        return
+
+    rubric = panel.rubric(reference)
+    if isinstance(rubric, str):
+        trajectory.rubric = {"rubric": reference, "error": f"rubric did not load: {rubric}"}
+        report(f"  rubric {reference}: did not load")
+        return
+
+    try:
+        judgement = judge_mod.judge_task(
+            rubric,
+            endpoint=panel.endpoint,
+            model=panel.model,
+            final_text=trajectory.final_text,
+            workdir=trajectory.workdir,
+            models_under_test=panel.models_under_test,
+        )
+    except judge_mod.JudgeError as exc:
+        trajectory.rubric = {"rubric": rubric.id, "error": str(exc)}
+        report(f"  rubric {rubric.id}: {exc}")
+        return
+
+    trajectory.rubric = judgement.as_dict()
+    scored = len(judgement.consensus)
+    report(f"  rubric {rubric.id}: {scored}/{len(rubric.dimensions)} dimensions scored")
 
 
 def _write_events(backend: Backend, trajectory: Trajectory, raw_root: Path) -> int:
