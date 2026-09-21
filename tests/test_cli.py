@@ -329,6 +329,15 @@ LEAKY_SUITE = """
 suite: toy
 tasks:
   - id: release
+    prompt: Run disseminate/dataset-release now.
+    split: val
+    expect: { skill: disseminate/dataset-release }
+"""
+
+HALF_NAMED_SUITE = """
+suite: toy
+tasks:
+  - id: release
     prompt: Run the dataset-release skill.
     split: val
     expect: { skill: disseminate/dataset-release }
@@ -354,6 +363,17 @@ def test_suite_check_fails_on_a_prompt_that_names_its_route(tmp_path, capsys):
     captured = capsys.readouterr()
     assert "dataset-release" in captured.out
     assert "1 of 1 suites failed" in captured.err
+
+
+def test_suite_check_prints_a_half_named_route_without_failing(tmp_path, capsys):
+    path = tmp_path / "half.yaml"
+    path.write_text(HALF_NAMED_SUITE, encoding="utf-8")
+
+    assert main(["suite", "check", str(path)]) == 0
+    captured = capsys.readouterr()
+    assert "? " in captured.out
+    assert "dataset-release" in captured.out
+    assert "to look at" in captured.out
 
 
 def test_eval_refuses_an_unknown_condition(tmp_path, capsys):

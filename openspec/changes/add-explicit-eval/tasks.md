@@ -17,7 +17,30 @@ Deferred:
 - [x] 1.1 `schemas/task-suite.schema.json` and `src/wikiskill/suite.py` loader/validator (unique ids,
   split values, `requires`, verifier kinds).
 - [x] 1.2 `wikiskill suite check <file>` flags any prompt that names an expected skill, plugin, or agent.
-- [ ] 1.3 data-science-harness adapter reading `bench/tasks/*.yaml` and `bench/rubrics/*.yaml` in place.
+  - **Amended 2026-09-21, after reading a real suite.** The check refused six of the 42 tasks in
+    data-science-harness's routing suite. Five were the word "project" meaning the study, colliding
+    with its `project/` plugin; one asked for a "reporting checklist", which is what a journal calls
+    the artefact and what `disseminate/reporting-checklist` is named after. Neither hands over a
+    route, and a check that fires on "this project" is one people switch off.
+  - The qualified slug stays an error — nobody writes `disseminate/reporting-checklist` in a prompt
+    by accident. A bare half is now a warning that `suite check` prints and a reader judges, and
+    `Suite.warnings` carries them.
+- [x] 1.3 data-science-harness adapter reading `bench/tasks/*.yaml` and `bench/rubrics/*.yaml` in place.
+  - DSH's `bench/README.md` sets the terms: read in place, write nothing, and *"do not add fields to
+    these fixtures to suit a consumer... a runner that needs something these files do not declare
+    supplies it on its own side."* So `adapters/dsh.py` translates rather than negotiates.
+  - `suite.load` recognises a DSH document by the two things it has and a wikiskill suite does not —
+    a `probe`, and tasks stating `expected_skill` — and translates before the ordinary validation.
+    DSH's fixtures are then held to exactly the same checks as a hand-written suite.
+  - The two things wikiskill supplies on its own side: the **split**, which DSH does not declare
+    (`--split`, default `val`), and the **agent behind a plugin**, since `expected_delegates_to`
+    names plugins. Resolved from the collection's own components where there is one — the same
+    repository DSH derives its ground truth from — and otherwise by DSH's `<plugin>-doer`
+    convention, recorded as the assumption it is.
+  - Rubrics need no adapter at all: `bench/rubrics/*.yaml` is already the shape `rubric.py` reads.
+  - **Verified on the real fixture, 2026-09-21.** `bench/tasks/routing-lifecycle.yaml` loads in
+    place: 42 tasks, every one judged, agents resolved, and a test asserts the files' mtimes are
+    unchanged by reading them.
 
 ## 2. Runner and OpenCode backend
 

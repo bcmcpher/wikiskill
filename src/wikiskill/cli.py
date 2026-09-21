@@ -13,7 +13,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import __version__, logtools, paths
+from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
 from . import install as install_mod
 from . import report as report_mod
@@ -273,7 +273,9 @@ def cmd_suite_check(args: argparse.Namespace) -> int:
                 f"    {task.id:32} x{task.repeats}  route {route}  "
                 f"{len(task.verifiers)} verifiers{'  rubric' if task.rubric else ''}"
             )
-        print("  ok")
+        for warning in loaded.warnings:
+            print(f"  ? {warning}")
+        print("  ok" + (f", {len(loaded.warnings)} to look at" if loaded.warnings else ""))
     if failed:
         print(f"\n{failed} of {len(args.file)} suites failed", file=sys.stderr)
     return FAILED if failed else OK
@@ -307,8 +309,12 @@ def _report_preflight(backend, models: list[str], layout) -> int:
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
-    loaded = suite_mod.load(args.suite)
+    # The collection first: an adapted fixture names delegated *plugins*, and the collection is what
+    # knows which agent each of them provides.
     coll = _collection_for(args.collection)
+    loaded = suite_mod.load(args.suite, collection=coll, split=args.split)
+    for warning in loaded.warnings:
+        print(f"  ? {warning}")
     conditions = [c.strip() for c in args.condition.split(",") if c.strip()]
     unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
     if unknown:
@@ -482,6 +488,15 @@ def _add_eval_parser(sub) -> None:
         help="comma-separated: off, routed, injected (default off,routed)",
     )
     ev.add_argument("--task", action="append", default=None, help="run only this task id")
+    ev.add_argument(
+        "--split",
+        default=None,
+        choices=suite_mod.SPLITS,
+        help=(
+            "split to place tasks in when the fixture declares none, as data-science-harness's "
+            f"`bench/tasks` do not (default {adapters.DEFAULT_SPLIT})"
+        ),
+    )
     ev.add_argument(
         "--base-url",
         default=None,

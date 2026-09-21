@@ -21,11 +21,11 @@ Step 1 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/).
 
-Step 2 is **in progress**: its minimal working core is implemented — the task-suite format and
+Step 2 is **complete in substance**: every task in `add-explicit-eval` is implemented — the task-suite format and
 `wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
 and ROUTED conditions, route metrics, deterministic verifiers, the full outcome taxonomy, step and
-time budgets, and `report.json`/`report.md`. Still open in that change: the data-science-harness
-adapter (1.3).
+time budgets, INJECTED, the derived measures, the rubric judge, the `/wikiskill-eval` command, and
+the data-science-harness adapter.
 
 A defect found on 2026-09-21 is worth carrying forward as a habit rather than a note: the evaluation
 guard had never run in any evaluation. OpenCode calls every export of a plugin module as a plugin

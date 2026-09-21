@@ -22,7 +22,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
-from . import paths
+from . import adapters, paths
 
 #: Used when neither the task nor the suite's `defaults` says otherwise.
 DEFAULT_REPEATS = 3
@@ -164,6 +164,8 @@ class Suite:
     tasks: tuple[Task, ...]
     description: str | None = None
     path: Path | None = None
+    #: Things worth a reader's judgement that are not reasons to refuse the suite.
+    warnings: tuple[str, ...] = ()
 
     @property
     def root(self) -> Path:
@@ -202,9 +204,8 @@ def _mentions(prompt_words: Sequence[str], term: str) -> bool:
 def leak_terms(name: str) -> list[str]:
     """The identifiers a prompt must not contain for an expected route ``name``.
 
-    A component is named `<plugin>/<component>`, and a prompt that says either half has instructed
-    the route instead of testing it. The full slug is checked first so the report names the most
-    specific match.
+    A component is named `<plugin>/<component>`, and a prompt that says either half is worth
+    noticing. The full slug is first so the report names the most specific match.
     """
     parts = [part for part in name.split("/") if part]
     terms = [name] if len(parts) > 1 else []
@@ -212,15 +213,31 @@ def leak_terms(name: str) -> list[str]:
     return list(dict.fromkeys(terms))
 
 
-def prompt_leaks(task: Task) -> list[str]:
-    """Expected-route identifiers this task's prompt names, most specific first."""
+def prompt_leaks(task: Task) -> tuple[list[str], list[str]]:
+    """Expected-route identifiers this task's prompt names: ``(certain, suspected)``.
+
+    The qualified slug is certain. Nobody writes `disseminate/reporting-checklist` in a prompt by
+    accident, so it is an error.
+
+    A bare half is only suspected, because a component is often named after the thing it is about
+    and a plugin is often an ordinary word. Five tasks in data-science-harness's own routing suite
+    say "this project", meaning the study, and collide with its `project/` plugin; one asks for a
+    "reporting checklist", which is what a journal calls the artefact and what the skill is named
+    after. Failing those is how a check gets switched off, so they are warnings that `suite check`
+    prints and a reader judges.
+    """
     prompt_words = _words(task.prompt)
-    found: list[str] = []
+    certain: list[str] = []
+    suspected: list[str] = []
     for name in task.expect.names():
-        for term in leak_terms(name):
-            if _mentions(prompt_words, term) and term not in found:
-                found.append(term)
-    return found
+        qualified = "/" in name
+        for index, term in enumerate(leak_terms(name)):
+            if not _mentions(prompt_words, term):
+                continue
+            into = certain if qualified and index == 0 else suspected
+            if term not in into:
+                into.append(term)
+    return certain, [term for term in suspected if term not in certain]
 
 
 # --------------------------------------------------------------------------- verifier checks
@@ -294,12 +311,33 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
     )
 
 
-def parse(document: Any, *, path: Path | None = None) -> Suite:
+def parse(
+    document: Any,
+    *,
+    path: Path | None = None,
+    collection: Any = None,
+    split: str | None = None,
+) -> Suite:
     """Validate a already-parsed suite document and build a `Suite`.
 
     Raises `SuiteError` carrying *every* problem: a contributor fixing a suite should see the whole
     list, not one complaint per run.
+
+    A fixture in another project's format is translated first, then held to exactly these checks.
+    That is the point of translating rather than special-casing: a data-science-harness fixture is
+    read where it lives and still has to prove its ids are unique and its prompts do not name their
+    own expected route.
     """
+    if adapters.is_dsh_document(document):
+        try:
+            document = adapters.to_suite_document(
+                document,
+                collection=collection,
+                split=split or adapters.DEFAULT_SPLIT,
+            )
+        except adapters.AdapterError as exc:
+            raise SuiteError(path, [str(exc)]) from exc
+
     problems = schema_errors(document)
     if problems:
         raise SuiteError(path, problems)
@@ -307,6 +345,7 @@ def parse(document: Any, *, path: Path | None = None) -> Suite:
     defaults = document.get("defaults") or {}
     tasks = [_as_task(raw, defaults) for raw in document["tasks"]]
 
+    warnings: list[str] = []
     seen: dict[str, int] = {}
     for index, task in enumerate(tasks):
         first = seen.setdefault(task.id, index)
@@ -321,10 +360,17 @@ def parse(document: Any, *, path: Path | None = None) -> Suite:
             )
         for problem in verifier_problems(task):
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
-        for term in prompt_leaks(task):
+        certain, suspected = prompt_leaks(task)
+        for term in certain:
             problems.append(
-                f"tasks/{index}: task {task.id!r} names {term!r} in its prompt, which is part of "
-                "its expected route: the prompt would instruct the route instead of testing it"
+                f"tasks/{index}: task {task.id!r} names {term!r} in its prompt, which is its "
+                "expected route: the prompt would instruct the route instead of testing it"
+            )
+        for term in suspected:
+            warnings.append(
+                f"tasks/{index}: task {task.id!r} says {term!r} in its prompt, part of the name of "
+                "its expected route. Check whether it is the route being named or the subject "
+                "being described"
             )
     if problems:
         raise SuiteError(path, problems)
@@ -334,11 +380,16 @@ def parse(document: Any, *, path: Path | None = None) -> Suite:
         tasks=tuple(tasks),
         description=document.get("description"),
         path=path,
+        warnings=tuple(warnings),
     )
 
 
-def load(path: str | Path) -> Suite:
-    """Read and validate a suite file. YAML and JSON are both accepted."""
+def load(path: str | Path, *, collection: Any = None, split: str | None = None) -> Suite:
+    """Read and validate a suite file. YAML and JSON are both accepted.
+
+    A data-science-harness `bench/tasks` fixture is recognised and translated on the way in, so it
+    is read where it lives and nothing is copied or rewritten.
+    """
     file_path = Path(path).expanduser()
     try:
         text = file_path.read_text(encoding="utf-8")
@@ -350,7 +401,7 @@ def load(path: str | Path) -> Suite:
         raise SuiteError(file_path, [f"not valid YAML: {exc}"]) from exc
     if not isinstance(document, dict):
         raise SuiteError(file_path, ["expected a mapping at the top level"])
-    return parse(document, path=file_path.resolve())
+    return parse(document, path=file_path.resolve(), collection=collection, split=split)
 
 
 def check(paths_in: Iterable[str | Path]) -> list[tuple[Path, list[str]]]:

@@ -82,46 +82,54 @@ tasks:
     assert any("declares no expected outcome" in problem for problem in caught.value.problems)
 
 
-def test_prompt_naming_its_expected_skill_is_a_leak(tmp_path):
+def test_a_prompt_naming_the_qualified_route_is_refused(tmp_path):
+    """Nobody writes `disseminate/dataset-release` in a prompt by accident."""
     body = """
 suite: toy
 tasks:
   - id: leaky
-    prompt: Use the dataset-release skill to cut version 1.0.
+    prompt: Use disseminate/dataset-release to cut version 1.0.
     split: val
     expect: { skill: disseminate/dataset-release }
 """
     with pytest.raises(SuiteError) as caught:
         suite_mod.load(write(tmp_path, body))
-    assert any("names 'dataset-release'" in problem for problem in caught.value.problems)
+    assert any("names 'disseminate/dataset-release'" in p for p in caught.value.problems)
 
 
-def test_prompt_naming_the_plugin_is_also_a_leak(tmp_path):
+def test_a_prompt_naming_half_the_route_is_a_warning_a_reader_judges(tmp_path):
     body = """
 suite: toy
 tasks:
-  - id: leaky
+  - id: named
+    prompt: Use the dataset-release skill to cut version 1.0.
+    split: val
+    expect: { skill: disseminate/dataset-release }
+  - id: ordinary
     prompt: Ask disseminate to cut a version of this dataset.
     split: val
     expect: { skill: disseminate/dataset-release }
 """
-    with pytest.raises(SuiteError) as caught:
-        suite_mod.load(write(tmp_path, body))
-    assert any("names 'disseminate'" in problem for problem in caught.value.problems)
+    loaded = suite_mod.load(write(tmp_path, body))
+
+    assert len(loaded.warnings) == 2
+    assert any("'dataset-release'" in warning for warning in loaded.warnings)
+    assert any("'disseminate'" in warning for warning in loaded.warnings)
 
 
-def test_expected_agent_named_in_the_prompt_is_a_leak(tmp_path):
+def test_an_unqualified_route_named_in_the_prompt_is_only_a_warning(tmp_path):
+    """`datalad-doer` is a component name, and a component is often named after its subject."""
     body = """
 suite: toy
 tasks:
-  - id: leaky
-    prompt: Have the datalad doer tag this for me.
+  - id: named
+    prompt: Have the datalad-doer tag this for me.
     split: val
     expect: { agents: [datalad-doer] }
 """
-    with pytest.raises(SuiteError) as caught:
-        suite_mod.load(write(tmp_path, body))
-    assert any("names 'datalad-doer'" in problem for problem in caught.value.problems)
+    loaded = suite_mod.load(write(tmp_path, body))
+
+    assert any("'datalad-doer'" in warning for warning in loaded.warnings)
 
 
 def test_a_word_shared_with_the_route_is_not_a_leak(tmp_path):
@@ -135,7 +143,8 @@ tasks:
     expect: { skill: disseminate/dataset-release }
 """
     loaded = suite_mod.load(write(tmp_path, body))
-    assert suite_mod.prompt_leaks(loaded.tasks[0]) == []
+    assert suite_mod.prompt_leaks(loaded.tasks[0]) == ([], [])
+    assert loaded.warnings == ()
 
 
 def test_every_problem_is_reported_at_once(tmp_path):
@@ -143,9 +152,9 @@ def test_every_problem_is_reported_at_once(tmp_path):
 suite: toy
 tasks:
   - id: leaky
-    prompt: Run dataset-release now.
+    prompt: Run govern/preregister now.
     split: val
-    expect: { skill: dataset-release }
+    expect: { skill: govern/preregister }
   - id: leaky
     prompt: Do something.
     split: val
