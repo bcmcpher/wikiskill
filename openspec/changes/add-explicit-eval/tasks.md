@@ -29,6 +29,17 @@ Deferred:
   - collection built and installed into the run's own config
 - [x] 2.3 `harness/opencode/guard/` plugin blocking the suite's denied command patterns via
   `tool.execute.before`.
+  - **Amended 2026-09-21. The guard had never run.** OpenCode calls *every* export of a plugin
+    module as a plugin factory, so `export class GuardBlocked` made the whole file fail to load:
+    `failed to load plugin ... error="Cannot call a class constructor GuardBlocked without |new|"`.
+    That is one ERROR line in a log nobody reads, after which the run continues unguarded. Proved
+    live on 2026-09-21: a task prompting `curl https://example.com` — a `BASE_DENY` pattern — ran
+    the command and fetched the page. The plugin's unit tests all passed throughout; they tested
+    pure functions, never the contract with the loader.
+  - Fixed by moving every name into `harness/opencode/guard/wikiskill/guard.ts` and leaving the
+    plugin file exporting the factory and nothing else, mirroring the logger's layout.
+    `test/guard.test.ts` now calls every export of the plugin module as a factory, which is the
+    assertion that would have caught it.
 - [x] 2.4 Capture `opencode run --format json` and `opencode export` for the root and child sessions;
   normalise into raw events with `origin: eval`.
 - [x] 2.5 Preflight: reachability, model listing, tool-call probe, and context of at least 16k, with
@@ -44,13 +55,31 @@ Deferred:
     (`probe_tools: ['write']`, 200000-token context, exit 0) and `ollama/qwen2.5-coder:1.5b` still
     fails on both its original counts. Added `--preflight-only`, since on a harness-served model the
     check itself costs tokens and the answer decides whether a suite is worth starting.
-- [ ] 2.6 Outcome classification including `tool_call_as_text`, `infra_error`, and `skipped` with reason.
+- [x] 2.6 Outcome classification including `tool_call_as_text`, `infra_error`, and `skipped` with reason.
+  - Six of the seven classes were already produced and tested; `step_exhausted` was in `OUTCOMES`
+    and in the spec but unreachable, because nothing counted steps. It is reachable now (see 3.3),
+    and is checked *before* `permission_blocked`, which its message also matches: the guard is what
+    throws, but running out of steps is something the model did.
+  - Recorded from a real run rather than fabricated:
+    `tests/fixtures/opencode/{run,session}-step-exhausted.*` is a one-step budget against a task
+    needing three writes.
 
 ## 3. Conditions, repeats, matrix
 
 - [x] 3.1 OFF and ROUTED; `repeats`; a model list from the manifest or `--models`.
 - [ ] 3.2 INJECTED for skills (`instructions` plus a skill deny) and agents (`--agent`).
-- [ ] 3.3 A per-endpoint worker limit (default 1), plus `timeout_s` and `max_steps` enforcement.
+- [x] 3.3 A per-endpoint worker limit (default 1), plus `timeout_s` and `max_steps` enforcement.
+  - `max_steps`: `opencode run` has no step limit of its own, so the guard counts tool calls and
+    refuses the one past the budget (`WIKISKILL_MAX_STEPS`). Counted before the deny check, so a
+    model cannot buy steps by making calls it knows will be refused. Verified live on 2026-09-21:
+    `max_steps: 1` against a three-file task ended `step_exhausted` with the budget's own message,
+    and its `file_exists` verifier failed because the third file was never written.
+  - `timeout_s` was already enforced as the `subprocess` timeout and classified `infra_error`, which
+    is what the design asks for — a timeout is not a verdict about the model.
+  - `--workers N` (default 1) applies *inside* a model, not across the run: every unit of one model
+    shares one endpoint, and models still run one after another so an endpoint holding one model in
+    memory is never asked to hold two. Results keep submission order however the lanes finish, and
+    `run.json` records the lane count, since it changes what a wall time means.
 
 ## 4. Scoring and reports
 
@@ -107,3 +136,8 @@ Deferred:
     (6 units plus the model), no `infra_error` occurred, and `wikiskill eval` exited 1 because
     nothing was scored. Isolation was still captured for both conditions (see 5.3).
 - [x] 5.5 `openspec validate add-explicit-eval --strict --no-interactive`.
+- **Noted 2026-09-21, not yet acted on.** Roughly half the runs against `opencode/big-pickle` that
+  day failed preflight with `the probe did not finish within 300s`, then passed on an immediate
+  retry — the free tier queues. `PROBE_TIMEOUT_S` is one number and the probe has no retry, so an
+  otherwise healthy model is refused on a coin flip. Worth a retry or a longer budget before any
+  long matrix run.

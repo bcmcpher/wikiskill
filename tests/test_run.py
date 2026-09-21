@@ -9,6 +9,8 @@ returns what the test told it to.
 
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -149,3 +151,91 @@ def test_a_task_without_verifiers_gets_no_verdict(xdg, tmp_path, layout):
 
     assert result["passed"] is None
     assert result["verifiers"] == []
+
+
+# --------------------------------------------------------------------------- workers
+
+
+THREE = """
+suite: toy
+defaults: { repeats: 3 }
+tasks:
+  - id: control
+    prompt: Rename the variable n to count.
+    split: val
+    verifiers:
+      - { kind: file_exists, path: DONE.md }
+"""
+
+
+class CountingBackend(FakeBackend):
+    """Records how many units were in flight at once, and in what order they finished."""
+
+    def __init__(self, layout: RunLayout, **kwargs):
+        super().__init__(layout, **kwargs)
+        self.inside = 0
+        self.peak = 0
+        self.lock = threading.Lock()
+
+    def execute(self, unit) -> Trajectory:
+        with self.lock:
+            self.inside += 1
+            self.peak = max(self.peak, self.inside)
+        try:
+            time.sleep(0.05)
+            return super().execute(unit)
+        finally:
+            with self.lock:
+                self.inside -= 1
+
+
+@pytest.fixture
+def three(tmp_path):
+    path = tmp_path / "three.yaml"
+    path.write_text(THREE, encoding="utf-8")
+    return suite_mod.load(path)
+
+
+def test_one_worker_by_default(xdg, three, layout):
+    backend = CountingBackend(layout, writes="DONE.md")
+
+    go(three, backend, layout)
+
+    assert backend.peak == 1, "an endpoint serving one request at a time is the default"
+
+
+def test_workers_run_units_of_one_model_at_once(xdg, three, layout):
+    backend = CountingBackend(layout, writes="DONE.md")
+
+    run = run_mod.run_suite(
+        three,
+        backend,
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+        workers=3,
+    )
+
+    assert backend.peak > 1
+    assert len(run.results) == 3
+    assert [result["repeat"] for result in run.results] == [0, 1, 2], (
+        "results keep submission order however the lanes finished"
+    )
+    assert run.results == layout.read_results(), "and the file is not interleaved"
+
+
+def test_the_manifest_records_how_many_lanes_ran(xdg, three, layout):
+    run = run_mod.run_suite(
+        three,
+        CountingBackend(layout, writes="DONE.md"),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+        workers=2,
+    )
+
+    assert run_mod.load_manifest(run.layout)["workers"] == 2

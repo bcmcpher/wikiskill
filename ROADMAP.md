@@ -23,10 +23,17 @@ Step 1 is **done**: implemented, archived under
 
 Step 2 is **in progress**: its minimal working core is implemented — the task-suite format and
 `wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
-and ROUTED conditions, route metrics, deterministic verifiers, and `report.json`/`report.md`. Still
-open in that change: the data-science-harness adapter (1.3), the full outcome taxonomy (2.6),
-INJECTED (3.2), worker limits (3.3), the rubric judge (4.3), matrix statistics (4.5) and the
+and ROUTED conditions, route metrics, deterministic verifiers, the full outcome taxonomy, step and
+time budgets, and `report.json`/`report.md`. Still open in that change: the data-science-harness
+adapter (1.3), INJECTED (3.2), the rubric judge (4.3), matrix statistics (4.5) and the
 `/wikiskill-eval` command (4.6).
+
+A defect found on 2026-09-21 is worth carrying forward as a habit rather than a note: the evaluation
+guard had never run in any evaluation. OpenCode calls every export of a plugin module as a plugin
+factory, so exporting an error class alongside the factory made the whole plugin fail to load, in
+one ERROR line, while runs carried on unguarded. Its unit tests passed the whole time because they
+tested pure functions and never the contract with the loader. Anything wikiskill hands to a harness
+needs at least one test that exercises the harness's own entry point.
 
 `add-logging-safeguards` is also done and archived. It is not a step: it is a post-hoc amendment to
 two of step 1's capabilities, recording three behaviours that a review of the implementation added

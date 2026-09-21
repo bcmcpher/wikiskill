@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import json
 import shutil
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,8 @@ class RunResult:
     preflight: dict[str, PreflightResult] = field(default_factory=dict)
     results: list[dict[str, Any]] = field(default_factory=list)
     events_written: int = 0
+    #: Units run at once against one endpoint. Recorded because it changes what a wall time means.
+    workers: int = 1
 
     @property
     def run_id(self) -> str:
@@ -78,12 +82,18 @@ def run_suite(
     tasks: list[Task] | None = None,
     layout: RunLayout | None = None,
     run_id: str | None = None,
+    workers: int = 1,
     on_event=None,
 ) -> RunResult:
     """Run a suite and write `run.json`, `results.jsonl`, and the raw events, then return the run.
 
     `on_event` is called with a short progress line per unit, so a caller can report progress
     without this module knowing anything about how it prints.
+
+    `workers` is a limit per endpoint, not per run, which is why it is applied inside a model rather
+    than across the whole unit list: every unit of one model shares one endpoint, and the default of
+    one is what Ollama serves. Models still run one after another, so an endpoint holding a single
+    model in memory is never asked to hold two.
     """
     run_id = run_id or new_run_id()
     collection_name = collection.name if collection else suite.name
@@ -94,7 +104,13 @@ def run_suite(
 
     report = on_event or (lambda _line: None)
     started = time.time()
-    run = RunResult(layout=where, suite=suite, models=list(models), conditions=conditions)
+    run = RunResult(
+        layout=where,
+        suite=suite,
+        models=list(models),
+        conditions=conditions,
+        workers=max(1, workers),
+    )
 
     for model in models:
         report(f"preflight {model}")
@@ -114,12 +130,32 @@ def run_suite(
             report(f"isolation {condition}")
             proofs[condition] = _isolation_proof(backend, first)
 
-    for unit in units:
-        trajectory = _run_unit(unit, backend, run, report)
-        result = trajectory.as_result()
-        run.results.append(result)
-        where.append_result(result)
-        run.events_written += _write_events(backend, trajectory, raw_root)
+    keeping = threading.Lock()
+
+    def record(trajectory: Trajectory) -> None:
+        # One lock for the whole hand-off: `results.jsonl` and the raw log are both append-only
+        # files, and a half-written line is worse than a slow one.
+        with keeping:
+            result = trajectory.as_result()
+            run.results.append(result)
+            where.append_result(result)
+            run.events_written += _write_events(backend, trajectory, raw_root)
+
+    for model in models:
+        mine = [unit for unit in units if unit.model == model]
+        if not mine:
+            continue
+        lanes = max(1, min(run.workers, len(mine)))
+        if lanes == 1:
+            for unit in mine:
+                record(_run_unit(unit, backend, run, report))
+            continue
+        report(f"{model}: {lanes} workers")
+        with ThreadPoolExecutor(max_workers=lanes) as pool:
+            # `map` yields in submission order, so `results.jsonl` reads the same however many
+            # lanes ran: a report should not depend on which unit happened to finish first.
+            for trajectory in pool.map(lambda u: _run_unit(u, backend, run, report), mine):
+                record(trajectory)
 
     where.write_manifest(
         _manifest(
@@ -223,6 +259,7 @@ def _manifest(
         "components": _component_versions(collection),
         "preflight": {model: result.as_dict() for model, result in run.preflight.items()},
         "isolation": proofs,
+        "workers": run.workers,
         "duration_s": duration_s,
         "outcomes": run.counts(),
         "events_written": run.events_written,

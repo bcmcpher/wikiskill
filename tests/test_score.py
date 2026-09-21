@@ -157,6 +157,16 @@ def test_a_guard_refusal_is_behaviour_not_failure():
     assert "guard" in error
 
 
+def test_running_out_of_steps_is_the_models_doing_not_the_harness():
+    """Recorded from a real run: a one-step budget against a task needing three writes."""
+    outcome, error = backend_mod.classify(
+        stream("run-step-exhausted.ndjson"), [load("session-step-exhausted.json")]
+    )
+
+    assert outcome == "step_exhausted", "not permission_blocked, though the guard is what threw"
+    assert "step budget of 1 exhausted" in error
+
+
 def test_a_session_that_used_tools_completed():
     outcome, error = backend_mod.classify(stream("run-root.ndjson"), [load("session-root.json")])
 

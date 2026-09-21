@@ -370,6 +370,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
             tasks=tasks,
             layout=layout,
             run_id=run_id,
+            workers=args.workers,
             on_event=lambda line: print(f"  {line}", flush=True),
         )
     except ValueError as exc:
@@ -497,6 +498,16 @@ def _add_eval_parser(sub) -> None:
         type=int,
         default=16384,
         help="minimum context window preflight accepts; 0 skips the check",
+    )
+    ev.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help=(
+            "units to run at once against one endpoint (default 1, which is what Ollama serves). "
+            "Models still run one after another"
+        ),
     )
     ev.add_argument(
         "--preflight-only",

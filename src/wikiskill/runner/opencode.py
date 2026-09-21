@@ -45,6 +45,11 @@ BASE_DENY = (
 #: Tool parts whose error text means the harness or the guard refused the call, not that it failed.
 _BLOCKED_MARKERS = ("wikiskill evaluation guard", "permission denied by", "rejected", "not allowed")
 
+#: The guard's own words when a unit runs out of steps. Checked before `_BLOCKED_MARKERS`, which it
+#: also matches: running out of steps is something the model did, not a permission it lacked. The
+#: wording is the contract with `StepBudgetExhausted` in `harness/opencode/guard/`.
+_STEP_EXHAUSTED_MARKER = "step budget of"
+
 #: Shapes a model emits when it describes a tool call instead of making one.
 _TOOL_SHAPED = ('"tool_call"', '"function_call"', "<tool_call>", '"tool_name"', '"arguments":')
 
@@ -356,9 +361,20 @@ class OpenCodeBackend(Backend):
 
     def env_for(self, unit: Unit, root: Path) -> dict[str, str]:
         """The environment one unit runs in: isolated XDG, inline config, discovery switched off."""
-        return self._env(root, self.config_for(unit), list(BASE_DENY) + list(unit.task.guard_deny))
+        return self._env(
+            root,
+            self.config_for(unit),
+            list(BASE_DENY) + list(unit.task.guard_deny),
+            max_steps=unit.task.max_steps,
+        )
 
-    def _env(self, root: Path, config: dict[str, Any], deny: list[str]) -> dict[str, str]:
+    def _env(
+        self,
+        root: Path,
+        config: dict[str, Any],
+        deny: list[str],
+        max_steps: int | None = None,
+    ) -> dict[str, str]:
         env = dict(os.environ)
         env.update(
             {
@@ -370,6 +386,9 @@ class OpenCodeBackend(Backend):
                 "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
                 "OPENCODE_DISABLE_CLAUDE_CODE": "1",
                 "WIKISKILL_GUARD_DENY": json.dumps(deny),
+                # `opencode run` has no step limit of its own, so the guard counts tool calls and
+                # refuses the one past the budget. Absent for a probe, which has no task behind it.
+                "WIKISKILL_MAX_STEPS": str(max_steps) if max_steps else "",
                 # The logger plugin is inert without a runtime config, and this run has none: eval
                 # events come from `normalize`, so nothing writes the log twice.
                 "WIKISKILL_ORIGIN": "eval",
@@ -977,6 +996,8 @@ def classify(
     for part in tool_parts:
         state = part.get("state") or {}
         message = str(state.get("error") or "").lower()
+        if _STEP_EXHAUSTED_MARKER in message:
+            return "step_exhausted", state.get("error")
         if any(marker in message for marker in _BLOCKED_MARKERS):
             return "permission_blocked", state.get("error")
 

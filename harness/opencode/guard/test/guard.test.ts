@@ -1,13 +1,16 @@
 import { describe, expect, test } from "bun:test"
 
+import * as plugin from "../wikiskill-guard"
+import { wikiskillGuard } from "../wikiskill-guard"
 import {
   GuardBlocked,
+  StepBudgetExhausted,
   commandsIn,
   denialFor,
   matchesPattern,
+  parseBudget,
   parseList,
-  wikiskillGuard,
-} from "../wikiskill-guard"
+} from "../wikiskill/guard"
 
 describe("parseList", () => {
   test("reads a JSON array of strings", () => {
@@ -102,5 +105,77 @@ describe("the plugin", () => {
     expect(
       await plugin["tool.execute.before"]({ tool: "bash" }, { args: { command: "git push" } }),
     ).toBeUndefined()
+  })
+})
+
+describe("parseBudget", () => {
+  test("reads a positive integer and nothing else", () => {
+    expect(parseBudget("40")).toBe(40)
+    expect(parseBudget(undefined)).toBeNull()
+    expect(parseBudget("0")).toBeNull()
+    expect(parseBudget("-1")).toBeNull()
+    expect(parseBudget("2.5")).toBeNull()
+    expect(parseBudget("lots")).toBeNull()
+  })
+})
+
+describe("the step budget", () => {
+  test("allows exactly the budget and refuses the next call", async () => {
+    process.env.WIKISKILL_MAX_STEPS = "2"
+    const plugin = await wikiskillGuard()
+    const hook = plugin["tool.execute.before"]
+
+    expect(await hook({ tool: "read" }, { args: {} })).toBeUndefined()
+    expect(await hook({ tool: "read" }, { args: {} })).toBeUndefined()
+    await expect(hook({ tool: "read" }, { args: {} })).rejects.toBeInstanceOf(StepBudgetExhausted)
+    delete process.env.WIKISKILL_MAX_STEPS
+  })
+
+  test("a refused call still costs a step", async () => {
+    process.env.WIKISKILL_MAX_STEPS = "1"
+    process.env.WIKISKILL_GUARD_DENY = '["git push*"]'
+    const plugin = await wikiskillGuard()
+    const hook = plugin["tool.execute.before"]
+
+    await expect(hook({ tool: "bash" }, { args: { command: "git push" } })).rejects.toBeInstanceOf(
+      GuardBlocked,
+    )
+    await expect(hook({ tool: "bash" }, { args: { command: "ls" } })).rejects.toBeInstanceOf(
+      StepBudgetExhausted,
+    )
+    delete process.env.WIKISKILL_MAX_STEPS
+    delete process.env.WIKISKILL_GUARD_DENY
+  })
+
+  test("with no budget a unit runs as long as its timeout allows", async () => {
+    delete process.env.WIKISKILL_MAX_STEPS
+    const plugin = await wikiskillGuard()
+    for (let call = 0; call < 50; call += 1) {
+      expect(await plugin["tool.execute.before"]({ tool: "read" }, { args: {} })).toBeUndefined()
+    }
+  })
+
+  test("the message is the one the runner classifies on", async () => {
+    expect(new StepBudgetExhausted(40).message).toContain("step budget of 40 exhausted")
+  })
+})
+
+describe("the plugin module's exports", () => {
+  /**
+   * OpenCode calls every export of a plugin file as a plugin factory. When this module also
+   * exported its error classes the whole plugin failed to load with
+   * `Cannot call a class constructor GuardBlocked without |new|`, and the failure was one ERROR
+   * line in a log while the run carried on with no guard at all. This test is that bug's alarm.
+   */
+  test("is nothing but callable plugin factories", async () => {
+    const exported = Object.entries(plugin)
+    expect(exported.length).toBeGreaterThan(0)
+
+    for (const [name, value] of exported) {
+      expect(typeof value, `export ${name} must be a function`).toBe("function")
+      const hooks = await (value as () => Promise<Record<string, unknown>>)()
+      expect(hooks, `export ${name} must return hooks`).toBeObject()
+      expect(Object.keys(hooks), `export ${name} must register a hook`).not.toBeEmpty()
+    }
   })
 })
