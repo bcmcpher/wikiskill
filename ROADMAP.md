@@ -21,11 +21,12 @@ Step 1 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/).
 
-Step 2 is **complete in substance**: every task in `add-explicit-eval` is implemented — the task-suite format and
-`wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
-and ROUTED conditions, route metrics, deterministic verifiers, the full outcome taxonomy, step and
-time budgets, INJECTED, the derived measures, the rubric judge, the `/wikiskill-eval` command, and
-the data-science-harness adapter.
+Step 2 is **done**: implemented, archived under
+[`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
+[`openspec/specs/`](openspec/specs/). The task-suite format and `wikiskill suite check`; the
+OpenCode backend with per-run isolation and endpoint preflight; OFF, ROUTED and INJECTED; route
+metrics, deterministic verifiers and the rubric judge; the full outcome taxonomy with step and time
+budgets; the derived measures; `/wikiskill-eval`; and the data-science-harness adapter.
 
 A defect found on 2026-09-21 is worth carrying forward as a habit rather than a note: the evaluation
 guard had never run in any evaluation. OpenCode calls every export of a plugin module as a plugin
@@ -48,7 +49,7 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | # | Change | Capabilities | Hard dependencies | Why here |
 |---|---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
-| 2 ◐ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
+| 2 ✅ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
 | 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 | First real results, and an early stress test of preflight and open-model tool calling. |
 | 4 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 5 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 4 | Captures sessions where most development happens; adds the harness axis. |
