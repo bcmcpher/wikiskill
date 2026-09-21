@@ -55,7 +55,28 @@ Deferred:
 ## 4. Scoring and reports
 
 - [x] 4.1 Route metrics `route@1`, `route@k`, `capability@k`, and the confusion matrix.
-- [ ] 4.2 Verifiers `command`, `file_exists`, and `regex`, run in the workdir after the session.
+- [x] 4.2 Verifiers `command`, `file_exists`, and `regex`, run in the workdir after the session.
+  - `score/verify.py` holds the three kinds, harness-agnostic: it is given a workdir, the final
+    text and the transcript, never a backend. `negate` inverts any kind. A `regex` on a file that
+    was never written is a fail, not a crash.
+  - The line that matters is between a check that *fails* and one that cannot be *carried out*. A
+    command exiting 1 when 0 was expected is a verdict about the model; a command that times out,
+    or a workdir that is gone, raises `VerifierError` and the unit is recorded `infra_error` and
+    excluded from scores. Verifiers run only on a unit that actually ran.
+  - `results.jsonl` gains `verifiers` and `passed` (`None` when a task declares none, so "nothing
+    checked" never reads as "everything passed"). `report.py` is now verifier-first: a task with
+    verifiers takes its pass rate from them and reports routing as a separate dimension, and every
+    row's `pass_basis` says `verifier`, `route`, or `not measured`. `report.md` names which check
+    failed.
+  - The loader now rejects at read time what the schema only describes: an absolute or `..` path, a
+    pattern that does not compile, and `target: file` with no `path`.
+  - **Verified end to end on 2026-09-21** against `opencode/big-pickle`, the endpoint that passes
+    preflight. `unrelated-control` — the toy suite's verifier-only task — moved from
+    `pass_basis: "not measured"` to `"verifier"` with a real failure under both OFF and ROUTED:
+    `/count/ not found in the final text`, outcome `completed`, so a failed check reads as a failed
+    task rather than a broken harness. A second report carried both bases side by side:
+    `inspect-history` at `pass_basis: "route"` (route@1 0%) next to `unrelated-control` at
+    `"verifier"`. This is Milestone A's first pass/fail number.
 - [ ] 4.3 Rubric judge on the judge role endpoint, blind to the expected route; 1 or 3 judges per rubric.
 - [x] 4.4 `report.json` and `report.md`: pass rate, tokens, time, outcome classes, unrun/skipped with
   reasons.

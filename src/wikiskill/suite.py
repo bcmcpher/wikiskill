@@ -1,9 +1,10 @@
 """Task suites: the declarative fixtures an explicit evaluation runs.
 
 A suite is data. Adding a task changes a YAML file and nothing else, which is why the checks live
-here rather than in each caller: the schema covers shape, and this module covers the three things a
-schema cannot say — ids are unique within the suite, every task states how it will be judged, and a
-prompt never names what it is supposed to route to.
+here rather than in each caller: the schema covers shape, and this module covers what a schema
+cannot say — ids are unique within the suite, every task states how it will be judged, a prompt
+never names what it is supposed to route to, and a verifier's pattern compiles and its path stays
+inside the workdir.
 
 Nothing here executes a task or touches a collection's source tree.
 """
@@ -222,6 +223,55 @@ def prompt_leaks(task: Task) -> list[str]:
     return found
 
 
+# --------------------------------------------------------------------------- verifier checks
+
+
+def _path_problem(raw: str) -> str | None:
+    """Why a verifier path is not usable, or `None` when it is.
+
+    A verifier runs in the task's own workdir, which is the only thing a run may touch. A path that
+    is absolute or climbs out of it would reach the machine running the suite, so it is refused when
+    the suite is read rather than when the check finally runs, hours into a matrix.
+    """
+    if raw.startswith("~") or Path(raw).is_absolute():
+        return "must be relative to the task's workdir"
+    if ".." in Path(raw).parts:
+        return "must not climb out of the task's workdir with `..`"
+    return None
+
+
+def verifier_problems(task: Task) -> list[str]:
+    """What the schema cannot say about a task's verifiers.
+
+    The schema's `oneOf` covers which fields each kind requires. It cannot compile a regular
+    expression, it cannot see that `target: file` needs a `path` naming the file, and it only
+    *describes* the rule that a path stays inside the workdir.
+    """
+    problems: list[str] = []
+    for index, verifier in enumerate(task.verifiers):
+        where = f"verifier {index}"
+        if verifier.kind not in VERIFIER_KINDS:
+            expected = ", ".join(VERIFIER_KINDS)
+            problems.append(f"{where}: unknown kind {verifier.kind!r}, expected one of {expected}")
+            continue
+        if verifier.kind == "regex":
+            try:
+                re.compile(verifier.pattern or "")
+            except re.error as exc:
+                problems.append(
+                    f"{where}: {verifier.pattern!r} is not a valid regular expression: {exc}"
+                )
+            if verifier.target == "file" and not verifier.path:
+                problems.append(
+                    f"{where}: `target: file` needs a `path` saying which file to match against"
+                )
+        if verifier.path is not None:
+            trouble = _path_problem(verifier.path)
+            if trouble:
+                problems.append(f"{where}: path {verifier.path!r} {trouble}")
+    return problems
+
+
 # --------------------------------------------------------------------------- loading
 
 
@@ -269,6 +319,8 @@ def parse(document: Any, *, path: Path | None = None) -> Suite:
                 f"tasks/{index}: task {task.id!r} declares no expected outcome: it needs an "
                 "`expect` route, a verifier, or a rubric"
             )
+        for problem in verifier_problems(task):
+            problems.append(f"tasks/{index}: task {task.id!r} {problem}")
         for term in prompt_leaks(task):
             problems.append(
                 f"tasks/{index}: task {task.id!r} names {term!r} in its prompt, which is part of "

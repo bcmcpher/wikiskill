@@ -6,6 +6,9 @@ reader who cannot tell those apart will draw the wrong conclusion about a skill.
 preflight-failed and `infra_error` combination is listed with its reason, and nothing is presented
 as complete that was not.
 
+A pass rate comes from a task's verifiers where it declares any, and falls back to `route@1` where
+it does not; `pass_basis` on every row says which, because the two are not comparable.
+
 Routing loss and content value need the INJECTED condition, which `add-explicit-eval` task 3.2 adds;
 until then they are reported as not computed rather than silently omitted.
 """
@@ -63,12 +66,14 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
     tokens = Counter()
     for result in usable:
         tokens.update({k: v for k, v in (result.get("tokens") or {}).items() if isinstance(v, int)})
+    pass_rate, pass_basis = _pass(usable, score)
     row = score.as_dict()
     row.update(
         {
             "attempted": len(group),
-            "pass_rate": _pass_rate(score),
-            "pass_basis": "route" if score.expected else "not measured",
+            "pass_rate": pass_rate,
+            "pass_basis": pass_basis,
+            "failed_verifiers": _failed_verifiers(usable),
             "tokens": dict(tokens),
             "wall_time_ms": sum(result.get("duration_ms") or 0 for result in usable),
             "outcomes": dict(Counter(result["outcome"] for result in group)),
@@ -77,13 +82,39 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
     return row
 
 
-def _pass_rate(score: score_mod.RouteScore) -> float | None:
-    """Until verifiers land (task 4.2), a task's pass rate is its `route@1`.
+def _pass(usable: list[dict[str, Any]], score: score_mod.RouteScore) -> tuple[float | None, str]:
+    """A task's pass rate, and what it is based on.
 
-    Stated rather than assumed: `pass_basis` on every row says which it is, so a later report with
-    real verifiers is not silently compared against this one.
+    Verifier-first, as the `eval-scoring` spec requires: where a task declares verifiers their
+    verdict *is* the pass/fail outcome, and the route metrics stay on the row as a separate
+    dimension rather than standing in for one. A task with no verifiers falls back to `route@1`, and
+    a task with neither is not measured at all.
+
+    `pass_basis` says which of the three it was on every row, so a report with verifiers is never
+    silently compared against one without.
     """
-    return score.route_at_1
+    verdicts = [result["passed"] for result in usable if result.get("passed") is not None]
+    if verdicts:
+        return sum(1 for verdict in verdicts if verdict) / len(verdicts), "verifier"
+    if score.expected:
+        return score.route_at_1, "route"
+    return None, "not measured"
+
+
+def _failed_verifiers(usable: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Which checks failed, deduplicated across repeats.
+
+    Repeats of the same task usually fail the same check for the same reason; listing it once per
+    repeat would bury the two distinct failures under ten copies of one.
+    """
+    failures: dict[tuple[str, str], dict[str, str]] = {}
+    for result in usable:
+        for verifier in result.get("verifiers") or []:
+            if verifier.get("passed"):
+                continue
+            entry = {"kind": verifier.get("kind", "?"), "detail": verifier.get("detail", "")}
+            failures.setdefault((entry["kind"], entry["detail"]), entry)
+    return list(failures.values())
 
 
 def _derived() -> dict[str, Any]:
@@ -94,7 +125,7 @@ def _derived() -> dict[str, Any]:
         "regression_rate": None,
         "note": (
             "routing loss and content value need the INJECTED condition (task 3.2); transfer and "
-            "regression rates need verifier-based pass/fail (task 4.2)"
+            "regression rates arrive with the matrix statistics (task 4.5)"
         ),
     }
 
@@ -156,9 +187,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines += [
             (
                 "| task | model | condition | repeats | route@1 | route@k | cap@k | pass |"
-                " tokens | time (s) |"
+                " pass basis | tokens | time (s) |"
             ),
-            "|---|---|---|---|---|---|---|---|---|---|",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         for row in report["rows"]:
             tokens = row.get("tokens") or {}
@@ -166,11 +197,14 @@ def render_markdown(report: dict[str, Any]) -> str:
             lines.append(
                 f"| {row['task_id']} | {row['model']} | {row['condition']} | {row['repeats']} | "
                 f"{_pct(row.get('route@1'))} | {_pct(row.get('route@k'))} | "
-                f"{_pct(row.get('capability@k'))} | {_pct(row.get('pass_rate'))} | {total} | "
+                f"{_pct(row.get('capability@k'))} | {_pct(row.get('pass_rate'))} | "
+                f"{row.get('pass_basis', '—')} | {total} | "
                 f"{round((row.get('wall_time_ms') or 0) / 1000, 1)} |"
             )
     else:
         lines.append("No task produced a scorable result.")
+
+    lines += _failing_verifier_lines(report.get("rows") or [])
 
     lines += ["", "## Per model and condition", ""]
     for key, summary in sorted((report.get("per_model_condition") or {}).items()):
@@ -219,6 +253,21 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- **{entry['kind']}** {where or entry.get('model', '')}: {entry['reason']}"
             )
     return "\n".join(lines) + "\n"
+
+
+def _failing_verifier_lines(rows: list[dict[str, Any]]) -> list[str]:
+    """Which check failed, per row. A pass rate of 0% is a question; this is the answer."""
+    failing = [row for row in rows if row.get("failed_verifiers")]
+    if not failing:
+        return []
+    lines = ["", "## Failing verifiers", ""]
+    for row in failing:
+        lines.append(f"- **{row['task_id']}** / {row['model']} / {row['condition']}:")
+        lines += [
+            f"  - `{verifier['kind']}`: {verifier['detail']}"
+            for verifier in row["failed_verifiers"]
+        ]
+    return lines
 
 
 def _pct(value: float | None) -> str:

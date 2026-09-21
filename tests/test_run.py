@@ -1,0 +1,151 @@
+"""The run loop: what happens to a unit between `execute` and `results.jsonl`.
+
+This is the one place in the suite with a test double. Everything else here reads recorded
+fixtures, but `run_suite`'s job is orchestration — preflight, skips, verifiers, the result line —
+and a recorded OpenCode session cannot exercise a backend that fails preflight or leaves a workdir
+in a particular state. The fake stays deliberately dumb: it records what it was asked for and
+returns what the test told it to.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from wikiskill import suite as suite_mod
+from wikiskill.runner import run as run_mod
+from wikiskill.runner.base import OFF, Backend, PreflightResult, RunLayout, Trajectory
+
+SUITE = """
+suite: toy
+defaults: { repeats: 1 }
+tasks:
+  - id: control
+    prompt: Rename the variable n to count.
+    split: val
+    verifiers:
+      - { kind: file_exists, path: DONE.md }
+"""
+
+
+class FakeBackend(Backend):
+    """A backend that runs nothing and leaves whatever the test asked it to leave behind."""
+
+    harness = "fake"
+
+    def __init__(self, layout: RunLayout, *, writes: str | None = None, ok: bool = True):
+        self.layout = layout
+        self.writes = writes
+        self.ok = ok
+        self.executed: list[str] = []
+
+    def version(self) -> str:
+        return "0.0.0-test"
+
+    def preflight(self, model: str) -> PreflightResult:
+        if self.ok:
+            return PreflightResult(model=model, ok=True)
+        return PreflightResult(model=model, ok=False, problems=("does not support tools",))
+
+    def prepare(self, unit) -> Path:
+        workdir = self.layout.unit_dir(unit) / "work"
+        workdir.mkdir(parents=True, exist_ok=True)
+        return workdir
+
+    def execute(self, unit) -> Trajectory:
+        self.executed.append(unit.task_id)
+        workdir = self.prepare(unit)
+        if self.writes:
+            (workdir / self.writes).write_text("done\n", encoding="utf-8")
+        return Trajectory(
+            unit=unit, outcome="completed", workdir=workdir, final_text="finished", duration_ms=5
+        )
+
+    def normalize(self, trajectory) -> list[dict]:
+        return []
+
+
+@pytest.fixture
+def suite(tmp_path):
+    path = tmp_path / "suite.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+    return suite_mod.load(path)
+
+
+@pytest.fixture
+def layout(tmp_path):
+    return RunLayout.create("toy", "01JRUN", base=tmp_path / "evals")
+
+
+def go(suite, backend, layout):
+    return run_mod.run_suite(
+        suite,
+        backend,
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+    )
+
+
+def test_a_passing_verifier_reaches_the_result_line(xdg, suite, layout):
+    run = go(suite, FakeBackend(layout, writes="DONE.md"), layout)
+    (result,) = run.results
+
+    assert result["outcome"] == "completed"
+    assert result["passed"] is True
+    assert result["verifiers"] == [
+        {"kind": "file_exists", "passed": True, "detail": "DONE.md exists"}
+    ]
+    assert layout.read_results() == run.results, "and it is on disk, not only in memory"
+
+
+def test_a_failing_verifier_is_a_failure_not_an_infrastructure_error(xdg, suite, layout):
+    run = go(suite, FakeBackend(layout, writes=None), layout)
+    (result,) = run.results
+
+    assert result["outcome"] == "completed", "the session itself was fine"
+    assert result["passed"] is False
+
+
+def test_a_verifier_that_cannot_run_demotes_the_unit(xdg, suite, layout, monkeypatch):
+    def refuse(*args, **kwargs):
+        raise run_mod.verify.VerifierError("`check` timed out after 120s")
+
+    monkeypatch.setattr(run_mod.verify, "verify_task", refuse)
+
+    run = go(suite, FakeBackend(layout, writes="DONE.md"), layout)
+    (result,) = run.results
+
+    assert result["outcome"] == "infra_error"
+    assert result["passed"] is None, "a check that never ran says nothing about the model"
+    assert "timed out" in result["reason"]
+
+
+def test_a_unit_that_never_ran_is_never_verified(xdg, suite, layout):
+    backend = FakeBackend(layout, writes="DONE.md", ok=False)
+
+    run = go(suite, backend, layout)
+    (result,) = run.results
+
+    assert backend.executed == [], "preflight failed, so nothing was executed"
+    assert result["outcome"] == "skipped"
+    assert result["passed"] is None
+    assert result["verifiers"] == []
+
+
+def test_a_task_without_verifiers_gets_no_verdict(xdg, tmp_path, layout):
+    path = tmp_path / "routing.yaml"
+    path.write_text(
+        "suite: toy\ndefaults: { repeats: 1 }\ntasks:\n"
+        "  - id: route-only\n    prompt: Set up recording.\n    split: val\n"
+        "    expect: { skill: wikiskill-trace }\n",
+        encoding="utf-8",
+    )
+    run = go(suite_mod.load(path), FakeBackend(layout), layout)
+    (result,) = run.results
+
+    assert result["passed"] is None
+    assert result["verifiers"] == []

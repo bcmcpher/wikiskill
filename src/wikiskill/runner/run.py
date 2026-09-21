@@ -20,6 +20,7 @@ from typing import Any
 
 from .. import __version__, paths, rawlog
 from ..collection import Collection
+from ..score import verify
 from ..suite import Suite, Task
 from .base import (
     OFF,
@@ -143,8 +144,42 @@ def _run_unit(unit: Unit, backend: Backend, run: RunResult, report) -> Trajector
 
     report(f"{unit.condition:7} {unit.model}  {unit.task.id} (repeat {unit.repeat})")
     trajectory = backend.execute(unit)
+    _verify(trajectory, report)
     report(f"  {trajectory.outcome}" + (f": {trajectory.error}" if trajectory.error else ""))
     return trajectory
+
+
+def _verify(trajectory: Trajectory, report) -> None:
+    """Run the task's verifiers in the workdir the session left behind.
+
+    Only a unit that actually ran is verified. An `infra_error` or a `skipped` unit produced no work
+    to check, and checking it anyway would turn a harness failure into a model failure — the one
+    thing the outcome classes exist to prevent.
+
+    A verifier that cannot be carried out is itself infrastructure, so it demotes the unit rather
+    than failing it: the model is not responsible for a check that never ran.
+    """
+    task = trajectory.unit.task
+    if not trajectory.scored or not task.verifiers:
+        return
+    try:
+        results, passed = verify.verify_task(
+            task,
+            workdir=trajectory.workdir,
+            final_text=trajectory.final_text,
+            transcript=trajectory.transcript,
+        )
+    except verify.VerifierError as exc:
+        reason = f"verifier could not run: {exc}"
+        trajectory.outcome = "infra_error"
+        trajectory.error = str(exc)
+        trajectory.reason = reason
+        return
+
+    trajectory.verifiers = [result.as_dict() for result in results]
+    trajectory.passed = passed
+    kept = sum(1 for result in results if result.passed)
+    report(f"  verifiers {kept}/{len(results)} passed")
 
 
 def _write_events(backend: Backend, trajectory: Trajectory, raw_root: Path) -> int:

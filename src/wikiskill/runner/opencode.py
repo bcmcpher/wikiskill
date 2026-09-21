@@ -511,6 +511,7 @@ class OpenCodeBackend(Backend):
         trajectory.activations = activations(sessions)
         trajectory.tokens = _token_totals(sessions)
         trajectory.final_text = _final_text(sessions)
+        trajectory.transcript = _transcript(sessions)
         trajectory.outcome, trajectory.error = classify(stream, sessions)
         return trajectory
 
@@ -938,6 +939,21 @@ def _final_text(sessions: list[dict[str, Any]]) -> str:
                 if part.get("type") == "text" and isinstance(part.get("text"), str):
                     text = part["text"]
     return text
+
+
+def _transcript(sessions: list[dict[str, Any]]) -> str:
+    """Every text part of every session, joined — including children, so a delegated answer counts.
+
+    A `regex` verifier with `target: transcript` asks "was this said at any point", which is a
+    different question from `final_text`'s "was this the answer".
+    """
+    chunks = []
+    for session in sessions:
+        for message in session.get("messages") or []:
+            for part in message.get("parts") or []:
+                if part.get("type") == "text" and isinstance(part.get("text"), str):
+                    chunks.append(part["text"])
+    return "\n".join(chunks)
 
 
 def classify(

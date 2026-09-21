@@ -23,9 +23,9 @@ Step 1 is **done**: implemented, archived under
 
 Step 2 is **in progress**: its minimal working core is implemented — the task-suite format and
 `wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
-and ROUTED conditions, route metrics, and `report.json`/`report.md`. Still open in that change:
-the data-science-harness adapter (1.3), the full outcome taxonomy (2.6), INJECTED (3.2), worker
-limits (3.3), verifiers (4.2), the rubric judge (4.3), matrix statistics (4.5) and the
+and ROUTED conditions, route metrics, deterministic verifiers, and `report.json`/`report.md`. Still
+open in that change: the data-science-harness adapter (1.3), the full outcome taxonomy (2.6),
+INJECTED (3.2), worker limits (3.3), the rubric judge (4.3), matrix statistics (4.5) and the
 `/wikiskill-eval` command (4.6).
 
 `add-logging-safeguards` is also done and archived. It is not a step: it is a post-hoc amendment to
@@ -70,9 +70,15 @@ is served by OpenCode's own free tier, which refuses a direct HTTP request
 (`FreeTierError: OpenCode's free tier can only be used from within OpenCode`) while working perfectly
 through `opencode run` — so the original probe would have rejected a model the runner can drive. The
 probe now takes whichever path the units will take, and on 2026-09-18 that model passed: a real
-`write` tool call and a 200000-token context, at no cost and with no API key. The measurement half of
-Milestone A is therefore unblocked, and what remains before a routing number exists is verifiers
-(task 4.2), not hardware.
+`write` tool call and a 200000-token context, at no cost and with no API key.
+
+Verifiers (task 4.2) landed on 2026-09-21, and with them the first pass/fail number: the toy suite's
+verifier-only task scored 0% on `opencode/big-pickle` under both OFF and ROUTED, with the report
+naming the check that failed (`/count/ not found in the final text`) and classifying the unit
+`completed` rather than broken. Every report row now says whether its pass rate came from a verifier,
+from `route@1`, or from nothing at all, so the two are never compared by accident. What the routing
+report still wants is the data-science-harness suite itself (task 1.3) and the pilot (step 3) — not
+hardware, and no longer scoring.
 
 ### B — Signals in both harnesses (4–5)
 

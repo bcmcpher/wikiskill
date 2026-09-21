@@ -240,3 +240,99 @@ def test_markdown_reports_a_run_where_everything_ran():
 
     assert "Everything the suite declared was attempted" in text
     assert "| release |" in text
+
+
+# --------------------------------------------------------------------------- verifier-first
+
+
+def verifier(kind="file_exists", *, passed=True, detail="CHANGELOG.md exists"):
+    return {"kind": kind, "passed": passed, "detail": detail}
+
+
+def test_a_verifier_verdict_decides_the_pass_rate():
+    results = [
+        result(
+            repeat=0, activations=[], expected=None, agents=(), verifiers=[verifier()], passed=True
+        ),
+        result(
+            repeat=1,
+            activations=[],
+            expected=None,
+            agents=(),
+            verifiers=[verifier(passed=False, detail="CHANGELOG.md does not exist")],
+            passed=False,
+        ),
+    ]
+    row = report_mod.build_report(results, manifest())["rows"][0]
+
+    assert row["pass_rate"] == 0.5
+    assert row["pass_basis"] == "verifier"
+
+
+def test_a_verifier_outranks_the_route_it_also_declares():
+    """The route was reached and the work was still wrong. The verifier is the verdict."""
+    results = [
+        result(
+            activations=[skill("dataset-release"), agent("datalad-doer")],
+            verifiers=[verifier(passed=False)],
+            passed=False,
+        )
+    ]
+    row = report_mod.build_report(results, manifest())["rows"][0]
+
+    assert row["route@1"] == 1.0, "routing is still reported as its own dimension"
+    assert row["pass_rate"] == 0.0
+    assert row["pass_basis"] == "verifier"
+
+
+def test_a_task_with_neither_route_nor_verifier_is_not_measured():
+    results = [result(activations=[], expected=None, agents=())]
+    row = report_mod.build_report(results, manifest())["rows"][0]
+
+    assert row["pass_rate"] is None
+    assert row["pass_basis"] == "not measured"
+
+
+def test_an_unscored_repeat_contributes_no_verdict():
+    results = [
+        result(repeat=0, activations=[], verifiers=[verifier()], passed=True),
+        result(repeat=1, outcome="infra_error", reason="verifier could not run", activations=[]),
+    ]
+    row = report_mod.build_report(results, manifest())["rows"][0]
+
+    assert row["pass_rate"] == 1.0, "an infra_error is excluded, not counted as a fail"
+    assert row["attempted"] == 2
+
+
+def test_failing_verifiers_are_named_once_however_many_repeats_fail():
+    results = [
+        result(repeat=index, activations=[], verifiers=[verifier(passed=False)], passed=False)
+        for index in range(3)
+    ]
+    built = report_mod.build_report(results, manifest())
+
+    assert built["rows"][0]["failed_verifiers"] == [
+        {"kind": "file_exists", "detail": "CHANGELOG.md exists"}
+    ]
+    text = report_mod.render_markdown(built)
+    assert "## Failing verifiers" in text
+    assert text.count("CHANGELOG.md exists") == 1
+
+
+def test_markdown_says_what_each_pass_rate_is_based_on():
+    results = [
+        result(task_id="release", activations=[skill("dataset-release")]),
+        result(
+            task_id="control",
+            activations=[],
+            expected=None,
+            agents=(),
+            verifiers=[verifier()],
+            passed=True,
+        ),
+    ]
+    text = report_mod.render_markdown(report_mod.build_report(results, manifest()))
+
+    assert "pass basis" in text
+    assert "| route |" in text
+    assert "| verifier |" in text

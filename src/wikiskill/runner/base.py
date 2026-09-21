@@ -213,9 +213,17 @@ class Trajectory:
     error: str | None = None
     reason: str | None = None
     final_text: str = ""
+    #: Every text part of every session, joined — what a `regex` verifier with `target: transcript`
+    #: matches against.
+    transcript: str = ""
     workdir: Path | None = None
     #: Components the model activated, in order, as ``{"kind": ..., "name": ...}``.
     activations: list[dict[str, str]] = field(default_factory=list)
+    #: One entry per verifier the task declared, in declaration order. Empty when it declared none.
+    verifiers: list[dict[str, Any]] = field(default_factory=list)
+    #: Whether every verifier passed. `None` when the task declares no verifiers, so "nothing was
+    #: checked" is never reported as "everything passed".
+    passed: bool | None = None
 
     @property
     def scored(self) -> bool:
@@ -238,6 +246,8 @@ class Trajectory:
             "tokens": self.tokens,
             "session_id": self.session_id,
             "activations": self.activations,
+            "verifiers": self.verifiers,
+            "passed": self.passed,
             "expected": {
                 "primary": self.unit.task.expect.primary,
                 "agents": list(self.unit.task.expect.agents),
