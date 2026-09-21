@@ -61,6 +61,24 @@ failure it MUST skip that model with an actionable message.
 - **THEN** preflight probes the model by running the harness, and accepts it when that probe makes
   a real tool call
 
+### Requirement: Units run within stated budgets
+
+Each unit MUST be held to its task's `timeout_s` and `max_steps`. Exceeding the step budget MUST be
+classified `step_exhausted`, which is model behaviour, rather than an infrastructure failure. The
+runner MUST NOT run more than a configured number of units at once against one endpoint, defaulting
+to one, and MUST record that number in the run manifest.
+
+#### Scenario: Model loops past its step budget
+
+- **WHEN** a task declares `max_steps: 1` and the model attempts a second tool call
+- **THEN** the call is refused, the unit is classified `step_exhausted`, and its verifiers still run
+  against whatever the first step produced
+
+#### Scenario: Endpoint serving one request at a time
+
+- **WHEN** a suite runs across several models with no worker count given
+- **THEN** one unit at a time runs against each endpoint, and models are not interleaved
+
 ### Requirement: Outcomes are classified before scoring
 
 Every run MUST be classified as one of `completed`, `tool_call_as_text`, `step_exhausted`,
