@@ -144,7 +144,16 @@ Deferred:
   - Exact McNemar on the paired per-task outcomes, two-sided from the binomial tail over the
     discordant pairs. Reported, never used to gate — on a suite of a dozen tasks it will usually
     say the difference could be a coin flip, and saying so is the point.
-- [ ] 4.6 `harness/source/commands/wikiskill-eval.md` launching `wikiskill eval` in the background.
+- [x] 4.6 `harness/source/commands/wikiskill-eval.md` launching `wikiskill eval` in the background.
+  - The command's first instruction is that it must never run the suite in the calling session,
+    which is the `eval-runner` spec's "Launch from inside OpenCode" scenario: an evaluation run from
+    here would put this conversation's context, skills and MCP servers into the thing being
+    measured.
+  - It checks the suite, costs the run with `--preflight-only` first (on a harness-served model the
+    probe itself spends tokens), starts the real run detached with its output in a file, reports the
+    run id and where the report will be, and stops. It does not poll.
+  - `tests/test_build.py` asserts those three things survive the build, whitespace-normalised so the
+    assertion does not depend on where a line wrapped.
 
 ## 5. Verify
 

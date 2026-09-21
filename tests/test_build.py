@@ -216,3 +216,16 @@ def test_the_real_source_tree_builds(tmp_path):
     """wikiskill's own components must survive their own build."""
     result = build("opencode", out_dir=tmp_path / "dist")
     assert any(p.name == "SKILL.md" for p in result.files)
+
+
+def test_the_eval_command_never_asks_the_calling_session_to_run_the_suite(tmp_path):
+    """An evaluation that ran here would put this session into the thing being measured."""
+    result = build("opencode", out_dir=tmp_path / "dist")
+
+    (command,) = [p for p in result.files if p.name == "wikiskill-eval.md"]
+    # Whitespace-normalised: an assertion about prose should not depend on where a line wrapped.
+    text = " ".join(command.read_text(encoding="utf-8").lower().split())
+
+    assert "never run the suite in this session" in text
+    assert "&" in text and "wikiskill eval" in text, "it has to say how to start it detached"
+    assert "--preflight-only" in text, "and to cost the run before starting it"
