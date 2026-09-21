@@ -42,9 +42,7 @@ def validate(collection: Collection | str, raw_dir: Path | None = None) -> Valid
                     report.activations += 1
                 for message in rawlog.schema_errors(event):
                     location, _, detail = message.partition(": ")
-                    report.problems.append(
-                        rawlog.ValidationProblem(file, number, detail, location)
-                    )
+                    report.problems.append(rawlog.ValidationProblem(file, number, detail, location))
         except rawlog.UnsupportedSchemaVersion as exc:
             report.refused.append(str(exc))
         except rawlog.RawLogError as exc:

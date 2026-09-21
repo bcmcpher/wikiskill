@@ -346,3 +346,30 @@ def test_markdown_says_what_each_pass_rate_is_based_on():
     assert "pass basis" in text
     assert "| route |" in text
     assert "| verifier |" in text
+
+
+# --------------------------------------------------------------------------- refused routes
+
+
+def test_a_skill_the_harness_refused_is_recorded_but_not_a_route():
+    """Recorded under INJECTED: OpenCode honoured `permission.skill.<name>: deny`."""
+    session = load("session-skill-denied.json")
+
+    found = backend_mod.activations([session])
+
+    assert found == [{"kind": "skill", "name": "wikiskill-trace", "blocked": True}]
+    assert score.activated_names({"activations": found}) == [], "it reached nothing"
+    assert score.first_activation({"activations": found}) == score.NONE
+
+
+def test_injected_does_not_score_a_perfect_route_for_a_route_it_forbids():
+    denied = [{"kind": "skill", "name": "dataset-release", "blocked": True}]
+    reached = [skill("dataset-release")]
+
+    injected = report_mod.build_report(
+        [result(condition="injected", activations=denied)], manifest()
+    )["rows"][0]
+    routed = report_mod.build_report([result(activations=reached)], manifest())["rows"][0]
+
+    assert routed["route@1"] == 1.0
+    assert injected["route@1"] == 0.0, "the route is impossible by construction, not reached"

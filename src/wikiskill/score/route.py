@@ -40,11 +40,19 @@ def scored(results: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def activated_names(result: dict[str, Any], kind: str | None = None) -> list[str]:
+    """Components the model actually reached.
+
+    A call the harness refused is not one of them. That is the whole of INJECTED: the expected skill
+    is denied on purpose, so counting the attempt would report a perfect route@1 for a condition in
+    which the route is impossible by construction.
+    """
     activations = result.get("activations") or []
     return [
         str(entry.get("name"))
         for entry in activations
-        if isinstance(entry, dict) and (kind is None or entry.get("kind") == kind)
+        if isinstance(entry, dict)
+        and not entry.get("blocked")
+        and (kind is None or entry.get("kind") == kind)
     ]
 
 

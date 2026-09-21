@@ -163,8 +163,7 @@ class Collection:
             "watch": {kind: list(self.watch.get(kind, ())) for kind in KINDS},
             "source_roots": [{"path": str(s.path), "layout": s.layout} for s in self.sources],
             "watched": [
-                {"kind": c.kind, "name": c.name, "path": str(c.path)}
-                for c in self.watched()
+                {"kind": c.kind, "name": c.name, "path": str(c.path)} for c in self.watched()
             ],
         }
 
@@ -452,9 +451,7 @@ def _parse_positive_int(table: dict[str, Any], key: str, default: int, problems:
 # --------------------------------------------------------------------------- init / sync
 
 
-def render_manifest(
-    name: str, sources: Sequence[Source], components: Sequence[Component]
-) -> str:
+def render_manifest(name: str, sources: Sequence[Source], components: Sequence[Component]) -> str:
     """A manifest with everything discovered commented out, for the user to opt in to.
 
     The watch list starts with one entry so `collection check` resolves; every other discovered

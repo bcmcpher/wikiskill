@@ -217,8 +217,9 @@ class Trajectory:
     #: matches against.
     transcript: str = ""
     workdir: Path | None = None
-    #: Components the model activated, in order, as ``{"kind": ..., "name": ...}``.
-    activations: list[dict[str, str]] = field(default_factory=list)
+    #: Components the model activated, in order, as ``{"kind": ..., "name": ...}``, with
+    #: ``"blocked": True`` on a call the harness refused.
+    activations: list[dict[str, Any]] = field(default_factory=list)
     #: One entry per verifier the task declared, in declaration order. Empty when it declared none.
     verifiers: list[dict[str, Any]] = field(default_factory=list)
     #: Whether every verifier passed. `None` when the task declares no verifiers, so "nothing was

@@ -25,8 +25,8 @@ Step 2 is **in progress**: its minimal working core is implemented — the task-
 `wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
 and ROUTED conditions, route metrics, deterministic verifiers, the full outcome taxonomy, step and
 time budgets, and `report.json`/`report.md`. Still open in that change: the data-science-harness
-adapter (1.3), INJECTED (3.2), the rubric judge (4.3), matrix statistics (4.5) and the
-`/wikiskill-eval` command (4.6).
+adapter (1.3), the rubric judge (4.3), matrix statistics (4.5) and the `/wikiskill-eval`
+command (4.6).
 
 A defect found on 2026-09-21 is worth carrying forward as a habit rather than a note: the evaluation
 guard had never run in any evaluation. OpenCode calls every export of a plugin module as a plugin
@@ -34,6 +34,13 @@ factory, so exporting an error class alongside the factory made the whole plugin
 one ERROR line, while runs carried on unguarded. Its unit tests passed the whole time because they
 tested pure functions and never the contract with the loader. Anything wikiskill hands to a harness
 needs at least one test that exercises the harness's own entry point.
+
+Two more of the same shape turned up the same day, both while checking INJECTED against a live run
+rather than against a fixture: `opencode export` exits without draining a pipe, so every session
+over 64 KiB was silently discarded and its unit scored as having activated nothing; and a tool call
+the harness refused was counted as an activation, which gave INJECTED a perfect `route@1` for a
+route it forbids by construction. Neither was visible from the recorded fixtures, because every
+recorded session was short and nothing in them had been refused.
 
 `add-logging-safeguards` is also done and archived. It is not a step: it is a post-hoc amendment to
 two of step 1's capabilities, recording three behaviours that a review of the implementation added

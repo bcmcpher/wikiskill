@@ -1,0 +1,108 @@
+{
+  "info": {
+    "id": "ses_f3a698c12ffeGMVVtQilx7H3ZT",
+    "slug": "happy-planet",
+    "projectID": "global",
+    "directory": "/tmp/eval/work",
+    "path": "",
+    "title": "Agent skill usage tracking",
+    "agent": "build",
+    "model": {
+      "id": "big-pickle",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 21712,
+      "output": 11915,
+      "reasoning": 0,
+      "cache": {
+        "read": 253952,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1790021366766,
+      "updated": 1790021515624
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "parentID": "msg_0c596743b001N9xJsTC1Dp3uzK",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/tmp/eval/work",
+          "root": "/tmp/eval/work"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8643,
+          "input": 6770,
+          "output": 81,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 1792
+          }
+        },
+        "modelID": "big-pickle",
+        "providerID": "opencode",
+        "time": {
+          "created": 1790021367547,
+          "completed": 1790021373130
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c59676fb001IfRsWCi0B4XUh1",
+        "sessionID": "ses_f3a698c12ffeGMVVtQilx7H3ZT"
+      },
+      "parts": [
+        {
+          "type": "tool",
+          "tool": "skill",
+          "callID": "call_7ef2477513624611af2139a7",
+          "state": {
+            "status": "error",
+            "input": {
+              "name": "wikiskill-trace"
+            },
+            "error": "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules [{\"permission\":\"*\",\"action\":\"allow\",\"pattern\":\"*\"},{\"permission\":\"skill\",\"pattern\":\"wikiskill-trace\",\"action\":\"deny\"}]",
+            "time": {
+              "start": 1790021373046,
+              "end": 1790021373050
+            }
+          },
+          "id": "prt_0c5968c0e001PLDEemihM4CAm4",
+          "sessionID": "ses_f3a698c12ffeGMVVtQilx7H3ZT",
+          "messageID": "msg_0c59676fb001IfRsWCi0B4XUh1"
+        }
+      ]
+    }
+  ]
+}

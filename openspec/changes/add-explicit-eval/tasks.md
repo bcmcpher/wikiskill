@@ -42,6 +42,14 @@ Deferred:
     assertion that would have caught it.
 - [x] 2.4 Capture `opencode run --format json` and `opencode export` for the root and child sessions;
   normalise into raw events with `origin: eval`.
+  - **Amended 2026-09-21. Every session over 64 KiB was being thrown away.** `opencode export` exits
+    without draining a pipe, so `capture_output=True` returned exactly 65536 bytes of a 230 KB
+    session — unparseable, and the parse failure was swallowed, leaving an empty session list. The
+    unit then scored `completed` with no activations and no tokens: a routing miss that never
+    happened. Only short sessions had ever been checked, which is why the fixtures all passed.
+  - Exports now go to a file under the unit's `exports/` (the full 230 KB arrives that way, and the
+    evidence stays on disk beside the run), and a failed or unreadable export raises rather than
+    returning nothing, so the unit is `infra_error` instead of a silent zero.
 - [x] 2.5 Preflight: reachability, model listing, tool-call probe, and context of at least 16k, with
   actionable failure messages.
   - **Amended 2026-09-18.** The probe now takes the path a unit takes. A direct HTTP probe is right
@@ -67,7 +75,18 @@ Deferred:
 ## 3. Conditions, repeats, matrix
 
 - [x] 3.1 OFF and ROUTED; `repeats`; a model list from the manifest or `--models`.
-- [ ] 3.2 INJECTED for skills (`instructions` plus a skill deny) and agents (`--agent`).
+- [x] 3.2 INJECTED for skills (`instructions` plus a skill deny) and agents (`--agent`).
+  - A skill task installs the collection as ROUTED does, then points OpenCode's `instructions` at
+    the built `SKILL.md` and sets `permission.skill.<name>: deny`. The neighbourhood has to be the
+    same in both conditions or the difference measures the neighbourhood, not the routing.
+  - An agent task needs none of that: `--agent <name>` bypasses delegation directly.
+  - A task that names no component is skipped under INJECTED with that reason. There is nothing to
+    force into context, and its number would be a second OFF wearing a label.
+  - **Verified live on 2026-09-21.** `permission.skill` is honoured: under INJECTED the model
+    reached for the skill and OpenCode refused it — *"The user has specified a rule which prevents
+    you from using this specific tool call"* — while the same call completed under ROUTED. The
+    refusal is recorded at `tests/fixtures/opencode/session-skill-denied.json` (trimmed to the
+    messages holding the skill call).
 - [x] 3.3 A per-endpoint worker limit (default 1), plus `timeout_s` and `max_steps` enforcement.
   - `max_steps`: `opencode run` has no step limit of its own, so the guard counts tool calls and
     refuses the one past the budget (`WIKISKILL_MAX_STEPS`). Counted before the deny check, so a
@@ -84,6 +103,11 @@ Deferred:
 ## 4. Scoring and reports
 
 - [x] 4.1 Route metrics `route@1`, `route@k`, `capability@k`, and the confusion matrix.
+  - **Amended 2026-09-21, found while verifying 3.2.** A tool call the harness refused was counted
+    as an activation, so INJECTED — where the expected skill is denied by construction — scored a
+    perfect `route@1` for a route it had just made impossible. A refused call is now recorded with
+    `blocked: true` and excluded from the route metrics: the model reached for the component, and
+    did not reach it. OFF and ROUTED are unchanged, since nothing is refused there.
 - [x] 4.2 Verifiers `command`, `file_exists`, and `regex`, run in the workdir after the session.
   - `score/verify.py` holds the three kinds, harness-agnostic: it is given a workdir, the final
     text and the transcript, never a backend. `negate` inverts any kind. A `regex` on a file that

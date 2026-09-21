@@ -8,6 +8,7 @@ a GPU, or fifteen minutes of CPU inference.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -454,3 +455,125 @@ def test_a_small_context_is_refused_with_the_number_and_its_source(harness_backe
     assert result.ok is False
     assert "8192-token context" in result.reason
     assert "models.dev" in result.reason
+
+
+# --------------------------------------------------------------------------- INJECTED
+
+
+def injected_unit(**route):
+    from wikiskill.suite import Route, Task
+
+    return unit(
+        condition="injected",
+        task=Task(
+            id="release",
+            prompt="Cut version 1.0.",
+            split="val",
+            expect=Route(**route),
+            repeats=1,
+        ),
+    )
+
+
+def prepared(backend, target):
+    """Run `prepare` and hand back the run root, which is where the built skill lands."""
+    backend.prepare(target)
+    return backend.layout.unit_dir(target)
+
+
+def test_injected_supplies_the_skill_text_and_forbids_loading_it(backend):
+    target = injected_unit(skill="smoke")
+    root = prepared(backend, target)
+
+    config = backend.config_for(target, root)
+
+    (instruction,) = config["instructions"]
+    assert instruction.endswith("skills/smoke/SKILL.md")
+    assert Path(instruction).is_file(), "the file has to exist, or OpenCode injects nothing"
+    assert config["permission"]["skill"] == {"smoke": "deny"}
+
+
+def test_injected_takes_the_component_half_of_a_plugin_qualified_name(backend):
+    target = injected_unit(skill="govern/smoke")
+    root = prepared(backend, target)
+
+    config = backend.config_for(target, root)
+
+    assert config["permission"]["skill"] == {"smoke": "deny"}
+
+
+def test_injected_says_so_when_the_collection_built_no_such_skill(backend):
+    target = injected_unit(skill="absent")
+    root = prepared(backend, target)
+
+    with pytest.raises(backend_mod.RunnerError) as caught:
+        backend.config_for(target, root)
+
+    assert "built no skill" in str(caught.value)
+
+
+def test_an_injected_agent_is_run_directly_instead(backend):
+    target = injected_unit(agent="datalad/datalad-doer")
+    root = prepared(backend, target)
+
+    config = backend.config_for(target, root)
+
+    assert "instructions" not in config, "an agent needs no text forced in; it is invoked directly"
+    assert "skill" not in config.get("permission", {})
+    assert backend_mod._injected_agent(target) == "datalad-doer"
+
+
+def test_routed_and_off_are_untouched_by_any_of_this(backend):
+    for condition in ("off", "routed"):
+        config = backend.config_for(unit(condition=condition), backend.layout.root)
+        assert "instructions" not in config
+        assert "skill" not in config["permission"]
+
+
+# --------------------------------------------------------------------------- export
+
+
+def stub_opencode(tmp_path, body: str):
+    """A stand-in for `opencode export`, so the failure modes can be produced on demand."""
+    script = tmp_path / "stub-opencode"
+    script.write_text("#!/bin/sh\n" + body + "\n", encoding="utf-8")
+    script.chmod(0o755)
+    return str(script)
+
+
+def exporting(backend, tmp_path, body: str):
+    backend.executable = stub_opencode(tmp_path, body)
+    return backend
+
+
+def test_a_session_is_exported_to_a_file_not_a_pipe(backend, tmp_path):
+    """`opencode export` exits without draining a pipe, so anything past 64 KiB is truncated."""
+    big = json.dumps({"info": {"id": "ses_big"}, "messages": [], "pad": "x" * 200_000})
+    payload = tmp_path / "payload.json"
+    payload.write_text(big, encoding="utf-8")
+    exporting(backend, tmp_path, f'cat "{payload}"')
+
+    (session,) = backend.export_sessions("ses_big", tmp_path / "root")
+
+    assert len(session["pad"]) == 200_000
+    written = (tmp_path / "root" / "exports" / "ses_big.json").read_text(encoding="utf-8")
+    assert len(written) > 65536, "the whole export is kept on disk beside the run"
+
+
+def test_a_truncated_export_is_an_error_not_an_empty_session_list(backend, tmp_path):
+    exporting(backend, tmp_path, 'printf \'{"info": {"id": "ses_x"}, "messages": [\'')
+
+    with pytest.raises(backend_mod.RunnerError) as caught:
+        backend.export_sessions("ses_x", tmp_path / "root")
+
+    assert "not readable JSON" in str(caught.value)
+
+
+def test_a_failed_export_reports_the_harness_own_words(backend, tmp_path):
+    exporting(backend, tmp_path, 'echo "no such session" >&2; exit 3')
+
+    with pytest.raises(backend_mod.RunnerError) as caught:
+        backend.export_sessions("ses_gone", tmp_path / "root")
+
+    assert "exited 3" in str(caught.value)
+    assert "no such session" in str(caught.value)

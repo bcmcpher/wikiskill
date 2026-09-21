@@ -64,6 +64,9 @@ PROBE_FILE = "probe.txt"
 PROBE_TIMEOUT_S = 300
 PROBE_LIST_TIMEOUT_S = 120
 
+#: `opencode export` on a long session is a few hundred kilobytes of JSON off local storage.
+EXPORT_TIMEOUT_S = 120
+
 _SKILL_TOOLS = {"skill", "skills"}
 _TASK_TOOLS = {"task", "agent"}
 
@@ -283,7 +286,9 @@ class OpenCodeBackend(Backend):
         (root / "config.json").write_text(
             json.dumps(self.config_for(unit), indent=2) + "\n", encoding="utf-8"
         )
-        if unit.condition == ROUTED and self.collection is not None:
+        if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
+            # INJECTED installs too: the point is to compare routing against content with the same
+            # neighbourhood present, and a component that is absent cannot be denied either.
             self._install_collection(root)
         return workdir
 
@@ -322,9 +327,40 @@ class OpenCodeBackend(Backend):
                 "would be identical to OFF"
             )
 
-    def config_for(self, unit: Unit) -> dict[str, Any]:
+    def config_for(self, unit: Unit, root: Path | None = None) -> dict[str, Any]:
         """The inline config a unit runs under. Only the target provider, and no MCP at all."""
-        return self._config(unit.model)
+        config = self._config(unit.model)
+        if unit.condition == INJECTED:
+            self._inject(config, unit, root)
+        return config
+
+    def _inject(self, config: dict[str, Any], unit: Unit, root: Path | None) -> None:
+        """Force a skill's text into context while forbidding the model to load it itself.
+
+        This is the measurement that separates routing from content. Under ROUTED the model has to
+        find the skill; under INJECTED it is given the same words and cannot reach for the tool, so
+        the difference between the two is what the routing cost, and the difference from OFF is what
+        the words were worth.
+
+        An agent needs none of this: `execute` runs it directly with `--agent`, which bypasses
+        delegation the same way.
+        """
+        if root is None or _injected_agent(unit):
+            return
+        name = _bare(unit.task.expect.primary)
+        if not name:
+            return
+        text = root / "config" / "opencode" / "skills" / name / "SKILL.md"
+        if not text.is_file():
+            raise RunnerError(
+                f"INJECTED needs the text of {unit.task.expect.primary!r}, and the collection "
+                f"built no skill at {text}"
+            )
+        config["instructions"] = [str(text)]
+        # An `instructions` file the model could also load through the skill tool would measure
+        # neither condition: it would be ROUTED with a head start.
+        permission = config.setdefault("permission", {})
+        permission["skill"] = {name: "deny"}
 
     def _config(self, model: str) -> dict[str, Any]:
         """The same config a preflight probe runs under, which is the point: they must match.
@@ -363,7 +399,7 @@ class OpenCodeBackend(Backend):
         """The environment one unit runs in: isolated XDG, inline config, discovery switched off."""
         return self._env(
             root,
-            self.config_for(unit),
+            self.config_for(unit, root),
             list(BASE_DENY) + list(unit.task.guard_deny),
             max_steps=unit.task.max_steps,
         )
@@ -447,11 +483,6 @@ class OpenCodeBackend(Backend):
     # ------------------------------------------------------------------ execution
 
     def execute(self, unit: Unit) -> Trajectory:
-        if unit.condition == INJECTED:
-            raise RunnerError(
-                "the INJECTED condition is not implemented yet (add-explicit-eval task 3.2); run "
-                "with --condition off,routed"
-            )
         root = self.layout.unit_dir(unit)
         try:
             workdir = self.prepare(unit)
@@ -467,8 +498,13 @@ class OpenCodeBackend(Backend):
             str(workdir),
             "-m",
             unit.model,
-            unit.task.prompt,
         ]
+        agent = _injected_agent(unit)
+        if agent:
+            # Running the agent directly is the agent's INJECTED: it gets the task without the
+            # delegation step that ROUTED measures.
+            command += ["--agent", agent]
+        command.append(unit.task.prompt)
         started = time.time()
         try:
             done = subprocess.run(
@@ -515,7 +551,19 @@ class OpenCodeBackend(Backend):
                 workdir=workdir,
             )
 
-        sessions = self.export_sessions(session_id, root)
+        try:
+            sessions = self.export_sessions(session_id, root)
+        except RunnerError as exc:
+            return Trajectory(
+                unit=unit,
+                outcome="infra_error",
+                session_id=session_id,
+                error=str(exc),
+                reason=str(exc),
+                duration_ms=duration_ms,
+                exit_code=exit_code,
+                workdir=workdir,
+            )
         (root / "sessions.json").write_text(json.dumps(sessions, indent=2), encoding="utf-8")
 
         trajectory = Trajectory(
@@ -535,7 +583,18 @@ class OpenCodeBackend(Backend):
         return trajectory
 
     def export_sessions(self, session_id: str, root: Path) -> list[dict[str, Any]]:
-        """The root session and every child session a delegation spawned, breadth first."""
+        """The root session and every child session a delegation spawned, breadth first.
+
+        Each export goes to a file rather than a pipe. `opencode export` exits without draining a
+        pipe, so anything past 64 KiB arrives truncated — and a truncated export is unparseable, so
+        a long session would lose its whole trajectory and be scored as a run that activated
+        nothing. Writing to a file gets all of it; keeping the file also leaves the evidence on disk
+        next to the run.
+
+        Failure raises. A trajectory that could not be read back says nothing about the model, and
+        the caller turns that into `infra_error` rather than an empty session list that scores like
+        a miss.
+        """
         env = dict(os.environ)
         env.update(
             {
@@ -547,6 +606,9 @@ class OpenCodeBackend(Backend):
                 "OPENCODE_DISABLE_CLAUDE_CODE": "1",
             }
         )
+        exports = root / "exports"
+        exports.mkdir(parents=True, exist_ok=True)
+
         seen: set[str] = set()
         pending = [session_id]
         exported: list[dict[str, Any]] = []
@@ -555,23 +617,44 @@ class OpenCodeBackend(Backend):
             if current in seen:
                 continue
             seen.add(current)
-            try:
-                done = subprocess.run(
-                    [self.executable, "export", current],
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                    env=env,
-                    check=False,
-                )
-                session = json.loads(done.stdout) if done.stdout.strip() else None
-            except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
-                session = None
-            if not isinstance(session, dict):
-                continue
+            session = self._export_one(current, exports / f"{current}.json", env)
             exported.append(session)
             pending.extend(child for child in _child_session_ids(session) if child not in seen)
         return exported
+
+    def _export_one(
+        self, session_id: str, destination: Path, env: dict[str, str]
+    ) -> dict[str, Any]:
+        try:
+            with destination.open("w", encoding="utf-8") as handle:
+                done = subprocess.run(
+                    [self.executable, "export", session_id],
+                    stdout=handle,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=EXPORT_TIMEOUT_S,
+                    env=env,
+                    check=False,
+                )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RunnerError(f"could not export session {session_id}: {exc}") from exc
+
+        if done.returncode != 0:
+            last = (done.stderr or "").strip().splitlines()
+            raise RunnerError(
+                f"{self.executable} export {session_id} exited {done.returncode}: "
+                + (last[-1] if last else "no stderr")
+            )
+        try:
+            session = json.loads(destination.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RunnerError(
+                f"the export of session {session_id} is not readable JSON "
+                f"({destination.stat().st_size if destination.exists() else 0} bytes): {exc}"
+            ) from exc
+        if not isinstance(session, dict):
+            raise RunnerError(f"the export of session {session_id} is not a session object")
+        return session
 
     # ------------------------------------------------------------------ normalisation
 
@@ -906,14 +989,18 @@ def _iter_parts(sessions: list[dict[str, Any]]):
             yield message, (message.get("parts") or [])
 
 
-def activations(sessions: list[dict[str, Any]]) -> list[dict[str, str]]:
+def activations(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Every component the model loaded or delegated to, in the order it did so.
 
     Taken from the calls themselves rather than from the collection's watch list: a route the suite
     expects may name a component the manifest does not watch, and a routing miss is only visible if
     the component that was chosen instead is recorded too.
+
+    A call the harness refused is recorded with `blocked: true` rather than dropped. Under INJECTED
+    the expected skill is denied on purpose, so the model reaching for it is worth keeping — but it
+    did not reach it, and the scorer must not read the attempt as an activation.
     """
-    found: list[dict[str, str]] = []
+    found: list[dict[str, Any]] = []
     for _, parts in _iter_parts(sessions):
         for part in parts:
             if part.get("type") != "tool":
@@ -923,15 +1010,36 @@ def activations(sessions: list[dict[str, Any]]) -> list[dict[str, str]]:
                 continue
             tool = str(part.get("tool") or "").lower()
             args = state.get("input") or {}
+            entry: dict[str, Any] | None = None
             if tool in _SKILL_TOOLS:
                 name = _string_field(args, "name", "skill", "skill_name")
                 if name:
-                    found.append({"kind": "skill", "name": name})
+                    entry = {"kind": "skill", "name": name}
             elif tool in _TASK_TOOLS:
                 name = _string_field(args, "subagent_type", "subagentType", "agent", "name")
                 if name:
-                    found.append({"kind": "agent", "name": name})
+                    entry = {"kind": "agent", "name": name}
+            if entry is None:
+                continue
+            if _refused(state):
+                entry["blocked"] = True
+            found.append(entry)
     return found
+
+
+#: What OpenCode says when a `permission` rule refuses a tool call, alongside the guard's own words.
+_REFUSAL_MARKERS = (
+    "prevents you from using this specific tool call",
+    *_BLOCKED_MARKERS,
+)
+
+
+def _refused(state: dict[str, Any]) -> bool:
+    """Whether the harness refused this call rather than the call itself going wrong."""
+    if state.get("status") != "error":
+        return False
+    message = str(state.get("error") or "").lower()
+    return any(marker in message for marker in _REFUSAL_MARKERS)
 
 
 def _token_totals(sessions: list[dict[str, Any]]) -> dict[str, int]:
@@ -1012,6 +1120,19 @@ def classify(
 
 
 # --------------------------------------------------------------------------- helpers
+
+
+def _bare(name: str | None) -> str:
+    """The component half of a `<plugin>/<component>` name. Built trees use the bare name."""
+    return name.rsplit("/", 1)[-1] if name else ""
+
+
+def _injected_agent(unit: Unit) -> str:
+    """The agent a unit runs directly, or empty when it does not run one."""
+    expect = unit.task.expect
+    if unit.condition != INJECTED or expect.skill:
+        return ""
+    return _bare(expect.agent)
 
 
 def _split_model(model: str) -> tuple[str, str]:

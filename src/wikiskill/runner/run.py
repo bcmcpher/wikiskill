@@ -25,6 +25,7 @@ from ..collection import Collection
 from ..score import verify
 from ..suite import Suite, Task
 from .base import (
+    INJECTED,
     OFF,
     ROUTED,
     Backend,
@@ -99,8 +100,12 @@ def run_suite(
     collection_name = collection.name if collection else suite.name
     where = layout if layout is not None else RunLayout.create(collection_name, run_id)
     conditions = list(conditions or [OFF, ROUTED])
-    if collection is None and ROUTED in conditions:
-        raise ValueError("the ROUTED condition needs a collection; pass --collection or drop it")
+    needs_collection = [name for name in (ROUTED, INJECTED) if name in conditions]
+    if collection is None and needs_collection:
+        raise ValueError(
+            f"the {', '.join(name.upper() for name in needs_collection)} condition needs a "
+            "collection; pass --collection or drop it"
+        )
 
     report = on_event or (lambda _line: None)
     started = time.time()
@@ -177,6 +182,11 @@ def _run_unit(unit: Unit, backend: Backend, run: RunResult, report) -> Trajector
     absent = missing_capabilities(unit.task)
     if absent:
         return skipped(unit, f"environment lacks {', '.join(absent)}")
+
+    if unit.condition == INJECTED and not unit.task.expect:
+        # INJECTED forces one component's text into context. A task that names no component has
+        # nothing to force, and its INJECTED number would be a second OFF wearing a label.
+        return skipped(unit, "INJECTED needs an expected skill or agent, and this task names none")
 
     report(f"{unit.condition:7} {unit.model}  {unit.task.id} (repeat {unit.repeat})")
     trajectory = backend.execute(unit)

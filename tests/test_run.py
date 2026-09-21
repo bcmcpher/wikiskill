@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from conftest import write_manifest
+from wikiskill import collection as collection_mod
 from wikiskill import suite as suite_mod
 from wikiskill.runner import run as run_mod
 from wikiskill.runner.base import OFF, Backend, PreflightResult, RunLayout, Trajectory
@@ -239,3 +241,55 @@ def test_the_manifest_records_how_many_lanes_ran(xdg, three, layout):
     )
 
     assert run_mod.load_manifest(run.layout)["workers"] == 2
+
+
+# --------------------------------------------------------------------------- injected
+
+
+MANIFEST = """
+name = "toy"
+sources = [{{ path = "{source}", layout = "opencode" }}]
+
+[watch]
+skills = ["*"]
+agents = ["*"]
+commands = []
+"""
+
+
+@pytest.fixture
+def collection(xdg, opencode_source):
+    write_manifest(xdg, "toy", MANIFEST.format(source=opencode_source))
+    return collection_mod.load("toy")
+
+
+def test_injected_skips_a_task_that_names_no_component(xdg, suite, layout, collection):
+    """The toy control task is judged by a verifier alone, so there is nothing to inject."""
+    run = run_mod.run_suite(
+        suite,
+        FakeBackend(layout, writes="DONE.md"),
+        collection=collection,
+        models=["fake/model"],
+        conditions=[run_mod.INJECTED],
+        layout=layout,
+        run_id="01JRUN",
+    )
+    (result,) = run.results
+
+    assert result["outcome"] == "skipped"
+    assert "names none" in result["reason"]
+
+
+def test_injected_without_a_collection_is_refused_by_name(xdg, suite, layout):
+    with pytest.raises(ValueError) as caught:
+        run_mod.run_suite(
+            suite,
+            FakeBackend(layout),
+            collection=None,
+            models=["fake/model"],
+            conditions=[run_mod.INJECTED],
+            layout=layout,
+            run_id="01JRUN",
+        )
+
+    assert "INJECTED condition needs a collection" in str(caught.value)

@@ -479,7 +479,7 @@ def _add_eval_parser(sub) -> None:
     ev.add_argument(
         "--condition",
         default="off,routed",
-        help="comma-separated: off, routed (default off,routed)",
+        help="comma-separated: off, routed, injected (default off,routed)",
     )
     ev.add_argument("--task", action="append", default=None, help="run only this task id")
     ev.add_argument(
