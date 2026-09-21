@@ -226,12 +226,14 @@ def test_report_rows_carry_routing_tokens_and_time():
     assert row["pass_basis"] == "route"
 
 
-def test_derived_measures_say_they_were_not_computed():
+def test_derived_measures_say_which_condition_is_missing():
     built = report_mod.build_report([result(activations=[])], manifest())
+    derived = built["derived"]
+    model = derived["per_model"]["ollama/qwen2.5-coder:1.5b"]
 
-    assert built["derived"]["routing_loss"] is None
-    assert "INJECTED" in built["derived"]["note"]
-    assert "not computed" in report_mod.render_markdown(built).lower()
+    assert model["routing_loss"]["value"] is None, "a run without INJECTED cannot have one"
+    assert "injected" in derived["note"]
+    assert "injected" in report_mod.render_markdown(built).lower()
 
 
 def test_markdown_lists_unrun_work_rather_than_hiding_it():

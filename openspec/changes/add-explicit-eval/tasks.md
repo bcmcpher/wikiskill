@@ -133,8 +133,17 @@ Deferred:
 - [ ] 4.3 Rubric judge on the judge role endpoint, blind to the expected route; 1 or 3 judges per rubric.
 - [x] 4.4 `report.json` and `report.md`: pass rate, tokens, time, outcome classes, unrun/skipped with
   reasons.
-- [ ] 4.5 Derived routing loss, content value, transfer and regression rates; exact McNemar across
+- [x] 4.5 Derived routing loss, content value, transfer and regression rates; exact McNemar across
   models, reported only.
+  - `score/derive.py`. Routing loss and content value are per model, because both are facts about
+    one model reading one description. Transfer and regression ask the same question per task
+    rather than on average, since a suite whose mean is flat can still be churning underneath.
+  - A pair whose two halves rest on different bases is dropped rather than subtracted: a verifier
+    pass rate minus a routing one is a number with no meaning. Every measure reports how many tasks
+    it rests on, and a run missing a condition says which rather than reporting zero.
+  - Exact McNemar on the paired per-task outcomes, two-sided from the binomial tail over the
+    discordant pairs. Reported, never used to gate — on a suite of a dozen tasks it will usually
+    say the difference could be a coin flip, and saying so is the point.
 - [ ] 4.6 `harness/source/commands/wikiskill-eval.md` launching `wikiskill eval` in the background.
 
 ## 5. Verify

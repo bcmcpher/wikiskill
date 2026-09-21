@@ -25,8 +25,7 @@ Step 2 is **in progress**: its minimal working core is implemented — the task-
 `wikiskill suite check`, the OpenCode backend with per-run isolation and endpoint preflight, the OFF
 and ROUTED conditions, route metrics, deterministic verifiers, the full outcome taxonomy, step and
 time budgets, and `report.json`/`report.md`. Still open in that change: the data-science-harness
-adapter (1.3), the rubric judge (4.3), matrix statistics (4.5) and the `/wikiskill-eval`
-command (4.6).
+adapter (1.3), the rubric judge (4.3) and the `/wikiskill-eval` command (4.6).
 
 A defect found on 2026-09-21 is worth carrying forward as a habit rather than a note: the evaluation
 guard had never run in any evaluation. OpenCode calls every export of a plugin module as a plugin

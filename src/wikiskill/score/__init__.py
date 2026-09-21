@@ -7,6 +7,18 @@ only scores its own dimensions.
 
 from __future__ import annotations
 
+from .derive import (
+    ROUTE,
+    UNMEASURED,
+    VERIFIER,
+    Verdict,
+    comparisons,
+    difference,
+    drift,
+    mcnemar,
+    pass_rate,
+    verdicts,
+)
 from .route import (
     NONE,
     UNSCORED,
@@ -32,21 +44,31 @@ from .verify import (
 
 __all__ = [
     "NONE",
+    "ROUTE",
+    "UNMEASURED",
     "UNSCORED",
+    "VERIFIER",
     "VERIFIER_TIMEOUT_S",
     "RouteScore",
+    "Verdict",
     "VerifierError",
     "VerifierResult",
     "activated_names",
     "aggregate",
     "bare",
+    "comparisons",
     "confusion",
+    "difference",
+    "drift",
     "first_activation",
+    "mcnemar",
+    "pass_rate",
     "resolve_in",
     "run_verifier",
     "same",
     "score_all",
     "score_group",
     "scored",
+    "verdicts",
     "verify_task",
 ]

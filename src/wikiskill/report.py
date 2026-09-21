@@ -20,7 +20,7 @@ from collections import Counter
 from typing import Any
 
 from . import score as score_mod
-from .runner.base import INFRA_OUTCOMES, RunLayout
+from .runner.base import INFRA_OUTCOMES, INJECTED, OFF, ROUTED, RunLayout
 
 
 def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str, Any]:
@@ -48,7 +48,7 @@ def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dic
         },
         "confusion": score_mod.confusion(scores),
         "outcomes": dict(Counter(result["outcome"] for result in results)),
-        "derived": _derived(),
+        "derived": _derived(results, manifest),
         "not_run": not_run(results, manifest),
     }
 
@@ -66,13 +66,13 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
     tokens = Counter()
     for result in usable:
         tokens.update({k: v for k, v in (result.get("tokens") or {}).items() if isinstance(v, int)})
-    pass_rate, pass_basis = _pass(usable, score)
+    rate, basis = score_mod.pass_rate(usable, score)
     row = score.as_dict()
     row.update(
         {
             "attempted": len(group),
-            "pass_rate": pass_rate,
-            "pass_basis": pass_basis,
+            "pass_rate": rate,
+            "pass_basis": basis,
             "failed_verifiers": _failed_verifiers(usable),
             "tokens": dict(tokens),
             "wall_time_ms": sum(result.get("duration_ms") or 0 for result in usable),
@@ -80,25 +80,6 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
         }
     )
     return row
-
-
-def _pass(usable: list[dict[str, Any]], score: score_mod.RouteScore) -> tuple[float | None, str]:
-    """A task's pass rate, and what it is based on.
-
-    Verifier-first, as the `eval-scoring` spec requires: where a task declares verifiers their
-    verdict *is* the pass/fail outcome, and the route metrics stay on the row as a separate
-    dimension rather than standing in for one. A task with no verifiers falls back to `route@1`, and
-    a task with neither is not measured at all.
-
-    `pass_basis` says which of the three it was on every row, so a report with verifiers is never
-    silently compared against one without.
-    """
-    verdicts = [result["passed"] for result in usable if result.get("passed") is not None]
-    if verdicts:
-        return sum(1 for verdict in verdicts if verdict) / len(verdicts), "verifier"
-    if score.expected:
-        return score.route_at_1, "route"
-    return None, "not measured"
 
 
 def _failed_verifiers(usable: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -117,15 +98,33 @@ def _failed_verifiers(usable: list[dict[str, Any]]) -> list[dict[str, str]]:
     return list(failures.values())
 
 
-def _derived() -> dict[str, Any]:
+def _derived(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str, Any]:
+    """What the conditions mean once they are all in: routing loss, content value, and drift.
+
+    Per model, because a routing loss is a fact about one model reading one description. The suite
+    level then carries the model comparisons, which are reported and never used to decide anything.
+    """
+    found = score_mod.verdicts(results)
+    models = manifest.get("models") or sorted({verdict.model for verdict in found})
+    conditions = set(manifest.get("conditions") or {v.condition for v in found})
+
+    per_model = {}
+    for model in models:
+        per_model[model] = {
+            "routing_loss": score_mod.difference(found, model, INJECTED, ROUTED),
+            "content_value": score_mod.difference(found, model, INJECTED, OFF),
+            **score_mod.drift(found, model, OFF, ROUTED),
+        }
+
+    missing = sorted({OFF, ROUTED, INJECTED} - conditions)
     return {
-        "routing_loss": None,
-        "content_value": None,
-        "transfer_rate": None,
-        "regression_rate": None,
+        "per_model": per_model,
+        "comparisons": score_mod.comparisons(found, ROUTED),
         "note": (
-            "routing loss and content value need the INJECTED condition (task 3.2); transfer and "
-            "regression rates arrive with the matrix statistics (task 4.5)"
+            "routing loss and content value need the INJECTED condition, which this run did not "
+            f"include (missing: {', '.join(missing)})"
+            if missing
+            else "every condition ran, so every derived measure is computed"
         ),
     }
 
@@ -229,16 +228,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             for chosen, count in sorted(row.items(), key=lambda item: -item[1]):
                 lines.append(f"| {expected} | {chosen} | {count} |")
 
-    derived = report.get("derived") or {}
-    lines += [
-        "",
-        "## Derived measures",
-        "",
-        f"Not computed in this run: {derived.get('note')}.",
-        "",
-        "## Not run",
-        "",
-    ]
+    lines += _derived_lines(report.get("derived") or {})
+    lines += ["", "## Not run", ""]
     entries = report.get("not_run") or []
     if not entries:
         lines.append("Everything the suite declared was attempted and produced a result.")
@@ -253,6 +244,36 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- **{entry['kind']}** {where or entry.get('model', '')}: {entry['reason']}"
             )
     return "\n".join(lines) + "\n"
+
+
+def _derived_lines(derived: dict[str, Any]) -> list[str]:
+    """Routing loss, content value and drift per model, then the model comparisons."""
+    lines = ["", "## Derived measures", "", derived.get("note", ""), ""]
+    per_model = derived.get("per_model") or {}
+    if per_model:
+        lines += [
+            "| model | routing loss | content value | transfer | regression | tasks |",
+            "|---|---|---|---|---|---|",
+        ]
+        for model, measures in sorted(per_model.items()):
+            loss = measures.get("routing_loss") or {}
+            value = measures.get("content_value") or {}
+            lines.append(
+                f"| {model} | {_pct(loss.get('value'))} | {_pct(value.get('value'))} | "
+                f"{_pct(measures.get('transfer_rate'))} | "
+                f"{_pct(measures.get('regression_rate'))} | {measures.get('tasks', 0)} |"
+            )
+
+    pairs = derived.get("comparisons") or []
+    if pairs:
+        lines += ["", "Paired model comparisons under ROUTED, reported only:", ""]
+        for pair in pairs:
+            lines.append(
+                f"- **{pair['left']}** vs **{pair['right']}** over {pair['tasks']} tasks: "
+                f"{pair['b']} won by the first, {pair['c']} by the second, "
+                f"exact McNemar p = {pair['p_value']}"
+            )
+    return lines
 
 
 def _failing_verifier_lines(rows: list[dict[str, Any]]) -> list[str]:
