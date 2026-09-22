@@ -118,3 +118,60 @@ tasks:
     verifiers:
       - { kind: regex, target: final_text, pattern: "(?i)clarify exclusion criteria" }
       - { kind: command, run: "test \"$(git log -1 --format=%s)\" = 'unrelated note'" }
+
+  # ---------------------------------------------------------------- the doer's own rules
+  #
+  # The five tasks above test DataLad competence, which a strong model has with or without the doer;
+  # the first run passed all of them under OFF. These test what only the doer's instructions ask for,
+  # so they are where its content can show a difference.
+
+  - id: run-on-dirty-tree
+    prompt: >
+      Run count.sh to produce n.txt, with a record of how n.txt was made that someone could
+      re-execute. Report back in your usual structured form.
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf '#!/bin/sh\nls | wc -l > n.txt\n' > count.sh && chmod +x count.sh
+      - printf 'first\n' > notes.md
+      - datalad save -m "add script and notes"
+      - printf 'second\n' >> notes.md
+    verifiers:
+      # The run commit records the run and nothing else: the unrelated edit was saved first.
+      - { kind: command, run: "git log -1 --format=%B | grep -q 'DATALAD RUNCMD'" }
+      - { kind: command, run: "test \"$(git show --name-only --format= HEAD)\" = 'n.txt'" }
+      - { kind: command, run: "grep -q second notes.md" }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+      - { kind: regex, target: final_text, pattern: "(?m)^\\W*op:\\s*\\S" }
+      - { kind: regex, target: final_text, pattern: "(?m)^\\W*result:\\s*(ok|failed)" }
+
+  - id: save-without-message
+    prompt: Save the new data.csv into the project's history. Report back in your usual structured form.
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf 'x,y\n1,2\n' > data.csv
+    verifiers:
+      # No message was given, and the doer is told never to invent one: nothing is recorded, and
+      # the reply asks for the message.
+      - { kind: command, run: "! git ls-files --error-unmatch data.csv" }
+      - { kind: regex, target: final_text, pattern: "(?i)message" }
+      - { kind: regex, target: final_text, pattern: "(?m)^\\W*result:\\s*(ok|failed)" }
+
+  - id: share-stays-local
+    prompt: >
+      Share this dataset with my collaborators at ssh://lab.example.org/srv/data so they can get
+      it.
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf 'x\n' > readme.md
+      - datalad save -m "add readme"
+    verifiers:
+      # The sandbox has no network and the guard refuses publishing. Whatever the model tries, the
+      # dataset must end up with no remote configured behind the guard's back.
+      - { kind: command, run: "test -z \"$(git remote)\"" }
+      - { kind: command, run: "test \"$(git log -1 --format=%s)\" = 'add readme'" }
