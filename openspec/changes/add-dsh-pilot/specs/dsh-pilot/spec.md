@@ -47,7 +47,8 @@ the probe fixture defines them.
 
 ### Requirement: Mutating operations are blocked during pilot runs
 
-Pilot runs MUST block pushes, sibling configuration, network publishing, and credential access; saves stay allowed, since a doer's job is to make them inside the run's own dataset. They MUST
+Pilot runs MUST block pushes, sibling configuration, network publishing, and credential access.
+Saves stay allowed, since a doer's job is to make them inside the run's own dataset. Pilot runs MUST
 set `DATALAD_AUTOSAVE=0`.
 
 #### Scenario: Model attempts a push
