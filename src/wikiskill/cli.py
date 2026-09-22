@@ -17,6 +17,7 @@ from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
 from . import compare as compare_mod
 from . import install as install_mod
+from . import refine as refine_mod
 from . import report as report_mod
 from . import review as review_mod
 from . import suite as suite_mod
@@ -555,6 +556,49 @@ def cmd_review(args: argparse.Namespace) -> int:
     return OK
 
 
+def cmd_refine(args: argparse.Namespace) -> int:
+    coll = _load(args.collection)
+    if args.dry_run:
+        path = refine_mod.component_file(coll, args.component)
+        known = wiki_mod.patterns(coll.name, args.component)
+        print(refine_mod.prompt(args.component, path.read_text(encoding="utf-8"), known))
+        return OK
+    if args.reply_file:
+        replies = iter([Path(args.reply_file).read_text(encoding="utf-8")])
+        ask = lambda _messages: next(replies)  # noqa: E731
+        proposer, retries = f"reply file {args.reply_file}", 0
+    else:
+        ask, proposer = review_mod.endpoint_asker(coll, "proposer")
+        retries = args.retries
+    proposal = refine_mod.refine(coll, args.component, ask=ask, proposer=proposer, retries=retries)
+    if proposal.action == "failed":
+        print(f"no proposal: the reply failed validation after {proposal.attempts} attempt(s)")
+        for problem in proposal.problems:
+            print(f"  - {problem}")
+        return FAILED
+    if proposal.action == "no_action":
+        print(f"no_action for {args.component}: {proposal.reason}")
+        return OK
+    print(f"proposal for {args.component}, written to {proposal.directory}")
+    print(f"  patterns  {', '.join(proposal.patterns)}")
+    print(f"  why       {proposal.reason}")
+    print(f"  read      {proposal.directory / 'preview.md'}")
+    print("  nothing has been applied")
+    return OK
+
+
+def _add_refine_parser(sub) -> None:
+    ref = sub.add_parser("refine", help="propose one patch to one component; never applies it")
+    ref.add_argument("component", help="e.g. datalad/datalad-doer")
+    ref.add_argument("--collection", required=True)
+    ref.add_argument("--retries", type=int, default=review_mod.DEFAULT_RETRIES)
+    ref.add_argument("--dry-run", action="store_true", help="print the prompt and stop")
+    ref.add_argument(
+        "--reply-file", default=None, help="validate a proposer reply written elsewhere"
+    )
+    ref.set_defaults(func=cmd_refine)
+
+
 def _add_review_parser(sub) -> None:
     rev = sub.add_parser("review", help="distil one component's evidence into wiki patterns")
     rev.add_argument("component", help="e.g. datalad/datalad-doer")
@@ -740,6 +784,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_compare_parser(sub)
     _add_review_parser(sub)
+    _add_refine_parser(sub)
 
     return parser
 
@@ -759,6 +804,7 @@ def main(argv: list[str] | None = None) -> int:
         RunnerError,
         compare_mod.CompareError,
         review_mod.ReviewError,
+        refine_mod.RefineError,
         wiki_mod.WikiError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)

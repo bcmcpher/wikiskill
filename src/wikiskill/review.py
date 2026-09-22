@@ -313,12 +313,14 @@ def maintainer_prompt() -> str:
 Ask = Callable[[list[dict[str, str]]], str]
 
 
-def endpoint_asker(collection: Collection, timeout_s: int = 600) -> tuple[Ask, str]:
-    """A function sending messages to the collection's maintainer endpoint, and its model."""
-    role = collection.roles.get("maintainer")
+def endpoint_asker(
+    collection: Collection, role_name: str = "maintainer", timeout_s: int = 600
+) -> tuple[Ask, str]:
+    """A function sending messages to one of the collection's role endpoints, and its model."""
+    role = collection.roles.get(role_name)
     if role is None or not role.base_url:
         raise ReviewError(
-            f"collection {collection.name!r} configures no `[roles.maintainer]` endpoint"
+            f"collection {collection.name!r} configures no `[roles.{role_name}]` endpoint"
         )
     endpoint = Endpoint(
         role.base_url, api_key=os.environ.get(role.api_key_env) if role.api_key_env else None
@@ -339,14 +341,14 @@ def endpoint_asker(collection: Collection, timeout_s: int = 600) -> tuple[Ask, s
                 timeout=timeout_s,
             )
         except OSError as exc:
-            raise ReviewError(f"the maintainer endpoint is unreachable: {exc}") from exc
+            raise ReviewError(f"the {role_name} endpoint is unreachable: {exc}") from exc
         if status != 200:
-            raise ReviewError(f"the maintainer endpoint answered {status}: {str(body)[:200]}")
+            raise ReviewError(f"the {role_name} endpoint answered {status}: {str(body)[:200]}")
         for choice in (body or {}).get("choices") or []:
             content = (choice.get("message") or {}).get("content")
             if isinstance(content, str):
                 return content
-        raise ReviewError("the maintainer's reply had no message content")
+        raise ReviewError(f"the {role_name}'s reply had no message content")
 
     return ask, role.model
 

@@ -66,10 +66,10 @@ Deferred:
 
 ## 4. Minimal refine
 
-- [ ] 4.1 `src/wikiskill/refine.py` and `wikiskill refine <component>`: exactly one `patch` or
+- [x] 4.1 `src/wikiskill/refine.py` and `wikiskill refine <component>`: exactly one `patch` or
   `no_action` result. Write `wiki/proposals/<id>/{patch.diff,preview.md,meta.json}`. Reject a
   proposal that cites no pattern. Add the `harness/source/agents/wikiskill-proposer.md` prompt.
-- [ ] 4.2 The patch applies cleanly with `git apply --check` in the source repository. wikiskill itself
+- [x] 4.2 The patch applies cleanly with `git apply --check` in the source repository. wikiskill itself
   never writes there.
 - [ ] 4.3 (deferred) `harness/source/commands/wikiskill-refine.md`.
 
