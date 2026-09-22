@@ -582,7 +582,16 @@ def test_injected_says_so_when_the_collection_built_no_such_skill(backend):
     assert "built no skill" in str(caught.value)
 
 
-def test_an_injected_agent_is_run_directly_instead(backend):
+def add_doer(opencode_source):
+    (opencode_source / "agents").mkdir(exist_ok=True)
+    (opencode_source / "agents" / "datalad-doer.md").write_text(
+        "---\nname: datalad-doer\ndescription: d\ntools: Read, Bash\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+
+def test_an_injected_agent_is_run_directly_instead(backend, opencode_source):
+    add_doer(opencode_source)
     target = injected_unit(agent="datalad/datalad-doer")
     root = prepared(backend, target)
 
@@ -591,6 +600,35 @@ def test_an_injected_agent_is_run_directly_instead(backend):
     assert "instructions" not in config, "an agent needs no text forced in; it is invoked directly"
     assert "skill" not in config.get("permission", {})
     assert backend_mod._injected_agent(target) == "datalad-doer"
+
+
+def test_an_injected_agent_can_be_run_as_the_primary_agent(backend, opencode_source):
+    """`opencode run --agent` refuses a subagent and silently falls back to its default agent."""
+    add_doer(opencode_source)
+    root = prepared(backend, injected_unit(agent="datalad/datalad-doer"))
+    meta = read_frontmatter(root / "config" / "opencode" / "agents" / "datalad-doer.md").meta
+    assert meta["mode"] == "all"
+    assert meta["permission"]["bash"] == "allow", "promotion changes the mode and nothing else"
+
+
+def test_routed_keeps_agents_as_subagents(backend, opencode_source):
+    add_doer(opencode_source)
+    config = backend.prepare(unit(condition="routed")).parent / "config" / "opencode"
+    assert read_frontmatter(config / "agents" / "datalad-doer.md").meta["mode"] == "subagent"
+
+
+def test_an_injected_agent_missing_from_the_collection_is_refused(backend):
+    with pytest.raises(runner_base.RunnerError, match="built none"):
+        backend.prepare(injected_unit(agent="datalad/datalad-doer"))
+
+
+def test_a_session_that_ran_another_agent_is_flagged(opencode_source):
+    target = injected_unit(agent="datalad/datalad-doer")
+    fell_back = [{"info": {"agent": "build"}, "messages": []}]
+    ran_it = [{"info": {"agent": "datalad-doer"}, "messages": []}]
+    assert "the session ran 'build'" in backend_mod.agent_mismatch(target, fell_back)
+    assert backend_mod.agent_mismatch(target, ran_it) is None
+    assert backend_mod.agent_mismatch(unit(condition="off"), fell_back) is None
 
 
 def test_routed_and_off_are_untouched_by_any_of_this(backend):

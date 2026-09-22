@@ -24,6 +24,7 @@ from typing import Any
 
 from .. import RAW_SCHEMA_VERSION, build, paths, rawlog
 from ..collection import Collection
+from ..frontmatter import read as read_frontmatter
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, check
 
@@ -293,6 +294,9 @@ class OpenCodeBackend(Backend):
             # INJECTED installs too: the point is to compare routing against content with the same
             # neighbourhood present, and a component that is absent cannot be denied either.
             self._install_collection(root)
+            agent = _injected_agent(unit)
+            if agent:
+                _promote_to_primary(root, agent)
         return workdir
 
     def _install_collection(self, root: Path) -> None:
@@ -586,6 +590,13 @@ class OpenCodeBackend(Backend):
         trajectory.final_text = _final_text(sessions)
         trajectory.transcript = _transcript(sessions)
         trajectory.outcome, trajectory.error = classify(stream, sessions)
+        mismatch = agent_mismatch(unit, sessions)
+        if mismatch:
+            trajectory.outcome, trajectory.error, trajectory.reason = (
+                "infra_error",
+                mismatch,
+                mismatch,
+            )
         return trajectory
 
     def export_sessions(self, session_id: str, root: Path) -> list[dict[str, Any]]:
@@ -1131,6 +1142,46 @@ def classify(
 def _bare(name: str | None) -> str:
     """The component half of a `<plugin>/<component>` name. Built trees use the bare name."""
     return name.rsplit("/", 1)[-1] if name else ""
+
+
+def _promote_to_primary(root: Path, agent: str) -> None:
+    """Let `--agent` run a subagent, in this run's config only.
+
+    The build marks every collection agent `mode: subagent`, which is right for delegation and for
+    ROUTED. But `opencode run --agent` refuses a subagent and silently falls back to the default
+    agent, so INJECTED would measure the wrong agent. `all` keeps it usable both ways.
+    """
+    path = root / "config" / "opencode" / "agents" / f"{agent}.md"
+    if not path.is_file():
+        raise RunnerError(
+            f"INJECTED needs agent {agent!r}, and the collection built none at {path}"
+        )
+    document = read_frontmatter(path)
+    meta = dict(document.meta)
+    meta["mode"] = "all"
+    path.write_text(document.render(meta), encoding="utf-8")
+
+
+def agent_mismatch(unit: Unit, sessions: list[dict[str, Any]]) -> str | None:
+    """Why a unit that was to run an agent directly did not, or None when it did.
+
+    OpenCode falls back to its default agent with only a warning on stderr, and the unit would then
+    measure that agent instead of the one under test.
+    """
+    requested = _injected_agent(unit)
+    ran = _root_agent(sessions)
+    if requested and ran != requested:
+        return f"asked the harness to run agent {requested!r}, but the session ran {ran!r}"
+    return None
+
+
+def _root_agent(sessions: list[dict[str, Any]]) -> str | None:
+    """The agent the root session actually ran as."""
+    if not sessions:
+        return None
+    info = sessions[0].get("info") or {}
+    agent = info.get("agent")
+    return agent if isinstance(agent, str) else None
 
 
 def _injected_agent(unit: Unit) -> str:
