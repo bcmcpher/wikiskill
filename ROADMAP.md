@@ -14,6 +14,18 @@ carry no order; this file is the single source for sequencing. Design background
    wiki, so the maintainer has real sessions to read when it arrives.
 4. **Collection awareness last.** The relation graph needs routing confusions (from evals) and co-usage
    (from logs) to contain anything, and it extends a gate that must already exist.
+5. **End to end before depth.** The whole loop has to run once, on one unit, before any stage of it is
+   deepened:
+   - scope a unit
+   - evaluate it
+   - review what was observed
+   - propose one patch
+   - the user applies it
+   - re-evaluate and compare
+
+   Evaluation is deliberate and scoped to one plugin or one subagent. Refinement is started by the
+   user and tied to a component version, never iterated silently. The target findings are per-model
+   comparisons of skill versions, reported with intervals.
 
 ## Sequence
 
@@ -50,20 +62,33 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 |---|---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
 | 2 ✅ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
-| 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 | First real results, and an early stress test of preflight and open-model tool calling. |
-| 4 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
-| 5 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 4 | Captures sessions where most development happens; adds the harness axis. |
-| 6 | `add-experience-wiki` | experience-wiki | 1, 4 | Distils sessions and eval failures that have accumulated since steps 2–5. |
-| 7 | `add-skill-refinement` | refinement-proposal, refinement-gate | 2, 6 | Proposals grounded in the wiki, with replay available from the start. |
-| 8 | `add-collection-graph` | collection-graph | 1, 2, 7 | Needs confusion and co-usage data; widens the existing gate. |
+| 3 | `add-minimal-loop` | experience-wiki, refinement-proposal, version-comparison (+ collection-config, harness-packaging, eval-runner) | 1, 2 | The whole loop once, on one unit (`datalad-doer`), with a light gate: a human decision informed by a v1-vs-v2 comparison with intervals. |
+| 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. |
+| 5 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
+| 6 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
+| 7 | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
+| 8 | `add-skill-refinement` | refinement-proposal, refinement-gate | 3, 7 | Extends step 3's proposals with gate states and cross-model replay. |
+| 9 | `add-collection-graph` | collection-graph | 1, 2, 8 | Needs confusion and co-usage data; widens the existing gate. |
+
+Steps 7 and 8 extend capabilities that step 3 introduces. Their delta specs must be rebased onto
+those capabilities before they are applied (`add-minimal-loop` task 7.1).
 
 ## Phases and milestones
 
-### A — Foundation and measurement (1–3)
+### A — Foundation, measurement and a first loop (1–4)
 
-- **Milestone A:** OpenCode logs validate against the raw schema. A data-science-harness routing report
-  exists per open model under OFF and ROUTED — or states which models failed preflight and why.
-- The pilot's passive-use tasks (its group 4) wait for Milestone C; Phase 2 stays deferred.
+- **Milestone A:** OpenCode logs validate against the raw schema. One unit, `datalad/datalad-doer`,
+  has been through the whole loop once, with every step started by the user:
+  1. evaluated
+  2. reviewed into wiki patterns
+  3. patched
+  4. re-evaluated
+  5. compared, with a `skill-impact.md` entry recording the decision
+
+  The comparison states pass rates with intervals per model, and states which models failed
+  preflight and why.
+- Per-unit DSH pilots follow (step 4). The pilot's passive-use tasks wait for Milestone C, and its
+  Phase 2 stays deferred.
 
 **Milestone A progress.** The schema half holds: logs written by the OpenCode logger validate against
 `schemas/raw-event.schema.json` with zero errors, checked both from the plugin's own mapper and from
@@ -91,23 +116,23 @@ verifier-only task scored 0% on `opencode/big-pickle` under both OFF and ROUTED,
 naming the check that failed (`/count/ not found in the final text`) and classifying the unit
 `completed` rather than broken. Every report row now says whether its pass rate came from a verifier,
 from `route@1`, or from nothing at all, so the two are never compared by accident. What the routing
-report still wants is the data-science-harness suite itself (task 1.3) and the pilot (step 3) — not
-hardware, and no longer scoring.
+report still wants is the data-science-harness suite itself (task 1.3) and the pilot (step 4) — not
+hardware, and no longer scoring. Step 3 comes first: the loop on one unit.
 
-### B — Signals in both harnesses (4–5)
+### B — Signals in both harnesses (5–6)
 
 - **Milestone B:** follow-ups, output edits, and notes are logged from real OpenCode and Claude Code
   sessions. A three-task suite runs on one open model under both harnesses.
 - The pilot gains its Claude Code arm here.
 
-### C — Learning loop (6–7)
+### C — Learning loop at depth (7–8)
 
-- **Milestone C:** `/wikiskill-review` produces validated, scoped patterns from real logs. Then
+- **Milestone C:** `/wikiskill-review` produces validated, scoped patterns from sampled real logs. Then
   `/wikiskill-refine` delivers one data-science-harness patch with cross-model replay, decided by a
   human and recorded in `skill-impact.md`.
 - Resume the pilot's passive-use tasks.
 
-### D — Collection awareness (8)
+### D — Collection awareness (9)
 
 - **Milestone D:** description edits are checked against conflict neighbours, and replay includes graph
   neighbours.
@@ -115,8 +140,8 @@ hardware, and no longer scoring.
 ## Parallel work
 
 With more than one person working:
-- `add-correction-capture` (4) can start alongside `add-explicit-eval` (2) as soon as 1 lands.
-- `add-claude-code-adapter` (5) can split: its plugin build and hooks logger need only 1 and 4; its eval
+- `add-correction-capture` (5) can start alongside `add-explicit-eval` (2) as soon as 1 lands.
+- `add-claude-code-adapter` (6) can split: its plugin build and hooks logger need only 1 and 5; its eval
   backend waits for 2.
 
 The table above is the single-track order.

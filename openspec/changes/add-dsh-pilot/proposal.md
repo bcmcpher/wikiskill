@@ -30,6 +30,8 @@ per model, and starts passive logging in real use.
 
 ## Impact
 
+- **Follows `add-minimal-loop`** (roadmap step 3). This change will be reshaped into per-unit
+  pilots built on that loop, and its full-collection routing probe becomes optional.
 - **Depends on `add-explicit-eval`** for Phase 1. Passive use needs `add-trace-logging`,
   `add-correction-capture`, and `add-experience-wiki`; refinement needs `add-skill-refinement`.
 - Gains a Claude Code arm once `add-claude-code-adapter` lands: the same suite and models across both

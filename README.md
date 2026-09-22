@@ -10,7 +10,8 @@ records carries harness, provider and model identity.
 
 **Status:** `add-trace-logging` (roadmap step 1) is implemented, and `add-explicit-eval` (step 2) has
 its minimal working core: task suites, the OpenCode eval backend with isolation and preflight, the
-OFF and ROUTED conditions, routing metrics and reports. Steps 3–8 are designed and not yet built —
+OFF and ROUTED conditions, routing metrics and reports. Step 3, `add-minimal-loop`, is next: the whole loop once on one unit. Steps 3–9 are designed
+and not yet built —
 see [`ROADMAP.md`](ROADMAP.md).
 
 ## What works today
