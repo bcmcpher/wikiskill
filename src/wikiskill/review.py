@@ -343,8 +343,10 @@ def harness_flatten(messages: Sequence[dict[str, str]]) -> str:
     to answer in text: everything it needs is in the prompt.
     """
     parts = [
-        "Answer in text only. Do not use any tools: they are disabled, and everything you need is "
-        "below."
+        (
+            "Answer in text only. Do not use any tools: they are disabled, and everything you "
+            "need is below."
+        )
     ]
     for message in messages:
         heading = {
