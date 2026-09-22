@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
+from . import compare as compare_mod
 from . import install as install_mod
 from . import report as report_mod
 from . import suite as suite_mod
@@ -490,6 +491,44 @@ def cmd_install(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- parser
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    a = compare_mod.load_run(args.collection, args.run_a)
+    b = compare_mod.load_run(args.collection, args.run_b)
+    comparison = compare_mod.compare(a, b, component=args.component)
+    out = compare_mod.output_dir(args.collection, a, b)
+    md, js = compare_mod.write(comparison, out)
+    print(compare_mod.render(comparison))
+    print(f"wrote {md}")
+    print(f"wrote {js}")
+    if args.record:
+        if not args.proposal:
+            print("error: --record needs --proposal <id>", file=sys.stderr)
+            return FAILED
+        target = compare_mod.record(args.collection, comparison, args.record, args.proposal)
+        print(f"recorded {args.record} for {args.proposal} in {target}")
+    return OK
+
+
+def _add_compare_parser(sub) -> None:
+    cmp = sub.add_parser(
+        "compare", help="compare two runs of one suite across versions of a component"
+    )
+    cmp.add_argument("run_a", help="the earlier run: an id under the collection's evals, or a path")
+    cmp.add_argument("run_b", help="the later run")
+    cmp.add_argument("--collection", required=True)
+    cmp.add_argument(
+        "--component", default=None, help="the component under test (default: inferred)"
+    )
+    cmp.add_argument(
+        "--record",
+        choices=("accept", "reject"),
+        default=None,
+        help="append this decision to the wiki's skill-impact.md; nothing is applied or reverted",
+    )
+    cmp.add_argument("--proposal", default=None, help="the proposal id the decision is about")
+    cmp.set_defaults(func=cmd_compare)
+
+
 def _add_eval_parser(sub) -> None:
     ev = sub.add_parser("eval", help="run a task suite in fresh isolated headless sessions")
     ev.add_argument("--suite", required=True, help="task suite file")
@@ -633,6 +672,8 @@ def build_parser() -> argparse.ArgumentParser:
     inst.add_argument("--force", action="store_true", help="on uninstall, remove changed files too")
     inst.set_defaults(func=cmd_install)
 
+    _add_compare_parser(sub)
+
     return parser
 
 
@@ -649,6 +690,7 @@ def main(argv: list[str] | None = None) -> int:
         FrontmatterError,
         SuiteError,
         RunnerError,
+        compare_mod.CompareError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return FAILED

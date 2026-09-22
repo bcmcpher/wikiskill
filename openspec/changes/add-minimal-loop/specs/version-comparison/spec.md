@@ -34,7 +34,8 @@ The comparison MUST report the following, for each condition, for each model and
 - the pass rate with a Wilson 95% interval
 - the direction of change, reported as "no detectable difference" when the two intervals overlap
 - the distribution of tool calls, from the runs' trajectories in the raw log
-- a pooled row recomputed with `timeout` outcomes excluded
+- a pooled row recomputed with timed-out units counted as failures, since the runner classifies a
+  timeout as `infra_error` and excludes it from every other row
 
 Models present in only one run MUST be listed as unmatched rather than compared.
 
@@ -51,4 +52,5 @@ Models present in only one run MUST be listed as unmatched rather than compared.
 #### Scenario: Timeouts
 
 - **WHEN** some units timed out in either run
-- **THEN** a timeouts-excluded pooled row appears beside the full pooled row
+- **THEN** the pooled row excludes them, and a second pooled row counts them as failures, so a
+  reader sees whether timeouts change the conclusion

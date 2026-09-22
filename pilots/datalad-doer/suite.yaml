@@ -22,7 +22,7 @@ suite: datalad-doer
 description: Does the datalad doer leave a dataset in the state it was asked for?
 
 defaults:
-  repeats: 1
+  repeats: 3
   timeout_s: 600
   max_steps: 30
   requires: [datalad]

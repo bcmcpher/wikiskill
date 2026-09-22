@@ -30,7 +30,7 @@ before the full DSH routing probe, and before cross-model replay.
   - the direction per model
   - "no detectable difference" when the intervals overlap
   - the tool-choice distribution
-  - a sensitivity row with timeouts excluded
+  - a sensitivity row with timeouts counted as failures
 
   The user's accept or reject decision is recorded in `skill-impact.md`.
 

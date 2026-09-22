@@ -145,7 +145,9 @@ need only chat.
   intervals do not support.
 - The **tool-choice distribution** counts tool calls per condition and version from the trajectories
   already in the raw log.
-- A sensitivity row repeats the pooled comparison with `timeout` outcomes excluded.
+- The runner already classifies a timeout as `infra_error` and leaves it out of scoring. So the
+  sensitivity row goes the other way: it repeats the pooled comparison with timeouts counted as
+  failures, which is how the abstract's main analysis treats them.
 - *Alternative:* a statistical test (Fisher's exact test). The overlap of intervals is cruder but
   matches how the findings are reported and is hard to misread. The test can come later.
 

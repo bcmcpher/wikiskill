@@ -75,14 +75,15 @@ Deferred:
 
 ## 5. Version comparison
 
-- [ ] 5.1 `src/wikiskill/compare.py`: load two runs, and refuse ones whose suite or task ids differ.
+- [x] 5.1 `src/wikiskill/compare.py`: load two runs, and refuse ones whose suite or task ids differ.
   Warn when the component hash is the same in both. List unmatched models.
-- [ ] 5.2 Wilson 95% intervals for each model, pooled, and each condition. Report the direction, or
-  "no detectable difference" when the intervals overlap. Add a timeouts-excluded pooled row.
-- [ ] 5.3 Tool-choice distribution per condition and version, from the runs' raw-log trajectories.
-- [ ] 5.4 `wikiskill compare <a> <b> [--record accept|reject --proposal <id>]`. Write `compare.md` and
+- [x] 5.2 Wilson 95% intervals for each model, pooled, and each condition. Report the direction, or
+  "no detectable difference" when the intervals overlap. Add a pooled row that counts timeouts
+  as failures (they are `infra_error`, and so excluded from every other row).
+- [x] 5.3 Tool-choice distribution per condition and version, from the runs' raw-log trajectories.
+- [x] 5.4 `wikiskill compare <a> <b> [--record accept|reject --proposal <id>]`. Write `compare.md` and
   `compare.json`, and append to `skill-impact.md` when recording.
-- [ ] 5.5 Tests: overlapping and separated intervals, a suite mismatch, the timeout row, and
+- [x] 5.5 Tests: overlapping and separated intervals, a suite mismatch, the timeout row, and
   tool-choice counts from fixture trajectories.
 
 ## 6. Close the loop
