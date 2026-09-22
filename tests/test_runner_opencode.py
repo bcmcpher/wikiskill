@@ -196,6 +196,31 @@ def test_routed_installs_agents_on_the_model_under_test(tmp_path, xdg, plugin_so
     assert not (config / "skills").exists(), "only the selected plugin is installed"
 
 
+def with_setup(*commands, env=()):
+    import dataclasses
+
+    base = unit(condition="off")
+    return dataclasses.replace(
+        base, task=dataclasses.replace(base.task, setup=tuple(commands), env=tuple(env))
+    )
+
+
+def test_setup_builds_the_starting_state_with_the_tasks_env(backend):
+    workdir = backend.prepare(with_setup('printf "$MARK" > state.txt', env=(("MARK", "ready"),)))
+
+    assert (workdir / "state.txt").read_text() == "ready"
+    assert (workdir / ".git").is_dir(), "the workdir is still a repository after setup"
+    assert "$ printf" in (workdir.parent / "setup.log").read_text()
+
+
+def test_a_failing_setup_is_an_infrastructure_error(backend):
+    trajectory = backend.execute(with_setup("true", "echo nope >&2; exit 3", "touch never"))
+
+    assert trajectory.outcome == "infra_error"
+    assert "exited 3" in trajectory.reason and "nope" in trajectory.reason
+    assert not (backend.layout.unit_dir(trajectory.unit) / "work" / "never").exists()
+
+
 def test_off_installs_nothing_at_all(backend):
     workdir = backend.prepare(unit(condition="off"))
     assert not (workdir.parent / "config" / "opencode").exists()

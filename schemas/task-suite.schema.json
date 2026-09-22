@@ -23,7 +23,8 @@
         "max_steps": { "type": "integer", "minimum": 1 },
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
-        "env": { "$ref": "#/$defs/env" }
+        "env": { "$ref": "#/$defs/env" },
+        "setup": { "$ref": "#/$defs/setup" }
       }
     },
     "tasks": {
@@ -42,6 +43,11 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
+    },
+    "setup": {
+      "description": "Shell commands run in the workdir, in order, after fixtures are copied and before the session starts. A failing command makes the unit an infrastructure error, never a model failure. A task's list replaces the suite default's.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
     },
     "env": {
       "description": "Environment variables set in each unit's harness process. A task's values override the suite defaults'. Names the runner uses for isolation are refused.",
@@ -160,6 +166,7 @@
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
         "env": { "$ref": "#/$defs/env" },
+        "setup": { "$ref": "#/$defs/setup" },
         "followups": {
           "description": "Scripted user turns sent after the first response. Not a simulated user.",
           "type": "array",

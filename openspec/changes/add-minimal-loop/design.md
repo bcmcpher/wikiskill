@@ -99,8 +99,8 @@ need only chat.
 
 **First unit: `datalad/datalad-doer`.**
 - It is a subagent with a specific job and real tooling, and `datalad` is installed locally.
-- Each task's fixture setup runs `datalad create` in the run's own workdir, `DATALAD_AUTOSAVE=0` is
-  set through the new suite `env`, and the guard denies `datalad push|siblings`, `git push` and
+- Each task's `setup:` runs `datalad create` in the run's own workdir, `DATALAD_AUTOSAVE=0` is set
+  through the new suite `env`, and the guard denies `datalad push|siblings`, `git push` and
   network CLIs.
 - Tasks are invoked directly, the INJECTED path for agents, and under OFF (no doer: the model is
   asked to do the same work unaided). This measures the doer's content, not the routing to it.
@@ -109,6 +109,15 @@ need only chat.
   - A planner plus doer pair has two components in one outcome, so failures are harder to
     attribute.
 - The choice stays open for revision.
+
+**Setup commands live in the suite, not in the collection.**
+- A task's starting state is part of the task, and whoever writes the task owns it. The mechanism
+  that builds it in a sandbox is the runner's.
+- DSH has no doer capability fixtures, and its `bench/README.md` asks consumers to supply what they
+  need on their own side. So `setup:` is a wikiskill suite field. If DSH later ships capability
+  fixtures, the adapter translates the preconditions they state into `setup:`.
+- The commands are raw shell. Named, reusable steps can come later if pilots start repeating each
+  other.
 
 **The minimal wiki reuses the planned layout.**
 - `<collection>/wiki/` holds `index.md`, `patterns/*.md`, `log.md` and `skill-impact.md`, in a git

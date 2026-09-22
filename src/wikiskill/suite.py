@@ -150,6 +150,8 @@ class Task:
     guard_deny: tuple[str, ...] = ()
     #: Environment set in the unit's harness process, as sorted ``(name, value)`` pairs.
     env: tuple[tuple[str, str], ...] = ()
+    #: Shell commands that build the workdir's starting state before the session.
+    setup: tuple[str, ...] = ()
     followups: tuple[str, ...] = ()
     repeats: int = DEFAULT_REPEATS
     timeout_s: int = DEFAULT_TIMEOUT_S
@@ -310,6 +312,7 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
         requires=tuple(raw.get("requires") or defaults.get("requires") or ()),
         guard_deny=tuple(guard.get("deny", ())),
         env=tuple(sorted({**(defaults.get("env") or {}), **(raw.get("env") or {})}.items())),
+        setup=tuple(raw.get("setup") or defaults.get("setup") or ()),
         followups=tuple(raw.get("followups", ())),
         repeats=int(raw.get("repeats", defaults.get("repeats", DEFAULT_REPEATS))),
         timeout_s=int(raw.get("timeout_s", defaults.get("timeout_s", DEFAULT_TIMEOUT_S))),

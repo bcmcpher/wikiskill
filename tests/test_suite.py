@@ -216,3 +216,13 @@ def test_env_may_not_touch_the_runners_isolation(tmp_path):
     body = ENV.replace("LANG: C.UTF-8", "XDG_CONFIG_HOME: /home/me/.config")
     with pytest.raises(SuiteError, match="XDG_CONFIG_HOME, which the runner owns"):
         suite_mod.load(write(tmp_path, body))
+
+
+def test_setup_is_the_tasks_own_or_the_suite_defaults(tmp_path):
+    body = ENV.replace(
+        'defaults: { env: { DATALAD_AUTOSAVE: "0", LANG: C } }',
+        'defaults: { env: { A: "1" }, setup: ["git init -q ."] }',
+    )
+    assert suite_mod.load(write(tmp_path, body)).tasks[0].setup == ("git init -q .",)
+    own = body.replace("    env: { LANG: C.UTF-8 }", '    setup: ["touch a", "touch b"]')
+    assert suite_mod.load(write(tmp_path, own)).tasks[0].setup == ("touch a", "touch b")

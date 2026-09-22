@@ -281,6 +281,9 @@ class OpenCodeBackend(Backend):
                     f"task {unit.task.id!r} names a fixture directory that is not there: {fixtures}"
                 )
             workdir.mkdir(parents=True)
+        _run_setup(unit, workdir, root)
+        # After setup, so a command that makes its own repository (`datalad create`) finds an
+        # ordinary directory; on an existing repository this is a harmless re-initialisation.
         _git_init(workdir)
 
         (root / "config.json").write_text(
@@ -1254,6 +1257,50 @@ def _merge_tree(staged: Path, target: Path) -> int:
         shutil.copy2(path, destination)
         copied += 1
     return copied
+
+
+#: One setup command's budget. Setup builds a starting state; it is not where work happens.
+SETUP_TIMEOUT_S = 300
+
+
+def _run_setup(unit: Unit, workdir: Path, root: Path) -> None:
+    """Run a task's setup commands in its workdir, logging each to `setup.log`.
+
+    A command that fails raises `RunnerError`, which the caller records as `infra_error`: a unit
+    that never reached its starting state says nothing about the model.
+    """
+    if not unit.task.setup:
+        return
+    env = {**os.environ, **dict(unit.task.env)}
+    with (root / "setup.log").open("w", encoding="utf-8") as log:
+        for command in unit.task.setup:
+            log.write(f"$ {command}\n")
+            try:
+                done = subprocess.run(
+                    command,
+                    shell=True,
+                    cwd=workdir,
+                    capture_output=True,
+                    text=True,
+                    errors="replace",
+                    timeout=SETUP_TIMEOUT_S,
+                    env=env,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RunnerError(
+                    f"setup `{command}` for task {unit.task.id!r} did not finish within "
+                    f"{SETUP_TIMEOUT_S}s"
+                ) from exc
+            except OSError as exc:
+                raise RunnerError(f"setup `{command}` could not be started: {exc}") from exc
+            log.write(done.stdout + done.stderr)
+            if done.returncode != 0:
+                tail = (done.stderr or done.stdout).strip().splitlines()[-3:]
+                raise RunnerError(
+                    f"setup `{command}` for task {unit.task.id!r} exited {done.returncode}"
+                    + (f": {' / '.join(tail)}" if tail else "")
+                )
 
 
 def _git_init(workdir: Path) -> None:

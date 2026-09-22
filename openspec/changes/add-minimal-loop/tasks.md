@@ -36,15 +36,18 @@ Deferred:
 
 - [x] 2.1 `suite.py` and `schemas/task-suite.schema.json`: `env` at suite and task level. The runner
   sets it in `_env` and records it in `run.json`.
+- [x] 2.1a `setup:` commands at suite and task level, run in the workdir after fixtures and before
+  the session, with the task's env. A failure is `infra_error`. They are recorded in `run.json`.
+  Setup is runner mechanics, not a DSH fixture field (see `bench/README.md`).
 - [x] 2.2 `pilots/datalad-doer/dsh-datalad.toml` (named for the collection, which is loaded by name): the DSH
   source with `plugins = ["datalad"]`.
-- [ ] 2.3 `pilots/datalad-doer/suite.yaml`: about five capability tasks with command verifiers
+- [x] 2.3 `pilots/datalad-doer/suite.yaml`: about five capability tasks with command verifiers
   (`datalad status`, `git log`, file checks).
   - Fixture setup runs `datalad create` in the workdir.
   - `env: { DATALAD_AUTOSAVE: "0" }`.
   - The guard denies `datalad push|siblings`, `git push` and network CLIs.
   - No prompt names the doer or DataLad's own commands.
-- [ ] 2.4 `wikiskill suite check pilots/datalad-doer/suite.yaml` passes.
+- [x] 2.4 `wikiskill suite check pilots/datalad-doer/suite.yaml` passes.
 - [ ] 2.5 v1 run on `opencode/big-pickle`, OFF and INJECTED (the doer invoked directly), repeats as
   chosen at run time. Run it detached, and record the run id.
 - [ ] 2.6 Live check: one INJECTED transcript shows the doer running bash, and one guard denial is

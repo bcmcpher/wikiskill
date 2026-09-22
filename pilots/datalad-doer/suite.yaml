@@ -1,0 +1,120 @@
+# Capability suite for one unit: data-science-harness's datalad doer, with its datalad-cli toolbox.
+#
+# Each task starts in a disposable DataLad dataset built by `setup`, and asks for one piece of the
+# doer's job in the words a planner or a researcher would use. Verifiers check the dataset
+# afterwards, never the transcript, so a run is judged on what it left behind.
+#
+#     wikiskill suite check pilots/datalad-doer/suite.yaml
+#     wikiskill eval --suite pilots/datalad-doer/suite.yaml --collection dsh-datalad \
+#       --models opencode/big-pickle --condition off,injected
+#
+# INJECTED runs the doer directly (`--agent datalad-doer`), and OFF gives the same prompt to the
+# bare model in the same dataset. The difference is what the doer's instructions are worth.
+#
+# Datasets are created `--no-annex`: none of these tasks touches annexed content, and DataLad refuses
+# a git-annex older than 10.20230126, which is what the development machine has. A task that needs
+# annex (`get`, `unlock`, content states) should use `-c text2git` and `requires: [git-annex]`.
+#
+# Prompts never name the doer or DataLad's own commands. The dataset in the workdir is the only
+# hint, as it would be for a planner handing over the job.
+
+suite: datalad-doer
+description: Does the datalad doer leave a dataset in the state it was asked for?
+
+defaults:
+  repeats: 1
+  timeout_s: 600
+  max_steps: 30
+  requires: [datalad]
+  # The Stop hook in data-science-harness auto-commits inside DataLad datasets. Off, so every commit
+  # a verifier sees was made by the run.
+  env: { DATALAD_AUTOSAVE: "0" }
+  guard:
+    deny:
+      - "datalad push*"
+      - "datalad siblings*"
+      - "datalad create-sibling*"
+      - "git push*"
+      - "git remote add*"
+      - "curl *"
+      - "wget *"
+
+tasks:
+  - id: save-with-message
+    prompt: >
+      I just added results.csv to this project. Record it in the project's history with the message
+      "add results table".
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf 'subject,score\n1,0.4\n' > results.csv
+    verifiers:
+      - { kind: command, run: "test \"$(git log -1 --format=%s)\" = 'add results table'" }
+      - { kind: command, run: "git ls-files --error-unmatch results.csv" }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+
+  - id: save-only-part
+    prompt: >
+      Record analysis.csv in the history with the message "add analysis", but leave scratch.tmp out
+      of it. I still need scratch.tmp and it should stay untracked.
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf 'a,b\n1,2\n' > analysis.csv
+      - printf 'wip\n' > scratch.tmp
+    verifiers:
+      - { kind: command, run: "test \"$(git log -1 --format=%s)\" = 'add analysis'" }
+      - { kind: command, run: "git ls-files --error-unmatch analysis.csv" }
+      - { kind: command, run: "! git ls-files --error-unmatch scratch.tmp" }
+      - { kind: file_exists, path: scratch.tmp }
+
+  - id: run-with-provenance
+    prompt: >
+      Run count.sh to produce n.txt, and make sure the history records exactly how n.txt was made,
+      so someone can re-execute it later from the record alone.
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf '#!/bin/sh\nls | wc -l > n.txt\n' > count.sh && chmod +x count.sh
+      - datalad save -m "add counting script"
+    verifiers:
+      - { kind: file_exists, path: n.txt }
+      - { kind: command, run: "git log -1 --format=%B | grep -q 'DATALAD RUNCMD'" }
+      - { kind: command, run: "git log -1 --format=%B | grep -q 'count.sh'" }
+
+  - id: report-changes-read-only
+    prompt: >
+      What has changed in this project since the last recorded state? Just tell me; do not record
+      or change anything.
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf 'first\n' > notes.md
+      - datalad save -m "add notes"
+      - printf 'second\n' >> notes.md
+      - printf 'new\n' > draft.md
+    verifiers:
+      - { kind: regex, target: final_text, pattern: "notes\\.md" }
+      - { kind: regex, target: final_text, pattern: "draft\\.md" }
+      - { kind: command, run: "test \"$(git log -1 --format=%s)\" = 'add notes'" }
+      - { kind: command, run: "git status --porcelain | grep -q 'notes.md'" }
+
+  - id: history-question
+    prompt: When was methods.md last changed, and what was the stated reason?
+    split: val
+    expect: { agent: datalad-doer }
+    setup:
+      - datalad create --force --no-annex .
+      - printf 'v1\n' > methods.md
+      - datalad save -m "draft methods"
+      - printf 'v2\n' > methods.md
+      - datalad save -m "clarify exclusion criteria"
+      - printf 'x\n' > other.md
+      - datalad save -m "unrelated note"
+    verifiers:
+      - { kind: regex, target: final_text, pattern: "(?i)clarify exclusion criteria" }
+      - { kind: command, run: "test \"$(git log -1 --format=%s)\" = 'unrelated note'" }

@@ -1,4 +1,4 @@
-# One unit of data-science-harness: the datalad plugin's doer, on its own.
+# One unit of data-science-harness: the datalad doer and the datalad-cli toolbox it consults.
 #
 # The first unit taken through the whole loop (add-minimal-loop). A collection is loaded by name,
 # so copy this to ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/dsh-datalad.toml, then:
@@ -9,7 +9,7 @@
 name = "dsh-datalad"
 
 sources = [
-  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin", plugins = ["datalad"] },
+  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin", plugins = ["datalad", "datalad-cli"] },
 ]
 
 [watch]

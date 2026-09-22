@@ -378,6 +378,7 @@ def _manifest(
         "conditions": run.conditions,
         "tasks": [task.id for task in run.suite.tasks],
         "env": {task.id: dict(task.env) for task in run.suite.tasks if task.env},
+        "setup": {task.id: list(task.setup) for task in run.suite.tasks if task.setup},
         "components": _component_versions(collection),
         "preflight": {model: result.as_dict() for model, result in run.preflight.items()},
         "isolation": proofs,
