@@ -325,7 +325,7 @@ def stub_opencode(tmp_path, reply):
         "#!/usr/bin/env python3\n"
         "import json, os, sys\n"
         f"json.dump({{'argv': sys.argv[1:], 'config': os.environ['OPENCODE_CONFIG_CONTENT'],"
-        f" 'xdg': os.environ['XDG_CONFIG_HOME']}}, open({str(seen)!r}, 'w'))\n"
+        f" 'xdg': os.environ['XDG_CONFIG_HOME'], 'deny': os.environ['WIKISKILL_GUARD_DENY']}}, open({str(seen)!r}, 'w'))\n"
         f"print({event!r})\n",
         encoding="utf-8",
     )
@@ -335,7 +335,9 @@ def stub_opencode(tmp_path, reply):
 
 def test_a_harness_served_role_is_asked_through_opencode_with_tools_denied(tmp_path):
     script, seen = stub_opencode(tmp_path, '{"ok": true}')
-    ask = review.harness_asker("opencode/big-pickle", executable=str(script))
+    guard = tmp_path / "guard.ts"
+    guard.write_text("// guard", encoding="utf-8")
+    ask = review.harness_asker("opencode/big-pickle", executable=str(script), guard=guard)
 
     reply = ask([{"role": "system", "content": "Be brief."}, {"role": "user", "content": "Go."}])
 
@@ -345,8 +347,10 @@ def test_a_harness_served_role_is_asked_through_opencode_with_tools_denied(tmp_p
     assert recorded["argv"][:6] == ["run", "--format", "json", "--dir", recorded["argv"][4], "-m"]
     assert recorded["argv"][6] == "opencode/big-pickle"
     assert "# Your instructions\n\nBe brief." in recorded["argv"][7]
-    assert set(config["permission"].values()) == {"deny"}
+    assert config["permission"]["edit"] == "deny"
+    assert config["plugin"] == [str(guard)], "bash stays declared, and the guard refuses it all"
     assert config["mcp"] == {}
+    assert json.loads(recorded["deny"]) == ["*"]
     assert not paths.config_home().is_relative_to(recorded["xdg"]), "an isolated config root"
 
 
@@ -373,3 +377,8 @@ def test_a_harness_role_that_says_nothing_is_an_error(tmp_path):
         review.harness_asker("opencode/nope", executable=str(script))(
             [{"role": "user", "content": "x"}]
         )
+
+
+def test_no_role_runs_through_the_harness_without_the_guard(tmp_path):
+    with pytest.raises(review.ReviewError, match="guard plugin is missing"):
+        review.harness_asker("opencode/big-pickle", guard=tmp_path / "absent.ts")

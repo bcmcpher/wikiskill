@@ -23,6 +23,7 @@ from typing import Any
 from . import compare, paths, rawlog, wiki
 from .collection import Collection
 from .frontmatter import read as read_frontmatter
+from .runner.opencode import _default_guard_plugin
 from .runner.preflight import Endpoint, request_json
 
 DEFAULT_BUDGET = 12_000
@@ -346,20 +347,36 @@ def harness_flatten(messages: Sequence[dict[str, str]]) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-def harness_asker(model: str, *, executable: str = "opencode", timeout_s: int = 600) -> Ask:
-    """Ask a model through `opencode run`, in an isolated root, with every tool denied.
+def harness_asker(
+    model: str,
+    *,
+    executable: str = "opencode",
+    timeout_s: int = 600,
+    guard: Path | None = None,
+) -> Ask:
+    """Ask a model through `opencode run`, in an isolated root, where no command can run.
 
-    The role only has to answer in text. Denying tools keeps it from acting on anything, and a fresh
-    config and data root keep the user's own skills, agents and MCP servers out of its context.
+    The role only has to answer in text. A fresh config and data root keep the user's own skills,
+    agents and MCP servers out of its context, and file edits are denied.
+
+    Shell commands cannot simply be denied too: OpenCode's free tier refuses a request whose `bash`
+    tool is switched off (`FreeTierError`, checked on 2026-09-22). So `bash` stays declared and the
+    evaluation guard refuses every command instead, and without the guard nothing is run at all.
     """
+    guard = guard or _default_guard_plugin()
+    if guard is None or not guard.is_file():
+        raise ReviewError(
+            "the evaluation guard plugin is missing, so no role is run through the harness"
+        )
     config = {
         "$schema": "https://opencode.ai/config.json",
         "autoupdate": False,
         "share": "disabled",
         "mcp": {},
+        "plugin": [str(guard)],
         "permission": {
             "edit": "deny",
-            "bash": "deny",
+            "bash": {"*": "allow"},
             "webfetch": "deny",
             "external_directory": "deny",
         },
@@ -378,6 +395,8 @@ def harness_asker(model: str, *, executable: str = "opencode", timeout_s: int = 
                     "OPENCODE_CONFIG_CONTENT": json.dumps(config),
                     "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
                     "OPENCODE_DISABLE_CLAUDE_CODE": "1",
+                    "WIKISKILL_GUARD_DENY": json.dumps(["*"]),
+                    "WIKISKILL_MAX_STEPS": "",
                 }
             )
             env.pop("OPENCODE_CONFIG", None)
