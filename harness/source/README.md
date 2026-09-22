@@ -4,9 +4,12 @@ wikiskill's own skills, commands and meta-agents are authored **here, once**. Ev
 is generated from this tree by `wikiskill build`, so a fix reaches every harness by rebuilding:
 
 ```bash
-wikiskill build --harness opencode --collection <name>
-wikiskill install --harness opencode --scope global --collection <name>
+wikiskill build --harness opencode            # preview into dist/; aliases stay unmapped
+wikiskill install --harness opencode --scope global --collection <name>   # resolves its aliases
 ```
+
+`wikiskill build --collection <name>` builds that collection's own sources instead, which is what an
+evaluation installs; it does not build this tree.
 
 Never edit a built file under `dist/` or inside a harness config directory. `dist/` is git-ignored
 and is deleted and rewritten on every build, and `wikiskill install --uninstall` removes exactly the
