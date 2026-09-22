@@ -90,6 +90,17 @@ Deferred:
 
 ## 6. Close the loop
 
+> **WIP, 2026-09-22.** Review and refine ran live on big-pickle:
+> - two patterns: `ask-for-missing-message` and `no-result-line-when-awaiting-input`
+> - proposal `p-001`, which adds `result: need-input` and requires the structured block when the
+>   doer pauses to ask
+>
+> Nothing is applied yet. **Open decision:** the suite's check `result:\s*(ok|failed)` encodes the
+> doer's old contract, so it cannot credit `need-input`. The options:
+> 1. Widen the check, make `compare` refuse runs whose suite content differs, and re-measure v1.
+> 2. Keep the suite frozen and note the limit in the report.
+> 3. Reject p-001 and propose against the dirty-tree rule instead.
+
 - [ ] 6.1 The user applies the 4.1 patch. Run v2 with the same suite and models, then
   `wikiskill compare` v1 v2 and record the decision.
 - [ ] 6.2 Write `docs/pilots/datalad-doer.md`: the unit, the models, what was unrun and why, the
