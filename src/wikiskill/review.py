@@ -30,6 +30,8 @@ DEFAULT_BUDGET = 12_000
 DEFAULT_RETRIES = 2
 COMPONENT_TEXT_LIMIT = 3_000
 PASSES_PER_TASK = 1
+#: Tool calls a harness-served role may make before the guard refuses the rest.
+ROLE_MAX_STEPS = 3
 
 
 class ReviewError(Exception):
@@ -335,8 +337,15 @@ def role_asker(
 
 
 def harness_flatten(messages: Sequence[dict[str, str]]) -> str:
-    """One prompt from a conversation, for a harness that takes a single message per run."""
-    parts = []
+    """One prompt from a conversation, for a harness that takes a single message per run.
+
+    The harness's default agent is a coding agent, so it is told outright that this is a question
+    to answer in text: everything it needs is in the prompt.
+    """
+    parts = [
+        "Answer in text only. Do not use any tools: they are disabled, and everything you need is "
+        "below."
+    ]
     for message in messages:
         heading = {
             "system": "# Your instructions",
@@ -396,7 +405,9 @@ def harness_asker(
                     "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
                     "OPENCODE_DISABLE_CLAUDE_CODE": "1",
                     "WIKISKILL_GUARD_DENY": json.dumps(["*"]),
-                    "WIKISKILL_MAX_STEPS": "",
+                    # A role answers in text. Past a few tool calls the guard refuses the rest,
+                    # which pushes a model that went exploring back to answering.
+                    "WIKISKILL_MAX_STEPS": str(ROLE_MAX_STEPS),
                 }
             )
             env.pop("OPENCODE_CONFIG", None)
@@ -422,7 +433,14 @@ def harness_asker(
                     check=False,
                 )
             except subprocess.TimeoutExpired as exc:
-                raise ReviewError(f"{model} did not answer within {timeout_s}s") from exc
+                partial = (
+                    exc.stdout.decode(errors="replace")
+                    if isinstance(exc.stdout, bytes)
+                    else (exc.stdout or "")
+                )
+                raise ReviewError(
+                    f"{model} did not answer within {timeout_s}s; {_stream_summary(partial)}"
+                ) from exc
             except OSError as exc:
                 raise ReviewError(f"cannot run {executable}: {exc}") from exc
             text = _stream_text(done.stdout)
@@ -434,6 +452,29 @@ def harness_asker(
             shutil.rmtree(root, ignore_errors=True)
 
     return ask
+
+
+def _stream_summary(stdout: str) -> str:
+    """What a stream got as far as, for an error message: event counts and the last error."""
+    counts: dict[str, int] = {}
+    last_error = ""
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        kind = str(event.get("type"))
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind == "error":
+            last_error = str(((event.get("error") or {}).get("data") or {}).get("message", ""))[
+                :160
+            ]
+    if not counts:
+        return "the stream was empty"
+    seen = ", ".join(f"{n} {k}" for k, n in sorted(counts.items()))
+    return f"the stream had {seen}" + (f"; last error: {last_error}" if last_error else "")
 
 
 def _stream_text(stdout: str) -> str:
