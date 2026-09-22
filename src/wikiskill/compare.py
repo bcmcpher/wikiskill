@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import paths, rawlog
+from . import paths, rawlog, wiki
 from .score.route import UNSCORED
 
 #: 95% two-sided.
@@ -432,13 +432,8 @@ def record(collection: str, comparison: Comparison, decision: str, proposal: str
     """Append the user's decision to `skill-impact.md`. Applies and reverts nothing."""
     if decision not in ("accept", "reject"):
         raise CompareError(f"a decision is `accept` or `reject`, not {decision!r}")
-    target = paths.wiki_dir(collection) / "skill-impact.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.exists():
-        target.write_text(
-            "# Skill impact\n\nOne entry per decision on a proposal, newest last.\n",
-            encoding="utf-8",
-        )
+    root = wiki.ensure(collection)
+    target = root / wiki.IMPACT
     pooled = []
     for condition in sorted({c for c, _ in comparison.rows}):
         ra, rb, move = comparison.rows[(condition, POOLED)]
@@ -459,4 +454,5 @@ def record(collection: str, comparison: Comparison, decision: str, proposal: str
     ]
     with target.open("a", encoding="utf-8") as handle:
         handle.write("\n".join(entry))
+    wiki.commit(root, f"{decision} {proposal} for {comparison.component}")
     return target

@@ -18,7 +18,9 @@ from . import collection as collection_mod
 from . import compare as compare_mod
 from . import install as install_mod
 from . import report as report_mod
+from . import review as review_mod
 from . import suite as suite_mod
+from . import wiki as wiki_mod
 from .build import HARNESSES, BuildError, build, build_collection, dist_dir
 from .collection import Collection, ManifestError, Source
 from .frontmatter import FrontmatterError
@@ -509,6 +511,70 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return OK
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    coll = _load(args.collection)
+    runs = [compare_mod.load_run(coll.name, run) for run in args.run] if args.run else None
+    if args.dry_run:
+        found = review_mod.digest(coll, args.component, runs=runs, budget=args.budget)
+        print(found.text)
+        print(
+            f"--- {len(found.text)} characters, {len(found.evidence)} pieces of evidence, "
+            f"{found.omitted} omitted, runs: {', '.join(found.runs) or 'none'}"
+        )
+        return OK
+    if args.reply_file:
+        replies = iter([Path(args.reply_file).read_text(encoding="utf-8")])
+        ask = lambda _messages: next(replies)  # noqa: E731
+        maintainer = f"reply file {args.reply_file}"
+        retries = 0
+    else:
+        ask, maintainer = review_mod.endpoint_asker(coll)
+        retries = args.retries
+    outcome = review_mod.review(
+        coll,
+        args.component,
+        ask=ask,
+        maintainer=maintainer,
+        runs=runs,
+        budget=args.budget,
+        retries=retries,
+    )
+    if outcome.applied is None:
+        print(f"nothing written: the reply failed validation after {outcome.attempts} attempt(s)")
+        for problem in outcome.problems:
+            print(f"  - {problem}")
+        return FAILED
+    applied = outcome.applied
+    print(f"review of {args.component} applied after {outcome.attempts} attempt(s)")
+    print(f"  created  {', '.join(applied.created) or 'none'}")
+    print(f"  updated  {', '.join(applied.updated) or 'none'}")
+    note = "" if applied.committed else " (not committed)"
+    print(f"  wiki     {wiki_mod.wiki_root(coll.name)}{note}")
+    for warning in applied.warnings:
+        print(f"  warning: {warning}")
+    return OK
+
+
+def _add_review_parser(sub) -> None:
+    rev = sub.add_parser("review", help="distil one component's evidence into wiki patterns")
+    rev.add_argument("component", help="e.g. datalad/datalad-doer")
+    rev.add_argument("--collection", required=True)
+    rev.add_argument(
+        "--run", action="append", default=None, help="only this run (default: every run of it)"
+    )
+    rev.add_argument(
+        "--budget", type=int, default=review_mod.DEFAULT_BUDGET, help="prompt characters"
+    )
+    rev.add_argument("--retries", type=int, default=review_mod.DEFAULT_RETRIES)
+    rev.add_argument("--dry-run", action="store_true", help="print the prompt and stop")
+    rev.add_argument(
+        "--reply-file",
+        default=None,
+        help="validate and apply a maintainer reply written elsewhere, e.g. in-harness",
+    )
+    rev.set_defaults(func=cmd_review)
+
+
 def _add_compare_parser(sub) -> None:
     cmp = sub.add_parser(
         "compare", help="compare two runs of one suite across versions of a component"
@@ -673,6 +739,7 @@ def build_parser() -> argparse.ArgumentParser:
     inst.set_defaults(func=cmd_install)
 
     _add_compare_parser(sub)
+    _add_review_parser(sub)
 
     return parser
 
@@ -691,6 +758,8 @@ def main(argv: list[str] | None = None) -> int:
         SuiteError,
         RunnerError,
         compare_mod.CompareError,
+        review_mod.ReviewError,
+        wiki_mod.WikiError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return FAILED

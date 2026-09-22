@@ -63,6 +63,10 @@ def logger_error_log(collection: str) -> Path:
 PACKAGED_DATA: dict[str, tuple[str, str]] = {
     "schema": ("_schemas/raw-event.schema.json", "schemas/raw-event.schema.json"),
     "suite-schema": ("_schemas/task-suite.schema.json", "schemas/task-suite.schema.json"),
+    "maintainer-schema": (
+        "_schemas/maintainer-output.schema.json",
+        "schemas/maintainer-output.schema.json",
+    ),
     "source": ("_source", "harness/source"),
     "opencode-plugin": ("_harness/opencode/plugin", "harness/opencode/plugin"),
     "opencode-guard": ("_harness/opencode/guard", "harness/opencode/guard"),

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bcmcpher/wikiskill/schemas/maintainer-output.schema.json",
+  "title": "wikiskill maintainer output",
+  "description": "What the maintainer returns after reading one component's evidence. wikiskill validates it, then writes the wiki itself: the maintainer never writes a file. Evidence is cited by the ids the prompt gave (E1, E2, ...); scope, versions and full references are filled in by wikiskill from those ids, never taken from the model.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["create", "update", "index", "log"],
+  "properties": {
+    "create": {
+      "description": "New patterns. Each must cite at least one piece of evidence.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/new_pattern" }
+    },
+    "update": {
+      "description": "Further evidence or observations for patterns that already exist.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/update" }
+    },
+    "index": {
+      "description": "A one-line summary for every pattern of this component after the change: existing and created alike.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "log": {
+      "description": "One paragraph: what this review looked at and what it concluded, including when it found nothing new.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,60}$" },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[ES][0-9]+$" },
+      "uniqueItems": true
+    },
+    "new_pattern": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["slug", "title", "trigger", "cause", "evidence", "observation"],
+      "properties": {
+        "slug": { "$ref": "#/$defs/slug" },
+        "title": { "type": "string", "minLength": 1 },
+        "trigger": {
+          "description": "The situation in which this pattern shows up, in terms a reader can recognise in a new task.",
+          "type": "string",
+          "minLength": 1
+        },
+        "cause": {
+          "enum": [
+            "instruction_gap",
+            "instruction_conflict",
+            "instruction_ignored",
+            "tool_misuse",
+            "environment",
+            "model_limit",
+            "success"
+          ]
+        },
+        "evidence": { "allOf": [{ "$ref": "#/$defs/evidence" }, { "minItems": 1 }] },
+        "observation": { "type": "string", "minLength": 1 },
+        "suggestion": { "type": "string" }
+      }
+    },
+    "update": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["slug", "evidence", "observation"],
+      "properties": {
+        "slug": { "$ref": "#/$defs/slug" },
+        "evidence": { "allOf": [{ "$ref": "#/$defs/evidence" }, { "minItems": 1 }] },
+        "observation": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

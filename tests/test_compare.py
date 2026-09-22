@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
@@ -229,7 +230,15 @@ def test_record_appends_a_decision_and_changes_nothing_else(xdg, tmp_path):
     assert target == paths.wiki_dir("dsh-datalad") / "skill-impact.md"
     assert text.count("## p-") == 2
     assert "## p-001: reject" in text and "`h1`" in text and "`h2`" in text
-    assert sorted(p.name for p in target.parent.iterdir()) == ["skill-impact.md"]
+    patterns = target.parent / "patterns"
+    assert not any(patterns.iterdir()), "a decision touches no pattern"
+    log = subprocess.run(
+        ["git", "-C", str(target.parent), "log", "--format=%s"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert log.stdout.splitlines()[0] == "accept p-002 for datalad/datalad-doer"
 
 
 def test_cli_compare_writes_both_reports_and_records(xdg, tmp_path, capsys):

@@ -55,11 +55,11 @@ Deferred:
 
 ## 3. Minimal review
 
-- [ ] 3.1 `schemas/maintainer-output.schema.json` (create, update, index, log) and a validator in
+- [x] 3.1 `schemas/maintainer-output.schema.json` (create, update, index, log) and a validator in
   `src/wikiskill/wiki.py`, with at most two re-prompts.
-- [ ] 3.2 `src/wikiskill/wiki.py`: initialise `<collection>/wiki/` as a git repository. Apply
+- [x] 3.2 `src/wikiskill/wiki.py`: initialise `<collection>/wiki/` as a git repository. Apply
   validated output and commit.
-- [ ] 3.3 `wikiskill review <component>`: collect that component's eval results and raw sessions within
+- [x] 3.3 `wikiskill review <component>`: collect that component's eval results and raw sessions within
   a character budget, call `roles.maintainer` headless, and apply. Add the
   `harness/source/agents/wikiskill-maintainer.md` prompt.
 - [ ] 3.4 (deferred) `harness/source/commands/wikiskill-review.md` for in-harness use.
