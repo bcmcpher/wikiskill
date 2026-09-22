@@ -15,6 +15,7 @@ import pytest
 from conftest import FIXTURES, write_manifest
 from wikiskill import collection as collection_mod
 from wikiskill import rawlog
+from wikiskill.frontmatter import read as read_frontmatter
 from wikiskill.runner import base as runner_base
 from wikiskill.runner import opencode as backend_mod
 from wikiskill.runner.preflight import Endpoint
@@ -120,6 +121,21 @@ def test_the_environment_isolates_xdg_and_disables_discovery(backend, tmp_path):
     assert json.loads(environment["OPENCODE_CONFIG_CONTENT"])["mcp"] == {}
 
 
+def test_a_tasks_env_reaches_the_harness_process_below_the_isolation(backend, tmp_path):
+    import dataclasses
+
+    base = unit()
+    task = dataclasses.replace(
+        base.task, env=(("DATALAD_AUTOSAVE", "0"), ("XDG_CONFIG_HOME", "/home/me/.config"))
+    )
+    environment = backend.env_for(dataclasses.replace(base, task=task), tmp_path / "root")
+
+    assert environment["DATALAD_AUTOSAVE"] == "0"
+    assert environment["XDG_CONFIG_HOME"].startswith(str(tmp_path)), (
+        "even a task built past the suite check cannot undo the run's isolation"
+    )
+
+
 def test_the_guard_denies_the_task_patterns_and_the_base_ones(backend, tmp_path):
     deny = json.loads(backend.env_for(unit(), tmp_path / "root")["WIKISKILL_GUARD_DENY"])
 
@@ -149,6 +165,35 @@ def test_routed_installs_the_collection_into_the_run_and_nowhere_else(backend, x
     assert not (xdg["config"] / "wikiskill" / "runtime.json").exists(), (
         "an evaluation never writes into the user's own configuration"
     )
+
+
+def test_routed_installs_agents_on_the_model_under_test(tmp_path, xdg, plugin_source):
+    """A pinned doer would put two models in one row; the run strips every pin."""
+    doer = plugin_source / "datalad" / "agents" / "datalad-doer.md"
+    doer.write_text(
+        "---\nname: datalad-doer\ndescription: d\ntools: Read, Bash\nmodel: haiku\n---\n\nb\n",
+        encoding="utf-8",
+    )
+    write_manifest(
+        xdg,
+        "dsh",
+        f'name = "dsh"\nsources = [{{ path = "{plugin_source}", layout = "claude-plugin", '
+        'plugins = ["datalad"] }]\n[watch]\nagents = ["datalad/datalad-doer"]\n'
+        '[aliases.opencode]\nhaiku = "ollama/qwen3:1.7b"\n',
+    )
+    backend = backend_mod.OpenCodeBackend(
+        collection=collection_mod.load("dsh"),
+        endpoint=Endpoint("http://localhost:11434/v1"),
+        layout=runner_base.RunLayout.create("dsh", RUN_ID, base=tmp_path),
+        suite_root=tmp_path,
+        executable="/nonexistent/opencode",
+    )
+    config = backend.prepare(unit(condition="routed")).parent / "config" / "opencode"
+
+    meta = read_frontmatter(config / "agents" / "datalad-doer.md").meta
+    assert "model" not in meta
+    assert meta["permission"]["bash"] == "allow"
+    assert not (config / "skills").exists(), "only the selected plugin is installed"
 
 
 def test_off_installs_nothing_at_all(backend):

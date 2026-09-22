@@ -31,6 +31,26 @@ def test_discovers_a_claude_plugin_layout(plugin_source):
     assert ("agent", "datalad/datalad-doer") in names
 
 
+def test_a_plugin_filter_narrows_discovery_to_the_unit(plugin_source):
+    source = Source(path=plugin_source, layout="claude-plugin", plugins=("datalad",))
+    names = {(c.kind, c.name) for c in collection_mod.discover(source)}
+    assert names == {("agent", "datalad/datalad-doer")}
+
+
+def test_a_selected_plugin_that_does_not_exist_is_unresolved(xdg, plugin_source):
+    body = f"""
+name = "dsh"
+sources = [{{ path = "{plugin_source}", layout = "claude-plugin", plugins = ["datalod"] }}]
+
+[watch]
+agents = ["datalad/datalad-doer"]
+"""
+    write_manifest(xdg, "dsh", body)
+    coll = collection_mod.load("dsh")
+    assert coll.unresolved_plugins() == [f"{plugin_source}/datalod"]
+    assert coll.discover() == []
+
+
 def test_discovers_an_opencode_layout(opencode_source):
     found = collection_mod.discover(Source(path=opencode_source, layout="opencode"))
     names = {(c.kind, c.name) for c in found}
@@ -174,6 +194,39 @@ haiku = "haiku"
     assert coll.resolve_alias("claude-code", "haiku") == "haiku"
 
 
+def test_a_tier_alias_is_followed_one_hop(xdg, plugin_source):
+    write_manifest(
+        xdg,
+        "dsh",
+        manifest_body(plugin_source)
+        + """
+[aliases.opencode]
+small = "opencode/big-pickle"
+haiku = "small"
+""",
+    )
+    coll = collection_mod.load("dsh")
+    assert coll.resolve_alias("opencode", "haiku") == "opencode/big-pickle"
+    assert coll.resolve_alias("opencode", "small") == "opencode/big-pickle"
+
+
+@pytest.mark.parametrize(
+    "table, expected",
+    [
+        ('small = "large"\nlarge = "small"\n', "opencode.small` -> `large` -> `small` is a cycle"),
+        (
+            'haiku = "small"\nsmall = "large"\nlarge = "ollama/qwen3:1.7b"\n',
+            "more than one hop",
+        ),
+        ('haiku = "small"\nsmall = "big-pickle"\n', "does not end in a `provider/model`"),
+    ],
+)
+def test_a_bad_alias_chain_is_rejected(xdg, plugin_source, table, expected):
+    write_manifest(xdg, "dsh", manifest_body(plugin_source) + "\n[aliases.opencode]\n" + table)
+    with pytest.raises(ManifestError, match=expected):
+        collection_mod.load("dsh")
+
+
 def test_unmapped_alias_is_reported_rather_than_fatal(xdg, plugin_source):
     write_manifest(xdg, "dsh", manifest_body(plugin_source))
     coll = collection_mod.load("dsh")
@@ -205,6 +258,14 @@ def test_unmapped_alias_is_reported_rather_than_fatal(xdg, plugin_source):
             'name = "other"\nsources = [{ path = "/tmp", layout = "opencode" }]\n[watch]\nskills = ["x"]\n',
             "but the manifest file is named",
         ),
+        (
+            'name = "dsh"\nsources = [{ path = "/tmp", layout = "opencode", plugins = ["x"] }]\n[watch]\nskills = ["x"]\n',
+            "plugins` applies only to the claude-plugin layout",
+        ),
+        (
+            'name = "dsh"\nsources = [{ path = "/tmp", layout = "claude-plugin", plugins = [] }]\n[watch]\nskills = ["x"]\n',
+            "plugins` must be a non-empty array",
+        ),
     ],
 )
 def test_invalid_manifests_are_rejected_with_a_reason(xdg, body, expected):
@@ -214,7 +275,7 @@ def test_invalid_manifests_are_rejected_with_a_reason(xdg, body, expected):
 
 
 def test_manifest_error_lists_every_problem_at_once(xdg):
-    write_manifest(xdg, "dsh", 'sources = 5\n[watch]\nskills = 7\n')
+    write_manifest(xdg, "dsh", "sources = 5\n[watch]\nskills = 7\n")
     with pytest.raises(ManifestError) as excinfo:
         collection_mod.load("dsh")
     assert len(excinfo.value.problems) >= 3

@@ -185,3 +185,34 @@ def test_leak_terms_cover_both_halves_of_a_name():
         "govern",
     ]
     assert suite_mod.leak_terms("datalad-doer") == ["datalad-doer"]
+
+
+# --------------------------------------------------------------------------- environment
+
+ENV = """
+suite: toy
+defaults: { env: { DATALAD_AUTOSAVE: "0", LANG: C } }
+tasks:
+  - id: save
+    prompt: Record the current state of this project.
+    split: val
+    verifiers:
+      - { kind: file_exists, path: DONE.md }
+    env: { LANG: C.UTF-8 }
+"""
+
+
+def test_env_folds_suite_defaults_under_the_tasks_own(tmp_path):
+    task = suite_mod.load(write(tmp_path, ENV)).tasks[0]
+    assert dict(task.env) == {"DATALAD_AUTOSAVE": "0", "LANG": "C.UTF-8"}
+
+
+def test_env_values_must_be_strings(tmp_path):
+    with pytest.raises(SuiteError):
+        suite_mod.load(write(tmp_path, ENV.replace('"0"', "0")))
+
+
+def test_env_may_not_touch_the_runners_isolation(tmp_path):
+    body = ENV.replace("LANG: C.UTF-8", "XDG_CONFIG_HOME: /home/me/.config")
+    with pytest.raises(SuiteError, match="XDG_CONFIG_HOME, which the runner owns"):
+        suite_mod.load(write(tmp_path, body))

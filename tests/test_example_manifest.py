@@ -30,7 +30,17 @@ def test_the_example_parses_and_validates(example):
 def test_the_example_declares_an_open_model_alias_table(example):
     parsed = collection_mod.parse(tomllib.loads(example.read_text()), expected_name=example.stem)
     assert parsed.aliases["opencode"], "the primary target is open models under OpenCode"
-    assert all("/" in value for value in parsed.aliases["opencode"].values())
+    resolved = [parsed.resolve_alias("opencode", alias) for alias in parsed.aliases["opencode"]]
+    assert all("/" in value for value in resolved)
+
+
+def test_the_examples_claude_model_names_resolve_through_tiers(example):
+    parsed = collection_mod.parse(tomllib.loads(example.read_text()), expected_name=example.stem)
+    small = parsed.resolve_alias("opencode", "small")
+    large = parsed.resolve_alias("opencode", "large")
+    assert parsed.resolve_alias("opencode", "haiku") == small
+    assert parsed.resolve_alias("opencode", "sonnet") == large
+    assert parsed.resolve_alias("opencode", "opus") == large
 
 
 def test_the_examples_judge_is_not_a_model_under_test(example):

@@ -29,6 +29,9 @@ DEFAULT_REPEATS = 3
 DEFAULT_TIMEOUT_S = 900
 DEFAULT_MAX_STEPS = 40
 
+#: Environment the runner sets to isolate a unit. A suite may not override it.
+RESERVED_ENV_PREFIXES = ("XDG_", "OPENCODE_", "WIKISKILL_")
+
 SPLITS = ("train", "val", "test")
 VERIFIER_KINDS = ("command", "file_exists", "regex")
 
@@ -145,6 +148,8 @@ class Task:
     fixtures: str | None = None
     requires: tuple[str, ...] = ()
     guard_deny: tuple[str, ...] = ()
+    #: Environment set in the unit's harness process, as sorted ``(name, value)`` pairs.
+    env: tuple[tuple[str, str], ...] = ()
     followups: tuple[str, ...] = ()
     repeats: int = DEFAULT_REPEATS
     timeout_s: int = DEFAULT_TIMEOUT_S
@@ -304,6 +309,7 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
         fixtures=raw.get("fixtures"),
         requires=tuple(raw.get("requires") or defaults.get("requires") or ()),
         guard_deny=tuple(guard.get("deny", ())),
+        env=tuple(sorted({**(defaults.get("env") or {}), **(raw.get("env") or {})}.items())),
         followups=tuple(raw.get("followups", ())),
         repeats=int(raw.get("repeats", defaults.get("repeats", DEFAULT_REPEATS))),
         timeout_s=int(raw.get("timeout_s", defaults.get("timeout_s", DEFAULT_TIMEOUT_S))),
@@ -360,6 +366,12 @@ def parse(
             )
         for problem in verifier_problems(task):
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
+        reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
+        if reserved:
+            problems.append(
+                f"tasks/{index}: task {task.id!r} sets {', '.join(reserved)}, which the runner "
+                "owns to isolate the run"
+            )
         certain, suspected = prompt_leaks(task)
         for term in certain:
             problems.append(

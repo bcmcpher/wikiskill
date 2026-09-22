@@ -72,6 +72,41 @@ def test_check_exits_non_zero_on_an_unresolved_entry(xdg, plugin_source, capsys)
     assert "match nothing" in captured.err
 
 
+def test_check_exits_non_zero_on_a_misspelled_plugin(xdg, plugin_source, capsys):
+    write_manifest(
+        xdg,
+        "dsh",
+        f'name = "dsh"\nsources = [{{ path = "{plugin_source}", layout = "claude-plugin", '
+        'plugins = ["datalod"] }]\n[watch]\nagents = ["datalad/datalad-doer"]\n',
+    )
+    assert main(["collection", "check", "dsh"]) == 1
+    captured = capsys.readouterr()
+    assert "datalod" in captured.out
+    assert "selected plugins do not exist" in captured.err
+
+
+def test_check_lists_only_the_selected_plugin(xdg, plugin_source, capsys):
+    write_manifest(
+        xdg,
+        "dsh",
+        f'name = "dsh"\nsources = [{{ path = "{plugin_source}", layout = "claude-plugin", '
+        'plugins = ["datalad"] }]\n[watch]\nagents = ["datalad/datalad-doer"]\n',
+    )
+    assert main(["collection", "check", "dsh"]) == 0
+    out = capsys.readouterr().out
+    assert "* datalad/datalad-doer" in out
+    assert "govern/preregister" not in out
+
+
+def test_build_with_a_collection_builds_its_sources(xdg, plugin_source, tmp_path, capsys):
+    write_manifest(xdg, "dsh", manifest_for(plugin_source))
+    out = tmp_path / "dist"
+    assert main(["build", "--harness", "opencode", "--collection", "dsh", "--out", str(out)]) == 0
+    printed = capsys.readouterr().out
+    assert "datalad/datalad-doer -> datalad-doer" in printed
+    assert (out / "agents" / "datalad-doer.md").is_file()
+
+
 def test_check_exits_non_zero_on_a_missing_source(xdg, tmp_path, capsys):
     write_manifest(
         xdg,

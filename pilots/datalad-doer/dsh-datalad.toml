@@ -1,0 +1,39 @@
+# One unit of data-science-harness: the datalad plugin's doer, on its own.
+#
+# The first unit taken through the whole loop (add-minimal-loop). A collection is loaded by name,
+# so copy this to ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/dsh-datalad.toml, then:
+#
+#     wikiskill collection check dsh-datalad
+#     wikiskill build --collection dsh-datalad --harness opencode --out /tmp/dsh-datalad
+
+name = "dsh-datalad"
+
+sources = [
+  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin", plugins = ["datalad"] },
+]
+
+[watch]
+agents = ["datalad/datalad-doer"]
+
+# The judge and maintainer need only chat, which a small local model does; neither is a target.
+[roles.judge]
+base_url = "http://localhost:11434/v1"
+model = "gemma2:2b"
+
+[roles.maintainer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:1.7b"
+
+[roles.proposer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:1.7b"
+
+[targets]
+opencode = ["opencode/big-pickle"]
+
+[aliases.opencode]
+small = "opencode/big-pickle"
+large = "opencode/big-pickle"
+haiku = "small"
+sonnet = "large"
+opus = "large"

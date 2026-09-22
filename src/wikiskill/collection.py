@@ -49,21 +49,37 @@ class Source:
 
     path: Path
     layout: str
+    #: For a claude-plugin source, the plugins that make up the unit; None means every plugin.
+    plugins: tuple[str, ...] | None = None
+
+    def plugin_dirs(self) -> list[Path]:
+        """The directories holding components: the root itself, or each selected plugin under it."""
+        if self.layout == "opencode":
+            return [self.path]
+        if not self.path.is_dir():
+            return []
+        return sorted(
+            p
+            for p in self.path.iterdir()
+            if p.is_dir() and (self.plugins is None or p.name in self.plugins)
+        )
+
+    def missing_plugins(self) -> list[str]:
+        """Selected plugins with no directory under the source root."""
+        if self.plugins is None:
+            return []
+        return [name for name in self.plugins if not (self.path / name).is_dir()]
 
     def dirs_for(self, kind: str) -> list[Path]:
         """Directories to scan for ``kind``, respecting the layout.
 
         ``opencode``      → ``<root>/skills/``
-        ``claude-plugin`` → ``<root>/<plugin>/skills/`` for each plugin under the root
+        ``claude-plugin`` → ``<root>/<plugin>/skills/`` for each selected plugin under the root
         """
         names = _DIR_NAMES[kind]
-        if self.layout == "opencode":
-            roots = [self.path]
-        else:
-            if not self.path.is_dir():
-                return []
-            roots = sorted(p for p in self.path.iterdir() if p.is_dir())
-        return [root / name for root in roots for name in names if (root / name).is_dir()]
+        return [
+            root / name for root in self.plugin_dirs() for name in names if (root / name).is_dir()
+        ]
 
 
 @dataclass(frozen=True)
@@ -131,15 +147,27 @@ class Collection:
                     missing.append(f"{kind}:{pattern}")
         return missing
 
+    def unresolved_plugins(self) -> list[str]:
+        """Plugins a source selects that do not exist, as ``<source>/<plugin>`` strings."""
+        return [
+            f"{source.path}/{name}" for source in self.sources for name in source.missing_plugins()
+        ]
+
     # ------------------------------------------------------------------ models
 
     def resolve_alias(self, harness: str, alias: str) -> str | None:
         """A concrete ``provider/model`` for an alias in a harness, or None when unmapped.
 
         An unmapped alias is not an error: the built component omits a model and inherits its
-        caller's.
+        caller's. An alias may name another alias of the same harness — ``haiku = "small"`` — and is
+        followed one hop; parsing has already rejected anything longer.
         """
-        return self.aliases.get(harness, {}).get(alias)
+        table = self.aliases.get(harness, {})
+        value = table.get(alias)
+        # A self-mapping (`haiku = "haiku"`) hands the name to the harness unchanged.
+        if value is not None and value != alias and value in table:
+            return table[value]
+        return value
 
     def unmapped_aliases(self, harness: str, used: Iterable[str]) -> list[str]:
         table = self.aliases.get(harness, {})
@@ -343,11 +371,30 @@ def _parse_sources(value: Any, problems: list[str]) -> list[Source]:
         if layout not in LAYOUTS:
             problems.append(f"`{label}.layout` must be one of {', '.join(LAYOUTS)}")
             continue
-        extra = set(entry) - {"path", "layout"}
+        extra = set(entry) - {"path", "layout", "plugins"}
         if extra:
             problems.append(f"`{label}` has unknown keys: {', '.join(sorted(extra))}")
-        sources.append(Source(path=Path(path).expanduser(), layout=layout))
+        plugins = _parse_plugins(entry.get("plugins"), layout, label, problems)
+        sources.append(Source(path=Path(path).expanduser(), layout=layout, plugins=plugins))
     return sources
+
+
+def _parse_plugins(
+    value: Any, layout: str, label: str, problems: list[str]
+) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    if layout != "claude-plugin":
+        problems.append(f"`{label}.plugins` applies only to the claude-plugin layout")
+        return None
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(v, str) and v.strip() for v in value)
+    ):
+        problems.append(f"`{label}.plugins` must be a non-empty array of plugin names")
+        return None
+    return tuple(value)
 
 
 def _parse_watch(value: Any, problems: list[str]) -> dict[str, tuple[str, ...]]:
@@ -422,7 +469,35 @@ def _parse_aliases(value: Any, problems: list[str]) -> dict[str, dict[str, str]]
             problems.append(f"`aliases.{harness}` must map alias names to `provider/model` strings")
             continue
         aliases[harness] = dict(table)
+        problems.extend(_alias_chain_problems(harness, table))
     return aliases
+
+
+def _alias_chain_problems(harness: str, table: dict[str, str]) -> list[str]:
+    """An alias naming another alias must reach a ``provider/model`` in exactly one hop.
+
+    One hop is enough for a tier table (``haiku`` → ``small`` → a model), and allowing more would
+    make a cycle something to search for rather than something to see.
+    """
+    problems = []
+    for alias, value in table.items():
+        if value == alias or value not in table:
+            continue
+        target = table[value]
+        if target != value and target in table:
+            kind = (
+                "a cycle" if target == alias or table.get(target) == value else "more than one hop"
+            )
+            problems.append(
+                f"`aliases.{harness}.{alias}` -> `{value}` -> `{target}` is {kind}; an alias may "
+                "name another alias only when that one maps to a model"
+            )
+        elif "/" not in target:
+            problems.append(
+                f"`aliases.{harness}.{alias}` -> `{value}` -> {target!r} does not end in a "
+                "`provider/model` string"
+            )
+    return problems
 
 
 def _parse_targets(value: Any, problems: list[str]) -> dict[str, tuple[str, ...]]:

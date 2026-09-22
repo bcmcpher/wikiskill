@@ -8,12 +8,13 @@ output is owned by this module: it is cleared and rewritten on each run, and is 
 from __future__ import annotations
 
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from . import paths
-from .collection import Collection
+from .collection import Collection, Source
 from .frontmatter import Document
 from .frontmatter import read as read_frontmatter
 
@@ -26,6 +27,23 @@ CAPABILITY_PERMISSION = {"edit": "edit", "bash": "bash", "web": "webfetch"}
 CAPABILITY_TOOLS = {"read": ("read",), "search": ("grep", "glob", "list")}
 
 CAPABILITIES = tuple(sorted({*CAPABILITY_PERMISSION, *CAPABILITY_TOOLS}))
+
+#: Claude Code tool names, as a claude-plugin agent's `tools:` lists them, and the neutral
+#: capability each needs. A plugin written for Claude Code declares tools rather than capabilities,
+#: and without this translation it would build for OpenCode with everything denied.
+CLAUDE_TOOL_CAPABILITY = {
+    "Read": "read",
+    "Grep": "search",
+    "Glob": "search",
+    "LS": "search",
+    "Bash": "bash",
+    "Edit": "edit",
+    "Write": "edit",
+    "MultiEdit": "edit",
+    "NotebookEdit": "edit",
+    "WebFetch": "web",
+    "WebSearch": "web",
+}
 
 #: Keys that exist only in the neutral source and must not reach a harness layout.
 NEUTRAL_ONLY = ("role_model", "capabilities")
@@ -50,6 +68,12 @@ class BuildResult:
         return sorted(str(p.relative_to(self.out_dir)) for p in self.files)
 
 
+@dataclass
+class CollectionBuildResult(BuildResult):
+    #: ``plugin/name`` (or a bare name, for an opencode-layout source) → the flat name it builds to.
+    mapping: dict[str, str] = field(default_factory=dict)
+
+
 def dist_dir(harness: str, root: Path | None = None) -> Path:
     base = root if root is not None else Path.cwd()
     return base / "dist" / harness
@@ -61,6 +85,7 @@ def build(
     collection: Collection | None = None,
     source: Path | None = None,
     out_dir: Path | None = None,
+    strip_models: bool = False,
 ) -> BuildResult:
     """Generate ``harness``'s layout from the neutral source tree.
 
@@ -89,7 +114,12 @@ def build(
         if not source_kind_dir.is_dir():
             continue
         for entry in sorted(source_kind_dir.iterdir()):
-            common = {"result": result, "collection": collection, "used_aliases": used_aliases}
+            common = {
+                "result": result,
+                "collection": collection,
+                "used_aliases": used_aliases,
+                "strip_models": strip_models,
+            }
             if kind == "skill":
                 _build_skill(entry, target / directory, **common)
             else:
@@ -105,6 +135,108 @@ def build(
             "inherits its caller's"
         )
     return result
+
+
+def build_collection(
+    harness: str,
+    collection: Collection,
+    out_dir: Path,
+    *,
+    strip_models: bool = False,
+) -> CollectionBuildResult:
+    """Build a collection's own sources into one harness layout.
+
+    A claude-plugin source is one component root per plugin, but a harness layout is flat: two
+    plugins that each provide a `status` skill would build to the same path, and the second would
+    silently replace the first. Every root is therefore built into staging first, and the build
+    fails on a collision before anything reaches ``out_dir``.
+
+    ``strip_models`` removes every model pin, so a subagent runs on its caller's model. An
+    evaluation needs that: a doer pinned to another model would mix two models in one row.
+    """
+    if harness not in HARNESSES:
+        raise BuildError(f"unknown harness {harness!r}; known: {', '.join(HARNESSES)}")
+    result = CollectionBuildResult(harness=harness, out_dir=out_dir)
+    owners: dict[tuple[str, str], str] = {}
+    unmapped: set[str] = set()
+
+    with tempfile.TemporaryDirectory(prefix="wikiskill-build-") as tmp:
+        staged_roots = []
+        for index, source in enumerate(collection.sources):
+            for offset, root in enumerate(component_roots(source)):
+                staged = Path(tmp) / f"{index}-{offset}"
+                built = build(
+                    harness,
+                    collection=collection,
+                    source=root,
+                    out_dir=staged,
+                    strip_models=strip_models,
+                )
+                plugin = root.name if source.layout == "claude-plugin" else None
+                for kind_dir, flat in _flat_names(staged):
+                    qualified = f"{plugin}/{flat}" if plugin else flat
+                    previous = owners.get((kind_dir, flat))
+                    if previous is not None:
+                        raise BuildError(
+                            f"`{previous}` and `{qualified}` both build to {kind_dir}/{flat} for "
+                            f"{harness}; a harness layout is flat, so one would replace the other"
+                        )
+                    owners[(kind_dir, flat)] = qualified
+                    result.mapping[qualified] = flat
+                unmapped.update(built.unmapped_aliases)
+                result.warnings.extend(w for w in built.warnings if "has no mapping" not in w)
+                staged_roots.append(staged)
+
+        _clear(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / BUILD_MARKER).write_text(
+            f"generated by wikiskill build --harness {harness} --collection {collection.name}; "
+            "safe to delete\n",
+            encoding="utf-8",
+        )
+        for staged in staged_roots:
+            for path in sorted(staged.rglob("*")):
+                if not path.is_file() or path.name == BUILD_MARKER:
+                    continue
+                destination = out_dir / path.relative_to(staged)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, destination)
+                result.files.append(destination)
+
+    result.unmapped_aliases = sorted(unmapped)
+    for alias in result.unmapped_aliases:
+        result.warnings.append(
+            f"alias {alias!r} has no mapping for {harness}; the built component omits a model and "
+            "inherits its caller's"
+        )
+    return result
+
+
+def component_roots(source: Source) -> list[Path]:
+    """The directories that hold `skills/`, `agents/` and `commands/` for one source.
+
+    An OpenCode-layout source is one such directory. A Claude-plugin source is one per selected
+    plugin, which is why a collection of plugins cannot simply be built in one pass.
+    """
+    if source.layout != "claude-plugin":
+        return [source.path]
+    return [
+        child
+        for child in source.plugin_dirs()
+        if any((child / d).is_dir() for d in ("skills", "agents", "commands"))
+    ]
+
+
+def _flat_names(staged: Path) -> list[tuple[str, str]]:
+    """Each built component as ``(kind directory, flat name)``."""
+    names = []
+    for kind_dir in ("skills", "agents", "commands"):
+        directory = staged / kind_dir
+        if not directory.is_dir():
+            continue
+        for entry in sorted(directory.iterdir()):
+            names.append((kind_dir, entry.name if entry.is_dir() else entry.stem))
+    return names
 
 
 def _clear(target: Path) -> None:
@@ -135,6 +267,7 @@ def _build_skill(
     result: BuildResult,
     collection: Collection | None,
     used_aliases: list[str],
+    strip_models: bool = False,
 ) -> None:
     main = entry / "SKILL.md"
     if not entry.is_dir() or not main.is_file():
@@ -148,6 +281,7 @@ def _build_skill(
         collection=collection,
         used_aliases=used_aliases,
         result=result,
+        strip_models=strip_models,
     )
     out_dir = out_kind_dir / entry.name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -176,6 +310,7 @@ def _build_flat(
     result: BuildResult,
     collection: Collection | None,
     used_aliases: list[str],
+    strip_models: bool = False,
 ) -> None:
     if not entry.is_file() or entry.suffix != ".md":
         return
@@ -188,6 +323,7 @@ def _build_flat(
         collection=collection,
         used_aliases=used_aliases,
         result=result,
+        strip_models=strip_models,
     )
     out_kind_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_kind_dir / entry.name
@@ -204,20 +340,24 @@ def _harness_meta(
     collection: Collection | None,
     used_aliases: list[str],
     result: BuildResult,
+    strip_models: bool = False,
 ) -> dict[str, Any]:
     meta = {k: v for k, v in doc.meta.items() if k not in NEUTRAL_ONLY}
     meta.setdefault("name", default_name)
     if not meta.get("description"):
         raise BuildError(f"{doc.path}: `description` is required in neutral frontmatter")
 
-    alias = doc.meta.get("role_model")
-    if alias is not None and not isinstance(alias, str):
-        raise BuildError(f"{doc.path}: `role_model` must be a string alias")
-    if alias:
+    alias, concrete = _model_alias(doc)
+    if alias and not concrete:
         used_aliases.append(alias)
     resolved = collection.resolve_alias(harness, alias) if (collection and alias) else None
+    resolved = resolved or concrete
 
     capabilities = _capabilities(doc, result)
+    # A Claude `tools:` list has been read into capabilities; OpenCode's `tools` is a map this
+    # build writes itself, so the source's form must not reach the output.
+    if not isinstance(meta.get("tools"), dict):
+        meta.pop("tools", None)
 
     if harness == "opencode":
         if kind == "agent":
@@ -231,15 +371,39 @@ def _harness_meta(
                 for capability, tools in sorted(CAPABILITY_TOOLS.items())
                 for tool in tools
             }
-        if resolved:
+        if resolved and not strip_models:
             meta["model"] = resolved
-        elif kind == "agent":
-            # No model key at all: OpenCode then runs the subagent on its caller's model.
+        else:
+            # No model key at all: OpenCode then runs the component on its caller's model.
             meta.pop("model", None)
     return meta
 
 
+def _model_alias(doc: Document) -> tuple[str | None, str | None]:
+    """The alias a component declares, and a concrete model it names outright.
+
+    ``role_model`` is the neutral source's key. A claude-plugin component says ``model:`` instead —
+    ``haiku``, ``sonnet`` — which is an alias too, resolved through the same table. A ``model:``
+    that is already ``provider/model`` is concrete, and passes through when no alias maps it.
+    """
+    alias = doc.meta.get("role_model")
+    if alias is not None:
+        if not isinstance(alias, str):
+            raise BuildError(f"{doc.path}: `role_model` must be a string alias")
+        return alias or None, None
+    model = doc.meta.get("model")
+    if model is None:
+        return None, None
+    if not isinstance(model, str):
+        raise BuildError(f"{doc.path}: `model` must be a string")
+    if "/" in model:
+        return model, model
+    return model or None, None
+
+
 def _capabilities(doc: Document, result: BuildResult) -> set[str]:
+    if "capabilities" not in doc.meta and "tools" in doc.meta:
+        return _capabilities_from_tools(doc, result)
     declared = doc.meta.get("capabilities", [])
     if isinstance(declared, str):
         declared = [declared]
@@ -252,3 +416,25 @@ def _capabilities(doc: Document, result: BuildResult) -> set[str]:
             f"(known: {', '.join(CAPABILITIES)})"
         )
     return set(declared) & set(CAPABILITIES)
+
+
+def _capabilities_from_tools(doc: Document, result: BuildResult) -> set[str]:
+    """Neutral capabilities from a Claude Code ``tools:`` declaration, string or list."""
+    declared = doc.meta.get("tools")
+    if isinstance(declared, str):
+        names = [part.strip() for part in declared.split(",")]
+    elif isinstance(declared, list) and all(isinstance(t, str) for t in declared):
+        names = [t.strip() for t in declared]
+    elif isinstance(declared, dict):
+        # Already an OpenCode tool map: nothing to translate, and no capability to infer.
+        return set()
+    else:
+        raise BuildError(f"{doc.path}: `tools` must be a comma-separated string or an array")
+    names = [n for n in names if n]
+    # `mcp__server__tool` names grant nothing a neutral capability describes.
+    unknown = sorted(n for n in names if n not in CLAUDE_TOOL_CAPABILITY and "__" not in n)
+    if unknown:
+        result.warnings.append(
+            f"{doc.path}: tools with no OpenCode capability ignored: {', '.join(unknown)}"
+        )
+    return {CLAUDE_TOOL_CAPABILITY[n] for n in names if n in CLAUDE_TOOL_CAPABILITY}

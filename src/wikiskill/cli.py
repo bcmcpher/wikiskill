@@ -18,7 +18,7 @@ from . import collection as collection_mod
 from . import install as install_mod
 from . import report as report_mod
 from . import suite as suite_mod
-from .build import HARNESSES, BuildError, build, dist_dir
+from .build import HARNESSES, BuildError, build, build_collection, dist_dir
 from .collection import Collection, ManifestError, Source
 from .frontmatter import FrontmatterError
 from .install import SCOPES, InstallError
@@ -112,7 +112,8 @@ def cmd_collection_show(args: argparse.Namespace) -> int:
         return OK
     print(f"collection {coll.name}  ({coll.manifest_path})")
     for source in coll.sources:
-        print(f"  source  {source.path}  [{source.layout}]")
+        selected = f"  plugins {', '.join(source.plugins)}" if source.plugins else ""
+        print(f"  source  {source.path}  [{source.layout}]{selected}")
     for kind in collection_mod.KINDS:
         patterns = coll.watch.get(kind, ())
         if patterns:
@@ -146,6 +147,13 @@ def cmd_collection_check(args: argparse.Namespace) -> int:
             print(f"  source  {source.path}  [{source.layout}]  MISSING")
         else:
             print(f"  source  {source.path}  [{source.layout}]  ok")
+
+    missing_plugins = coll.unresolved_plugins()
+    if missing_plugins:
+        print("  unresolved plugins:")
+        for entry in missing_plugins:
+            print(f"    ! {entry}")
+        failures.append(f"{len(missing_plugins)} selected plugins do not exist")
 
     discovered = coll.discover()
     watched = coll.watched(discovered)
@@ -426,8 +434,21 @@ def _collection_for(name: str | None) -> Collection | None:
 def cmd_build(args: argparse.Namespace) -> int:
     coll = _collection_for(args.collection)
     out = Path(args.out) if args.out else dist_dir(args.harness)
-    result = build(args.harness, collection=coll, out_dir=out)
+    if coll is None:
+        result = build(args.harness, out_dir=out)
+    else:
+        # The collection's own sources, not wikiskill's: this is what an evaluation installs.
+        try:
+            result = build_collection(args.harness, coll, out)
+        except BuildError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return FAILED
     print(f"built {len(result.files)} files for {args.harness} into {result.out_dir}")
+    mapping = getattr(result, "mapping", {})
+    if mapping:
+        print("  components:")
+        for qualified, flat in sorted(mapping.items()):
+            print(f"    {qualified} -> {flat}")
     for relative in result.relative():
         print(f"  {relative}")
     for warning in result.warnings:
@@ -595,7 +616,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     build_cmd = sub.add_parser("build", help="generate a harness layout from the neutral source")
     build_cmd.add_argument("--harness", choices=HARNESSES, required=True)
-    build_cmd.add_argument("--collection", default=None, help="manifest supplying the alias table")
+    build_cmd.add_argument(
+        "--collection",
+        default=None,
+        help="build this collection's own sources, with its alias table, instead of wikiskill's",
+    )
     build_cmd.add_argument("--out", default=None, help="output directory (default dist/<harness>)")
     build_cmd.set_defaults(func=cmd_build)
 

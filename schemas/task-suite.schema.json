@@ -22,7 +22,8 @@
         "timeout_s": { "type": "integer", "minimum": 1 },
         "max_steps": { "type": "integer", "minimum": 1 },
         "requires": { "$ref": "#/$defs/requires" },
-        "guard": { "$ref": "#/$defs/guard" }
+        "guard": { "$ref": "#/$defs/guard" },
+        "env": { "$ref": "#/$defs/env" }
       }
     },
     "tasks": {
@@ -41,6 +42,12 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
+    },
+    "env": {
+      "description": "Environment variables set in each unit's harness process. A task's values override the suite defaults'. Names the runner uses for isolation are refused.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": { "type": "string" }
     },
     "guard": {
       "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions.",
@@ -152,6 +159,7 @@
         },
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
+        "env": { "$ref": "#/$defs/env" },
         "followups": {
           "description": "Scripted user turns sent after the first response. Not a simulated user.",
           "type": "array",

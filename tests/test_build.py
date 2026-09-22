@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from conftest import SOURCE_FIXTURE
-from wikiskill.build import BUILD_MARKER, BuildError, build
+from wikiskill.build import BUILD_MARKER, BuildError, build, build_collection
 from wikiskill.collection import Collection, Source
 from wikiskill.frontmatter import read as read_frontmatter
 
@@ -100,7 +100,82 @@ def test_no_capabilities_denies_all(tmp_path):
     assert set(meta["tools"].values()) == {False}
 
 
+def claude_agent(tmp_path, frontmatter: str):
+    """A single claude-plugin-style agent, built for OpenCode."""
+    source = tmp_path / "source"
+    (source / "agents").mkdir(parents=True)
+    (source / "agents" / "doer.md").write_text(
+        f"---\nname: doer\ndescription: does things\n{frontmatter}---\n\nbody\n", encoding="utf-8"
+    )
+    return source
+
+
+def test_claude_tools_become_opencode_permissions(tmp_path):
+    source = claude_agent(tmp_path, "tools: Read, Bash, Grep, Glob\n")
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    meta = read_frontmatter(result.out_dir / "agents" / "doer.md").meta
+    assert meta["permission"] == {"bash": "allow", "edit": "deny", "webfetch": "deny"}
+    assert meta["tools"] == {"glob": True, "grep": True, "list": True, "read": True}
+
+
+def test_claude_tools_as_a_list_are_read_too(tmp_path):
+    source = claude_agent(tmp_path, "tools: [Read, Write]\n")
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    meta = read_frontmatter(result.out_dir / "agents" / "doer.md").meta
+    assert meta["permission"]["edit"] == "allow"
+    assert meta["permission"]["bash"] == "deny"
+
+
+def test_explicit_capabilities_win_over_tools(tmp_path):
+    source = claude_agent(tmp_path, "tools: Read, Bash\ncapabilities: [read]\n")
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    meta = read_frontmatter(result.out_dir / "agents" / "doer.md").meta
+    assert meta["permission"]["bash"] == "deny"
+
+
+def test_an_unknown_claude_tool_is_warned_not_fatal(tmp_path):
+    source = claude_agent(tmp_path, "tools: Read, Teleport, mcp__zotero__search\n")
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    assert any("Teleport" in w for w in result.warnings)
+    assert not any("mcp__zotero__search" in w for w in result.warnings)
+
+
+def test_a_skill_tools_key_does_not_reach_the_harness(tmp_path):
+    source = tmp_path / "source"
+    (source / "skills" / "s").mkdir(parents=True)
+    (source / "skills" / "s" / "SKILL.md").write_text(
+        "---\nname: s\ndescription: d\ntools: Read, Bash\n---\n\nbody\n", encoding="utf-8"
+    )
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    assert "tools" not in read_frontmatter(result.out_dir / "skills" / "s" / "SKILL.md").meta
+
+
 # --------------------------------------------------------------------------- aliases
+
+
+def test_a_claude_model_resolves_through_a_tier_alias(tmp_path):
+    source = claude_agent(tmp_path, "tools: Read\nmodel: haiku\n")
+    coll = collection_with_aliases(small="opencode/big-pickle", haiku="small")
+    result = build("opencode", collection=coll, source=source, out_dir=tmp_path / "dist")
+    assert read_frontmatter(result.out_dir / "agents" / "doer.md").meta["model"] == (
+        "opencode/big-pickle"
+    )
+    assert result.unmapped_aliases == []
+
+
+def test_an_unmapped_claude_model_is_dropped_and_reported(tmp_path):
+    source = claude_agent(tmp_path, "tools: Read\nmodel: sonnet\n")
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    assert "model" not in read_frontmatter(result.out_dir / "agents" / "doer.md").meta
+    assert result.unmapped_aliases == ["sonnet"]
+
+
+def test_a_concrete_model_passes_through(tmp_path):
+    source = claude_agent(tmp_path, "model: ollama/qwen3:1.7b\n")
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    meta = read_frontmatter(result.out_dir / "agents" / "doer.md").meta
+    assert meta["model"] == "ollama/qwen3:1.7b"
+    assert result.unmapped_aliases == []
 
 
 def test_a_mapped_alias_becomes_a_concrete_model(built):
@@ -229,3 +304,92 @@ def test_the_eval_command_never_asks_the_calling_session_to_run_the_suite(tmp_pa
     assert "never run the suite in this session" in text
     assert "&" in text and "wikiskill eval" in text, "it has to say how to start it detached"
     assert "--preflight-only" in text, "and to cost the run before starting it"
+
+
+# --------------------------------------------------------------------------- collection sources
+
+
+def plugin_collection(root, plugins=None, **aliases) -> Collection:
+    return Collection(
+        name="dsh",
+        sources=(Source(path=root, layout="claude-plugin", plugins=plugins),),
+        watch={"skill": (), "agent": (), "command": ()},
+        aliases={"opencode": dict(aliases)},
+    )
+
+
+def add_agent(root, plugin, name, frontmatter=""):
+    directory = root / plugin / "agents"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{name}.md").write_text(
+        f"---\nname: {name}\ndescription: {name}\n{frontmatter}---\n\nbody\n", encoding="utf-8"
+    )
+
+
+def add_skill(root, plugin, name):
+    directory = root / plugin / "skills" / name
+    directory.mkdir(parents=True)
+    (directory / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: {name}\n---\n\nbody\n", encoding="utf-8"
+    )
+
+
+def test_a_collection_builds_every_plugin_and_prints_its_mapping(tmp_path):
+    root = tmp_path / "plugins"
+    add_agent(root, "datalad", "datalad-doer", "tools: Read, Bash\n")
+    add_skill(root, "govern", "preregister")
+    result = build_collection("opencode", plugin_collection(root), tmp_path / "dist")
+    assert result.mapping == {
+        "datalad/datalad-doer": "datalad-doer",
+        "govern/preregister": "preregister",
+    }
+    doer = read_frontmatter(tmp_path / "dist" / "agents" / "datalad-doer.md").meta
+    assert doer["permission"]["bash"] == "allow"
+    assert (tmp_path / "dist" / BUILD_MARKER).is_file()
+
+
+def test_a_flat_name_collision_fails_and_names_both(tmp_path):
+    root = tmp_path / "plugins"
+    add_skill(root, "project", "status")
+    add_skill(root, "datalad", "status")
+    with pytest.raises(BuildError, match="`datalad/status` and `project/status`"):
+        build_collection("opencode", plugin_collection(root), tmp_path / "dist")
+    assert not (tmp_path / "dist").exists()
+
+
+def test_a_plugin_filter_builds_only_the_unit(tmp_path):
+    root = tmp_path / "plugins"
+    add_agent(root, "datalad", "datalad-doer")
+    add_skill(root, "govern", "preregister")
+    result = build_collection("opencode", plugin_collection(root, ("datalad",)), tmp_path / "dist")
+    assert list(result.mapping) == ["datalad/datalad-doer"]
+    assert not (tmp_path / "dist" / "skills").exists()
+
+
+def test_strip_models_leaves_every_component_on_its_callers_model(tmp_path):
+    root = tmp_path / "plugins"
+    add_agent(root, "bids", "bids-doer", "model: haiku\n")
+    coll = plugin_collection(root, small="opencode/big-pickle", haiku="small")
+    kept = build_collection("opencode", coll, tmp_path / "kept")
+    stripped = build_collection("opencode", coll, tmp_path / "stripped", strip_models=True)
+    assert read_frontmatter(kept.out_dir / "agents" / "bids-doer.md").meta["model"] == (
+        "opencode/big-pickle"
+    )
+    assert "model" not in read_frontmatter(stripped.out_dir / "agents" / "bids-doer.md").meta
+
+
+def test_a_collection_build_leaves_its_sources_byte_identical(tmp_path):
+    root = tmp_path / "plugins"
+    add_agent(root, "datalad", "datalad-doer", "tools: Read, Bash\nmodel: haiku\n")
+    add_skill(root, "govern", "preregister")
+
+    def snapshot():
+        return {
+            p: (p.read_bytes() if p.is_file() else None, p.stat().st_mtime_ns)
+            for p in sorted(root.rglob("*"))
+        }
+
+    before = snapshot()
+    coll = plugin_collection(root, haiku="opencode/big-pickle")
+    build_collection("opencode", coll, tmp_path / "d")
+    assert snapshot() == before

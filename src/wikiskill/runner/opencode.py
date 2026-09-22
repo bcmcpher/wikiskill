@@ -309,18 +309,17 @@ class OpenCodeBackend(Backend):
         target = root / "config" / "opencode"
         target.mkdir(parents=True, exist_ok=True)
 
-        installed = 0
-        for index, source in enumerate(collection.sources):
-            for offset, component_root in enumerate(_component_roots(source)):
-                staged = root / "built" / f"{index}-{offset}"
-                built = build.build(
-                    "opencode", collection=collection, source=component_root, out_dir=staged
-                )
-                installed += _merge_tree(staged, target)
-                if built.warnings:
-                    (root / "build-warnings.txt").write_text(
-                        "\n".join(built.warnings) + "\n", encoding="utf-8"
-                    )
+        staged = root / "built"
+        try:
+            # Pins stripped: every subagent runs on the model this unit evaluates.
+            built = build.build_collection("opencode", collection, staged, strip_models=True)
+        except build.BuildError as exc:
+            raise RunnerError(f"collection {collection.name!r} cannot be installed: {exc}") from exc
+        installed = _merge_tree(staged, target)
+        if built.warnings:
+            (root / "build-warnings.txt").write_text(
+                "\n".join(built.warnings) + "\n", encoding="utf-8"
+            )
         if not installed:
             raise RunnerError(
                 f"collection {collection.name!r} produced no installable components, so ROUTED "
@@ -402,6 +401,7 @@ class OpenCodeBackend(Backend):
             self.config_for(unit, root),
             list(BASE_DENY) + list(unit.task.guard_deny),
             max_steps=unit.task.max_steps,
+            task_env=dict(unit.task.env),
         )
 
     def _env(
@@ -410,8 +410,11 @@ class OpenCodeBackend(Backend):
         config: dict[str, Any],
         deny: list[str],
         max_steps: int | None = None,
+        task_env: dict[str, str] | None = None,
     ) -> dict[str, str]:
         env = dict(os.environ)
+        # The suite's own variables go in first, so nothing it sets can undo the isolation below.
+        env.update(task_env or {})
         env.update(
             {
                 "XDG_CONFIG_HOME": str(root / "config"),
@@ -1238,23 +1241,6 @@ def catalog_context(catalog: dict[str, Any], model: str) -> tuple[int | None, st
     if isinstance(context, int) and context > 0:
         return context, f"the models.dev catalog entry for {provider_id}/{model_id}"
     return None, "unknown"
-
-
-def _component_roots(source) -> list[Path]:
-    """The directories that hold `skills/`, `agents/` and `commands/` for one source.
-
-    An OpenCode-layout source is one such directory. A Claude-plugin source is one per plugin, which
-    is why a collection of plugins cannot simply be built in one pass.
-    """
-    if source.layout != "claude-plugin":
-        return [source.path]
-    if not source.path.is_dir():
-        return []
-    return [
-        child
-        for child in sorted(source.path.iterdir())
-        if child.is_dir() and any((child / d).is_dir() for d in ("skills", "agents", "commands"))
-    ]
 
 
 def _merge_tree(staged: Path, target: Path) -> int:

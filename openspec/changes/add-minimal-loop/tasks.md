@@ -14,29 +14,30 @@ Deferred:
 
 ## 1. Build and scope
 
-- [ ] 1.1 `collection.py`: `plugins = [...]` on claude-plugin sources, honoured by `discover()`.
+- [x] 1.1 `collection.py`: `plugins = [...]` on claude-plugin sources, honoured by `discover()`.
   Report unknown plugins as unresolved.
-- [ ] 1.2 `collection.py`: alias-to-alias resolution, one hop at most. `collection check` rejects cycles
+- [x] 1.2 `collection.py`: alias-to-alias resolution, one hop at most. `collection check` rejects cycles
   and chains that do not end in `provider/model`.
-- [ ] 1.3 `build.py`: map `tools:` to capabilities (an explicit `capabilities:` wins, unknown tools
+- [x] 1.3 `build.py`: map `tools:` to capabilities (an explicit `capabilities:` wins, unknown tools
   warn, the source `tools` key is dropped), and resolve `model:` as an alias when `role_model` is
   absent.
-- [ ] 1.4 `build.py`: `build_collection(harness, collection, out_dir, *, strip_models=False)`, with
+- [x] 1.4 `build.py`: `build_collection(harness, collection, out_dir, *, strip_models=False)`, with
   `_component_roots` moved in from `runner/opencode.py`. It checks for flat-name collisions before
   merging and returns the name mapping.
-- [ ] 1.5 `runner/opencode.py:_install_collection` uses `build_collection(..., strip_models=True)`.
+- [x] 1.5 `runner/opencode.py:_install_collection` uses `build_collection(..., strip_models=True)`.
   `cli.cmd_build` builds the collection's sources when `--collection` is given and prints the mapping.
-- [ ] 1.6 Tests: tools→permissions, tier resolution and cycle rejection, collision, `strip_models`,
+- [x] 1.6 Tests: tools→permissions, tier resolution and cycle rejection, collision, `strip_models`,
   plugin filter, and a source tree left byte-identical.
-- [ ] 1.7 `examples/collections/data-science-harness.toml`: tier aliases (`small`, `large`, and
+- [x] 1.7 `examples/collections/data-science-harness.toml`: tier aliases (`small`, `large`, and
   `haiku`/`sonnet`/`opus` pointing at them) and a commented `plugins` example. Update
   `tests/test_example_manifest.py`.
 
 ## 2. First unit: datalad-doer
 
-- [ ] 2.1 `suite.py` and `schemas/task-suite.schema.json`: `env` at suite and task level. The runner
+- [x] 2.1 `suite.py` and `schemas/task-suite.schema.json`: `env` at suite and task level. The runner
   sets it in `_env` and records it in `run.json`.
-- [ ] 2.2 `pilots/datalad-doer/collection.toml`: the DSH source with `plugins = ["datalad"]`.
+- [x] 2.2 `pilots/datalad-doer/dsh-datalad.toml` (named for the collection, which is loaded by name): the DSH
+  source with `plugins = ["datalad"]`.
 - [ ] 2.3 `pilots/datalad-doer/suite.yaml`: about five capability tasks with command verifiers
   (`datalad status`, `git log`, file checks).
   - Fixture setup runs `datalad create` in the workdir.

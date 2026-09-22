@@ -293,3 +293,22 @@ def test_injected_without_a_collection_is_refused_by_name(xdg, suite, layout):
         )
 
     assert "INJECTED condition needs a collection" in str(caught.value)
+
+
+def test_the_manifest_records_each_tasks_env(xdg, tmp_path, layout):
+    path = tmp_path / "env.yaml"
+    path.write_text(
+        THREE.replace("defaults: { repeats: 3 }", 'defaults: { repeats: 1, env: { A: "1" } }'),
+        encoding="utf-8",
+    )
+    run = run_mod.run_suite(
+        suite_mod.load(path),
+        CountingBackend(layout, writes="DONE.md"),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+    )
+
+    assert run_mod.load_manifest(run.layout)["env"] == {"control": {"A": "1"}}

@@ -13,6 +13,9 @@ name = "data-science-harness"
 sources = [
   { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin" },
 ]
+# To evaluate, watch and refine one unit on its own, narrow the source to its plugins:
+#
+#     { path = "...", layout = "claude-plugin", plugins = ["datalad"] },
 
 # Only sessions that activate something listed here are logged. Everything else writes nothing.
 # Names are `<plugin>/<component>`; a harness that reports a bare name (OpenCode's `skill` tool
@@ -69,6 +72,16 @@ claude-code = ["sonnet"]
 # tool call, which is exactly what `add-explicit-eval`'s preflight check is for.
 
 [aliases.opencode]
+# Tiers. DSH agents pin Claude model names; each resolves to a tier, and the tier to a model, so
+# choosing a different small or large model is one line. Both are the one endpoint that passes
+# preflight here until a second is chosen. Evaluation strips these pins either way: a subagent runs
+# on the model under test.
+small = "opencode/big-pickle"
+large = "opencode/big-pickle"
+haiku = "small"
+sonnet = "large"
+opus = "large"
+
 ministral = "ollama/ministral-3:3b"
 qwen-coder = "ollama/qwen2.5-coder:1.5b"
 qwen-small = "ollama/qwen3:1.7b"
