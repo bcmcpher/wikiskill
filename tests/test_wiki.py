@@ -311,3 +311,65 @@ def test_cli_review_dry_run_and_reply_file(doer_collection, tmp_path, capsys):
     reply.write_text("{}")
     assert main(["review", DOER, "--collection", "dsh", "--reply-file", str(reply)]) == 1
     assert "nothing written" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------- harness-served roles
+
+
+def stub_opencode(tmp_path, reply):
+    """Records its argv and config, then answers like `opencode run --format json`."""
+    script = tmp_path / "opencode"
+    seen = tmp_path / "seen.json"
+    event = json.dumps({"type": "text", "part": {"type": "text", "text": reply}})
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        f"json.dump({{'argv': sys.argv[1:], 'config': os.environ['OPENCODE_CONFIG_CONTENT'],"
+        f" 'xdg': os.environ['XDG_CONFIG_HOME']}}, open({str(seen)!r}, 'w'))\n"
+        f"print({event!r})\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return script, seen
+
+
+def test_a_harness_served_role_is_asked_through_opencode_with_tools_denied(tmp_path):
+    script, seen = stub_opencode(tmp_path, '{"ok": true}')
+    ask = review.harness_asker("opencode/big-pickle", executable=str(script))
+
+    reply = ask([{"role": "system", "content": "Be brief."}, {"role": "user", "content": "Go."}])
+
+    recorded = json.loads(seen.read_text())
+    config = json.loads(recorded["config"])
+    assert reply == '{"ok": true}'
+    assert recorded["argv"][:6] == ["run", "--format", "json", "--dir", recorded["argv"][4], "-m"]
+    assert recorded["argv"][6] == "opencode/big-pickle"
+    assert "# Your instructions\n\nBe brief." in recorded["argv"][7]
+    assert set(config["permission"].values()) == {"deny"}
+    assert config["mcp"] == {}
+    assert not paths.config_home().is_relative_to(recorded["xdg"]), "an isolated config root"
+
+
+def test_a_role_without_an_endpoint_uses_the_harness(doer_collection, xdg):
+    write_manifest(
+        xdg,
+        "dsh",
+        paths.manifest_path("dsh")
+        .read_text()
+        .replace(
+            'base_url = "http://localhost:9/v1"\nmodel = "qwen3:1.7b"',
+            'model = "opencode/big-pickle"',
+        ),
+    )
+    _, model = review.role_asker(collection_mod.load("dsh"), "maintainer")
+    assert model == "opencode/big-pickle"
+
+
+def test_a_harness_role_that_says_nothing_is_an_error(tmp_path):
+    script = tmp_path / "opencode"
+    script.write_text("#!/bin/sh\necho 'model not found' >&2\n", encoding="utf-8")
+    script.chmod(0o755)
+    with pytest.raises(review.ReviewError, match=r"gave no answer.*model not found"):
+        review.harness_asker("opencode/nope", executable=str(script))(
+            [{"role": "user", "content": "x"}]
+        )

@@ -529,7 +529,7 @@ def cmd_review(args: argparse.Namespace) -> int:
         maintainer = f"reply file {args.reply_file}"
         retries = 0
     else:
-        ask, maintainer = review_mod.endpoint_asker(coll)
+        ask, maintainer = review_mod.role_asker(coll, "maintainer")
         retries = args.retries
     outcome = review_mod.review(
         coll,
@@ -568,7 +568,7 @@ def cmd_refine(args: argparse.Namespace) -> int:
         ask = lambda _messages: next(replies)  # noqa: E731
         proposer, retries = f"reply file {args.reply_file}", 0
     else:
-        ask, proposer = review_mod.endpoint_asker(coll, "proposer")
+        ask, proposer = review_mod.role_asker(coll, "proposer")
         retries = args.retries
     proposal = refine_mod.refine(coll, args.component, ask=ask, proposer=proposer, retries=retries)
     if proposal.action == "failed":

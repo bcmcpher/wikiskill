@@ -10,7 +10,11 @@ a small local model with a small context.
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
+import subprocess
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -311,6 +315,120 @@ def maintainer_prompt() -> str:
 
 
 Ask = Callable[[list[dict[str, str]]], str]
+
+
+def role_asker(
+    collection: Collection, role_name: str = "maintainer", timeout_s: int = 600
+) -> tuple[Ask, str]:
+    """How to reach a meta-role: its own endpoint, or, with no `base_url`, the harness.
+
+    A model the harness serves itself — `opencode/big-pickle` is the case in point — refuses a
+    direct HTTP request and answers only through `opencode run`.
+    """
+    role = collection.roles.get(role_name)
+    if role is None:
+        raise ReviewError(f"collection {collection.name!r} configures no `[roles.{role_name}]`")
+    if role.base_url:
+        return endpoint_asker(collection, role_name, timeout_s)
+    return harness_asker(role.model, timeout_s=timeout_s), role.model
+
+
+def harness_flatten(messages: Sequence[dict[str, str]]) -> str:
+    """One prompt from a conversation, for a harness that takes a single message per run."""
+    parts = []
+    for message in messages:
+        heading = {
+            "system": "# Your instructions",
+            "user": "# Input",
+            "assistant": "# Your previous reply",
+        }.get(message["role"], f"# {message['role']}")
+        parts.append(f"{heading}\n\n{message['content'].strip()}")
+    return "\n\n".join(parts) + "\n"
+
+
+def harness_asker(model: str, *, executable: str = "opencode", timeout_s: int = 600) -> Ask:
+    """Ask a model through `opencode run`, in an isolated root, with every tool denied.
+
+    The role only has to answer in text. Denying tools keeps it from acting on anything, and a fresh
+    config and data root keep the user's own skills, agents and MCP servers out of its context.
+    """
+    config = {
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": False,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+            "edit": "deny",
+            "bash": "deny",
+            "webfetch": "deny",
+            "external_directory": "deny",
+        },
+    }
+
+    def ask(messages: list[dict[str, str]]) -> str:
+        root = Path(tempfile.mkdtemp(prefix="wikiskill-role-"))
+        try:
+            env = dict(os.environ)
+            env.update(
+                {
+                    "XDG_CONFIG_HOME": str(root / "config"),
+                    "XDG_DATA_HOME": str(root / "data"),
+                    "XDG_STATE_HOME": str(root / "state"),
+                    "XDG_CACHE_HOME": str(root / "cache"),
+                    "OPENCODE_CONFIG_CONTENT": json.dumps(config),
+                    "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+                    "OPENCODE_DISABLE_CLAUDE_CODE": "1",
+                }
+            )
+            env.pop("OPENCODE_CONFIG", None)
+            work = root / "work"
+            work.mkdir()
+            try:
+                done = subprocess.run(
+                    [
+                        executable,
+                        "run",
+                        "--format",
+                        "json",
+                        "--dir",
+                        str(work),
+                        "-m",
+                        model,
+                        harness_flatten(messages),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_s,
+                    env=env,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ReviewError(f"{model} did not answer within {timeout_s}s") from exc
+            except OSError as exc:
+                raise ReviewError(f"cannot run {executable}: {exc}") from exc
+            text = _stream_text(done.stdout)
+            if not text:
+                tail = (done.stderr.strip().splitlines() or ["no output"])[-1]
+                raise ReviewError(f"{model} gave no answer through {executable}: {tail}")
+            return text
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    return ask
+
+
+def _stream_text(stdout: str) -> str:
+    """The assistant's text from an `opencode run --format json` stream."""
+    chunks = []
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        part = event.get("part") if isinstance(event, dict) else None
+        if isinstance(part, dict) and part.get("type") == "text" and part.get("text"):
+            chunks.append(str(part["text"]))
+    return "\n".join(chunks).strip()
 
 
 def endpoint_asker(

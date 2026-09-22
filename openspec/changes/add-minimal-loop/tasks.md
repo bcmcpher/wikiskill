@@ -48,9 +48,11 @@ Deferred:
   - The guard denies `datalad push|siblings`, `git push` and network CLIs.
   - No prompt names the doer or DataLad's own commands.
 - [x] 2.4 `wikiskill suite check pilots/datalad-doer/suite.yaml` passes.
-- [ ] 2.5 v1 run on `opencode/big-pickle`, OFF and INJECTED (the doer invoked directly), repeats as
-  chosen at run time. Run it detached, and record the run id.
-- [ ] 2.6 Live check: one INJECTED transcript shows the doer running bash, and one guard denial is
+- [x] 2.5 v1 run on `opencode/big-pickle`, OFF and INJECTED (the doer invoked directly), repeats as
+  chosen at run time. Run it detached, and record the run id. **v1 = `01M35CWJFVC6V2JXAKKJKQWQA7`**:
+  8 tasks, k=3, 48 units. The first attempt (`01M35BCRYHJGDFYM3651PFTDMD`) is void: its INJECTED
+  sessions ran OpenCode's default agent, and every OFF task passed.
+- [x] 2.6 Live check: one INJECTED transcript shows the doer running bash, and one guard denial is
   visible.
 
 ## 3. Minimal review

@@ -15,18 +15,19 @@ sources = [
 [watch]
 agents = ["datalad/datalad-doer"]
 
-# The judge and maintainer need only chat, which a small local model does; neither is a target.
+# The judge must never be a model under test, so it stays on a small local model.
 [roles.judge]
 base_url = "http://localhost:11434/v1"
 model = "gemma2:2b"
 
+# The maintainer and proposer read long evidence and must reply in a strict JSON contract, which a
+# 1.7B model at a 4k context does not manage. With no `base_url`, a role is asked through the
+# harness, which is the only way `opencode/big-pickle` answers.
 [roles.maintainer]
-base_url = "http://localhost:11434/v1"
-model = "qwen3:1.7b"
+model = "opencode/big-pickle"
 
 [roles.proposer]
-base_url = "http://localhost:11434/v1"
-model = "qwen3:1.7b"
+model = "opencode/big-pickle"
 
 [targets]
 opencode = ["opencode/big-pickle"]
