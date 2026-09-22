@@ -95,9 +95,9 @@ Deferred:
 
 ## 7. Roadmap bookkeeping
 
-- [ ] 7.1 Add a task to `add-experience-wiki` and `add-skill-refinement` to rebase their deltas onto
+- [x] 7.1 Add a task to `add-experience-wiki` and `add-skill-refinement` to rebase their deltas onto
   the `experience-wiki` and `refinement-proposal` specs this change introduces.
-- [ ] 7.2 Reshape `add-dsh-pilot` into per-unit pilots on this loop, with the full routing probe
+- [x] 7.2 Reshape `add-dsh-pilot` into per-unit pilots on this loop, with the full routing probe
   optional.
 
 ## 8. Verify

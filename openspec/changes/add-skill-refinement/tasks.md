@@ -4,6 +4,17 @@ The proposal contract, its checks, and patch delivery (1.x–2.x), plus the gate
 replay, and the impact record (3.1–3.4). `add-explicit-eval` comes earlier on the roadmap, so replay is
 available from the start. Deferred: `--branch` delivery (2.3).
 
+## 0a. Rebase onto add-minimal-loop
+
+- [ ] 0a.1 `add-minimal-loop` introduced:
+  - the `refinement-proposal` capability: `src/wikiskill/refine.py`, `wikiskill refine`,
+    `wiki/proposals/p-NNN/`, and `harness/source/agents/wikiskill-proposer.md`
+  - `version-comparison`: `wikiskill compare` and its `--record` into `skill-impact.md`
+
+  Once that change is archived, turn this change's deltas into `MODIFIED` or `ADDED` against those
+  specs. The gate states extend the proposal's `meta.json` `status`. Replay reuses `compare` for its
+  per-model deltas, rather than a second implementation.
+
 ## 1. Proposer and contract
 
 - [ ] 1.1 `schemas/proposal.schema.json` and validator in `src/wikiskill/propose.py` (single component,

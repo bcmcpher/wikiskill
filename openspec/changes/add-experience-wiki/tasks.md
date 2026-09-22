@@ -4,6 +4,19 @@ Sampling and digests (1.1–1.3), the contract and validator (2.1–2.3), the wi
 apply-and-commit (3.1–3.3), and headless review (4.2). Deferred: the in-harness command (4.1) until
 the headless path produces sensible patterns on real logs.
 
+## 0a. Rebase onto add-minimal-loop
+
+- [ ] 0a.1 `add-minimal-loop` introduced the `experience-wiki` capability:
+  - `src/wikiskill/wiki.py` and `review.py`
+  - the maintainer contract and `schemas/maintainer-output.schema.json`
+  - `wikiskill review`
+  - `harness/source/agents/wikiskill-maintainer.md`
+  - `tests/test_wiki.py`
+
+  Once that change is archived, turn this change's `ADDED` requirements into `MODIFIED` or `ADDED`
+  against `openspec/specs/experience-wiki`. Extend the existing modules rather than adding
+  `maintain.py`, and keep the create/update/index/log contract, or state what replaces it.
+
 ## 1. Sampling and digests
 
 - [ ] 1.1 `src/wikiskill/sample.py`: select sessions since the watermark by signal priority, up to the
