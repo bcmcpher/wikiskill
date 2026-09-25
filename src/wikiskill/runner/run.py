@@ -370,6 +370,9 @@ def _manifest(
         "run_id": run.run_id,
         "suite": run.suite.name,
         "suite_path": str(run.suite.path) if run.suite.path else None,
+        # The suite file only: verifiers, setup and prompts. Fixtures and rubrics it names are not
+        # folded in.
+        "suite_hash": rawlog.content_hash(run.suite.path.read_bytes()) if run.suite.path else None,
         "collection": collection.name if collection else None,
         "harness": backend.harness,
         "harness_version": backend.version(),

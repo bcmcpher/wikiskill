@@ -8,8 +8,9 @@ gate before cross-model replay exists — and how the user's decision is recorde
 ### Requirement: Runs of one suite compare across component versions
 
 `wikiskill compare <run-a> <run-b>` MUST compare two completed runs from their stored results without
-re-running anything. It MUST refuse runs whose suite or task ids differ, and MUST warn when the
-component under test has the same `source_hash` in both. `--record accept|reject --proposal <id>` MUST
+re-running anything. It MUST refuse runs whose suite or task ids differ, or whose recorded
+`suite_hash` differs, and MUST warn when either run recorded no `suite_hash` or when the component
+under test has the same `source_hash` in both. `--record accept|reject --proposal <id>` MUST
 append the decision, both run ids, both hashes, and the pooled result to `wiki/skill-impact.md`, and
 MUST NOT apply or revert any change.
 
@@ -22,6 +23,17 @@ MUST NOT apply or revert any change.
 
 - **WHEN** the two runs used different suites
 - **THEN** the command exits non-zero and names both suites
+
+#### Scenario: Same suite name, different content
+
+- **WHEN** both runs used suite `datalad-doer` but their `suite_hash` values differ, because a
+  verifier was edited between them
+- **THEN** the command exits non-zero and names both hashes
+
+#### Scenario: A run from before suite hashes
+
+- **WHEN** one run's `run.json` has no `suite_hash`
+- **THEN** the comparison is produced with a warning that the suite content is unverified
 
 #### Scenario: Recording a decision
 

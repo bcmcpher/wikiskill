@@ -100,6 +100,20 @@ Deferred:
 > 1. Widen the check, make `compare` refuse runs whose suite content differs, and re-measure v1.
 > 2. Keep the suite frozen and note the limit in the report.
 > 3. Reject p-001 and propose against the dirty-tree rule instead.
+>
+> **Decided, 2026-09-25: option 1.**
+
+- [x] 6.0a `run.json` records `suite_hash`, the content hash of the suite file. `compare` refuses
+  two runs whose hashes differ, and warns when either run has none.
+- [x] 6.0b Widen the two `result:` checks in `pilots/datalad-doer/suite.yaml` to
+  `(ok|failed|need-input)`.
+- [ ] 6.0c Re-run v1 on the widened suite, with the same models, k=3, OFF and INJECTED, and p-001
+  not applied. It replaces `01M35CWJFVC6V2JXAKKJKQWQA7` as the baseline.
+
+> **2026-09-25: datalad-doer retired upstream.** DSH's `native-datalad-planners` change deletes
+> `plugins/datalad/`. It landed during the 6.0c re-run (`01M3CY6SJ44638NF8YQ5XE1HHD`), so that
+> run's INJECTED units could not build the agent. p-001 and this pilot target are obsolete. 6.0c,
+> 6.1 and 6.2 move to a new target, still to be chosen.
 
 - [ ] 6.1 The user applies the 4.1 patch. Run v2 with the same suite and models, then
   `wikiskill compare` v1 v2 and record the decision.

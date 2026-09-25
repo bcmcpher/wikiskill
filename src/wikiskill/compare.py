@@ -44,6 +44,10 @@ class LoadedRun:
         return self.manifest.get("suite")
 
     @property
+    def suite_hash(self) -> str | None:
+        return self.manifest.get("suite_hash")
+
+    @property
     def tasks(self) -> list[str]:
         return list(self.manifest.get("tasks") or sorted({r["task_id"] for r in self.results}))
 
@@ -194,6 +198,12 @@ def compare(
             f"{', '.join(only_a) or '-'}; only in {b.run_id}: {', '.join(only_b) or '-'}"
         )
 
+    if a.suite_hash and b.suite_hash and a.suite_hash != b.suite_hash:
+        raise CompareError(
+            f"the runs used different content of suite {a.suite!r}: {a.suite_hash} in {a.run_id}, "
+            f"{b.suite_hash} in {b.run_id}"
+        )
+
     component = component or _component_under_test(a)
     hash_a, hash_b = a.hashes().get(component or ""), b.hashes().get(component or "")
     comparison = Comparison(a=a, b=b, component=component, hash_a=hash_a, hash_b=hash_b)
@@ -203,6 +213,12 @@ def compare(
         comparison.warnings.append(
             f"{component} has the same source_hash in both runs, so this compares repeats of one "
             "version, not two versions"
+        )
+    if not (a.suite_hash and b.suite_hash):
+        missing = ", ".join(run.run_id for run in (a, b) if not run.suite_hash)
+        comparison.warnings.append(
+            f"suite content unverified: {missing} recorded no suite_hash, so the verifiers may "
+            "differ"
         )
 
     models_a = {r["model"] for r in a.results}

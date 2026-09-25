@@ -17,6 +17,7 @@ import pytest
 
 from conftest import write_manifest
 from wikiskill import collection as collection_mod
+from wikiskill import rawlog
 from wikiskill import suite as suite_mod
 from wikiskill.runner import run as run_mod
 from wikiskill.runner.base import OFF, Backend, PreflightResult, RunLayout, Trajectory
@@ -241,6 +242,22 @@ def test_the_manifest_records_how_many_lanes_ran(xdg, three, layout):
     )
 
     assert run_mod.load_manifest(run.layout)["workers"] == 2
+
+
+def test_the_manifest_records_the_suite_hash(xdg, tmp_path, layout):
+    path = tmp_path / "three.yaml"
+    path.write_text(THREE, encoding="utf-8")
+    run = run_mod.run_suite(
+        suite_mod.load(path),
+        CountingBackend(layout, writes="DONE.md"),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+    )
+
+    assert run_mod.load_manifest(run.layout)["suite_hash"] == rawlog.content_hash(path.read_bytes())
 
 
 # --------------------------------------------------------------------------- injected

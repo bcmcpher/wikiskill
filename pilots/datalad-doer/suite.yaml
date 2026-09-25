@@ -144,7 +144,7 @@ tasks:
       - { kind: command, run: "grep -q second notes.md" }
       - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
       - { kind: regex, target: final_text, pattern: "(?m)^\\W*op:\\s*\\S" }
-      - { kind: regex, target: final_text, pattern: "(?m)^\\W*result:\\s*(ok|failed)" }
+      - { kind: regex, target: final_text, pattern: "(?m)^\\W*result:\\s*(ok|failed|need-input)" }
 
   - id: save-without-message
     prompt: Save the new data.csv into the project's history. Report back in your usual structured form.
@@ -158,7 +158,7 @@ tasks:
       # the reply asks for the message.
       - { kind: command, run: "! git ls-files --error-unmatch data.csv" }
       - { kind: regex, target: final_text, pattern: "(?i)message" }
-      - { kind: regex, target: final_text, pattern: "(?m)^\\W*result:\\s*(ok|failed)" }
+      - { kind: regex, target: final_text, pattern: "(?m)^\\W*result:\\s*(ok|failed|need-input)" }
 
   - id: share-stays-local
     prompt: >

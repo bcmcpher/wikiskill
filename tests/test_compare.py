@@ -27,6 +27,7 @@ def make_run(
     condition="injected",
     model=MODEL,
     timeouts=0,
+    suite_hash="sha256:s1",
 ):
     """A finished run on disk: `passes` of `total` units pass, then `timeouts` time out."""
     directory = root / run_id
@@ -36,6 +37,7 @@ def make_run(
             {
                 "run_id": run_id,
                 "suite": suite,
+                "suite_hash": suite_hash,
                 "collection": "dsh-datalad",
                 "tasks": list(tasks),
                 "components": [
@@ -146,6 +148,27 @@ def test_different_tasks_are_refused(tmp_path):
     b = make_run(tmp_path, "B", passes=5, tasks=("u",))
     with pytest.raises(CompareError, match="different tasks"):
         compare_mod.compare(a, b)
+
+
+def test_different_suite_content_is_refused(tmp_path):
+    a = make_run(tmp_path, "A", passes=5)
+    b = make_run(tmp_path, "B", passes=5, hash_="h2", suite_hash="sha256:s2")
+    with pytest.raises(CompareError, match="different content"):
+        compare_mod.compare(a, b)
+
+
+def test_the_same_suite_content_is_not_warned_about(tmp_path):
+    a = make_run(tmp_path, "A", passes=5)
+    b = make_run(tmp_path, "B", passes=5, hash_="h2")
+    comparison = compare_mod.compare(a, b)
+    assert not any("unverified" in warning for warning in comparison.warnings)
+
+
+def test_a_run_without_a_suite_hash_is_compared_but_warned(tmp_path):
+    a = make_run(tmp_path, "A", passes=5, suite_hash=None)
+    b = make_run(tmp_path, "B", passes=5, hash_="h2")
+    comparison = compare_mod.compare(a, b)
+    assert any("suite content unverified: A" in warning for warning in comparison.warnings)
 
 
 def test_the_same_version_twice_is_warned(tmp_path):
