@@ -19,7 +19,10 @@ A suite MUST be able to declare, at suite and task level, environment variables 
 - It MUST run the setup commands in the unit's workdir, in order, with those variables, after
   fixtures are copied and before the session starts.
 - A setup command that fails MUST make the unit an `infra_error`, never a model failure.
-- Both MUST be recorded in the run's captured configuration.
+- A leading `~` and `$VAR` references in a value MUST be expanded against the invoking environment,
+  and the expanded values MUST be the ones the harness process, the setup commands, the `requires`
+  check and command verifiers all see.
+- Both MUST be recorded in the run's captured configuration as the suite wrote them, unexpanded.
 
 This is runner mechanics. The starting state a task needs belongs with whoever writes the task, and
 a fixture read in place is never edited to carry it.
@@ -28,6 +31,13 @@ a fixture read in place is never edited to carry it.
 
 - **WHEN** a suite declares `env: { DATALAD_AUTOSAVE: "0" }`
 - **THEN** every unit's harness process sees `DATALAD_AUTOSAVE=0`, and `run.json` records it
+
+#### Scenario: A tool installed in a venv
+
+- **WHEN** a suite declares `env: { PATH: "~/tools/venv/bin:$PATH" }` and `requires: [nipoppy]`, and
+  `nipoppy` is only in that venv
+- **THEN** the unit is not skipped, the harness, setup and verifiers all find `nipoppy`, and
+  `run.json` records `~/tools/venv/bin:$PATH`
 
 #### Scenario: A dataset to start from
 

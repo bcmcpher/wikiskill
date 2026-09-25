@@ -329,3 +329,22 @@ def test_the_manifest_records_each_tasks_env(xdg, tmp_path, layout):
     )
 
     assert run_mod.load_manifest(run.layout)["env"] == {"control": {"A": "1"}}
+
+
+def test_a_requirement_is_looked_up_on_the_tasks_own_path(tmp_path, monkeypatch):
+    tool = tmp_path / "venv" / "bin" / "sometool"
+    tool.parent.mkdir(parents=True)
+    tool.write_text("#!/bin/sh\n", encoding="utf-8")
+    tool.chmod(0o755)
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    bare = suite_mod.Task(id="t", prompt="p", split="val", requires=("sometool",))
+    scoped = suite_mod.Task(
+        id="t",
+        prompt="p",
+        split="val",
+        requires=("sometool",),
+        env=(("PATH", f"{tool.parent}:$PATH"),),
+    )
+
+    assert run_mod.missing_capabilities(bare) == ["sometool"]
+    assert run_mod.missing_capabilities(scoped) == []

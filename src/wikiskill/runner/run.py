@@ -122,10 +122,12 @@ def panel_for(
 def missing_capabilities(task: Task) -> list[str]:
     """Required capabilities the environment does not provide.
 
-    A capability is the name of a program the task needs on `PATH`. Anything more elaborate belongs
-    to the task's own verifiers, not to a gate that decides whether it runs at all.
+    A capability is the name of a program the task needs on `PATH` — the task's own `PATH` when its
+    `env` sets one. Anything more elaborate belongs to the task's own verifiers, not to a gate that
+    decides whether it runs at all.
     """
-    return [name for name in task.requires if shutil.which(name) is None]
+    path = task.resolved_env().get("PATH")
+    return [name for name in task.requires if shutil.which(name, path=path) is None]
 
 
 def run_suite(

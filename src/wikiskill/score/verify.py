@@ -91,7 +91,9 @@ def _env() -> dict[str, str]:
 # --------------------------------------------------------------------------- kinds
 
 
-def _command(verifier: Verifier, workdir: Path, timeout_s: int) -> VerifierResult:
+def _command(
+    verifier: Verifier, workdir: Path, timeout_s: int, env: dict[str, str] | None = None
+) -> VerifierResult:
     if not verifier.run:
         raise VerifierError("a command verifier needs `run`")
     try:
@@ -103,7 +105,7 @@ def _command(verifier: Verifier, workdir: Path, timeout_s: int) -> VerifierResul
             text=True,
             errors="replace",
             timeout=timeout_s,
-            env=_env(),
+            env={**_env(), **(env or {})},
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
@@ -179,10 +181,14 @@ def run_verifier(
     final_text: str = "",
     transcript: str = "",
     timeout_s: int = VERIFIER_TIMEOUT_S,
+    env: dict[str, str] | None = None,
 ) -> VerifierResult:
-    """Carry out one verifier and return its verdict, with `negate` applied last."""
+    """Carry out one verifier and return its verdict, with `negate` applied last.
+
+    `env` is the task's own environment, laid over the host's for a command verifier.
+    """
     if verifier.kind == "command":
-        result = _command(verifier, workdir, timeout_s)
+        result = _command(verifier, workdir, timeout_s, env)
     elif verifier.kind == "file_exists":
         result = _file_exists(verifier, workdir)
     elif verifier.kind == "regex":
@@ -228,6 +234,7 @@ def verify_task(
             final_text=final_text,
             transcript=transcript,
             timeout_s=timeout_s,
+            env=task.resolved_env(),
         )
         for verifier in task.verifiers
     ]

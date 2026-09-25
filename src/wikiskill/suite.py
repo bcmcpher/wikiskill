@@ -12,6 +12,7 @@ Nothing here executes a task or touches a collection's source tree.
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -148,7 +149,8 @@ class Task:
     fixtures: str | None = None
     requires: tuple[str, ...] = ()
     guard_deny: tuple[str, ...] = ()
-    #: Environment set in the unit's harness process, as sorted ``(name, value)`` pairs.
+    #: Environment set in the unit's harness process, its setup and its command verifiers, as sorted
+    #: ``(name, value)`` pairs, unexpanded. Use `resolved_env` for the values a process sees.
     env: tuple[tuple[str, str], ...] = ()
     #: Shell commands that build the workdir's starting state before the session.
     setup: tuple[str, ...] = ()
@@ -156,6 +158,14 @@ class Task:
     repeats: int = DEFAULT_REPEATS
     timeout_s: int = DEFAULT_TIMEOUT_S
     max_steps: int = DEFAULT_MAX_STEPS
+
+    def resolved_env(self) -> dict[str, str]:
+        """`env` with `~` and `$VAR` expanded against the host, so `PATH: "~/venv/bin:$PATH"` works.
+
+        Expanded here rather than at load, so `run.json` records what the suite said and never the
+        value of a variable it pulled in.
+        """
+        return {name: os.path.expandvars(os.path.expanduser(value)) for name, value in self.env}
 
     @property
     def judged(self) -> bool:

@@ -76,6 +76,19 @@ def test_command_does_not_inherit_the_session_environment(workdir, monkeypatch):
     assert "WIKISKILL_ORIGIN" not in result.output
 
 
+def test_command_sees_the_tasks_own_environment(workdir):
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        env=(("MARKER", "set"),),
+        verifiers=(Verifier(kind="command", run='test "$MARKER" = set'),),
+    )
+    _, passed = verify.verify_task(task, workdir=workdir)
+
+    assert passed
+
+
 def test_a_timing_out_command_is_infrastructure_not_a_failure(workdir):
     verifier = Verifier(kind="command", run=f'{sys.executable} -c "import time; time.sleep(5)"')
 

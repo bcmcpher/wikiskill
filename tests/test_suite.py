@@ -226,3 +226,14 @@ def test_setup_is_the_tasks_own_or_the_suite_defaults(tmp_path):
     assert suite_mod.load(write(tmp_path, body)).tasks[0].setup == ("git init -q .",)
     own = body.replace("    env: { LANG: C.UTF-8 }", '    setup: ["touch a", "touch b"]')
     assert suite_mod.load(write(tmp_path, own)).tasks[0].setup == ("touch a", "touch b")
+
+
+def test_env_expands_home_and_host_variables(monkeypatch):
+    monkeypatch.setenv("HOME", "/home/someone")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    task = suite_mod.Task(
+        id="t", prompt="p", split="val", env=(("PATH", "~/venv/bin:$PATH"), ("PLAIN", "x"))
+    )
+
+    assert task.resolved_env() == {"PATH": "/home/someone/venv/bin:/usr/bin", "PLAIN": "x"}
+    assert dict(task.env)["PATH"] == "~/venv/bin:$PATH", "the task keeps what the suite said"

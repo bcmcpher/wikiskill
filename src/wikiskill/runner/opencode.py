@@ -408,7 +408,7 @@ class OpenCodeBackend(Backend):
             self.config_for(unit, root),
             list(BASE_DENY) + list(unit.task.guard_deny),
             max_steps=unit.task.max_steps,
-            task_env=dict(unit.task.env),
+            task_env=unit.task.resolved_env(),
         )
 
     def _env(
@@ -1322,7 +1322,7 @@ def _run_setup(unit: Unit, workdir: Path, root: Path) -> None:
     """
     if not unit.task.setup:
         return
-    env = {**os.environ, **dict(unit.task.env)}
+    env = {**os.environ, **unit.task.resolved_env()}
     with (root / "setup.log").open("w", encoding="utf-8") as log:
         for command in unit.task.setup:
             log.write(f"$ {command}\n")
