@@ -108,6 +108,11 @@ def test_the_inline_config_carries_only_the_target_provider(backend):
     assert config["share"] == "disabled"
     assert config["permission"]["webfetch"] == "deny"
     assert config["permission"]["external_directory"] == "deny"
+    options = config["provider"]["ollama"]["options"]
+    assert not any(options[key] for key in ("timeout", "headerTimeout", "chunkTimeout")), (
+        "a slow local prefill is bounded by the unit's timeout, not OpenCode's"
+    )
+    assert config["agent"]["title"]["disable"] is True
 
 
 def test_the_environment_isolates_xdg_and_disables_discovery(backend, tmp_path):

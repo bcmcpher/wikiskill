@@ -27,6 +27,7 @@ from ..collection import Collection
 from ..frontmatter import read as read_frontmatter
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, check
+from .preflight import PROBE_TIMEOUT_S as HTTP_PROBE_TIMEOUT_S
 
 #: Commands no evaluation may run, whatever a suite says. A task's own `guard.deny` adds to these.
 BASE_DENY = (
@@ -107,6 +108,7 @@ class OpenCodeBackend(Backend):
         suite_root: Path,
         executable: str = "opencode",
         min_context: int = MIN_CONTEXT_TOKENS,
+        probe_timeout: int | None = None,
         output_limit_bytes: int = 16 * 1024,
         guard_plugin: Path | None = None,
     ) -> None:
@@ -116,6 +118,8 @@ class OpenCodeBackend(Backend):
         self.suite_root = suite_root
         self.executable = executable
         self.min_context = min_context
+        #: `None` keeps each path's own default: a direct HTTP probe and a harness probe differ.
+        self.probe_timeout = probe_timeout
         self.output_limit_bytes = output_limit_bytes
         self.guard_plugin = guard_plugin or _default_guard_plugin()
         self._version: str | None = None
@@ -150,7 +154,12 @@ class OpenCodeBackend(Backend):
         path no unit uses. So the probe goes through `opencode run` instead.
         """
         if self.endpoint is not None:
-            return check(self.endpoint, _model_id(model), min_context=self.min_context)
+            return check(
+                self.endpoint,
+                _model_id(model),
+                min_context=self.min_context,
+                probe_timeout=self.probe_timeout or HTTP_PROBE_TIMEOUT_S,
+            )
         return self.harness_preflight(model)
 
     def harness_preflight(self, model: str) -> PreflightResult:
@@ -230,6 +239,7 @@ class OpenCodeBackend(Backend):
 
     def _probe(self, model: str, root: Path, env: dict[str, str]) -> tuple[list[dict], bool]:
         """Ask the model to do one thing no amount of prose can fake: write a file with a tool."""
+        timeout = self.probe_timeout or PROBE_TIMEOUT_S
         workdir = root / "work"
         if workdir.exists():
             shutil.rmtree(workdir)
@@ -250,12 +260,12 @@ class OpenCodeBackend(Backend):
                 ],
                 capture_output=True,
                 text=True,
-                timeout=PROBE_TIMEOUT_S,
+                timeout=timeout,
                 env=env,
                 check=False,
             )
         except subprocess.TimeoutExpired:
-            return _probe_failure(f"the probe did not finish within {PROBE_TIMEOUT_S}s"), False
+            return _probe_failure(f"the probe did not finish within {timeout}s"), False
         except OSError as exc:
             return _probe_failure(str(exc)), False
         (root / "probe.ndjson").write_text(done.stdout, encoding="utf-8")
@@ -393,10 +403,21 @@ class OpenCodeBackend(Backend):
                 provider_id: {
                     "npm": "@ai-sdk/openai-compatible",
                     "name": provider_id,
-                    "options": {"baseURL": self.endpoint.root},
+                    "options": {
+                        "baseURL": self.endpoint.root,
+                        # On a CPU, prefilling OpenCode's system prompt alone can outlast each
+                        # 5-minute default, and Ollama sends no headers until it is done. The
+                        # unit's `timeout_s` is the budget.
+                        "timeout": False,
+                        "headerTimeout": False,
+                        "chunkTimeout": False,
+                    },
                     "models": {model_id: {"name": model_id}},
                 }
             }
+            # A local server answers one request at a time. The title request queues the real one
+            # behind it and evicts its cached prompt, so every turn is prefilled from scratch.
+            config["agent"] = {"title": {"disable": True}}
         if self.guard_plugin is not None:
             config["plugin"] = [str(self.guard_plugin)]
         return config

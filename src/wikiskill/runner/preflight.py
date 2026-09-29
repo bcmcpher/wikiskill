@@ -31,6 +31,10 @@ OLLAMA_DEFAULT_CONTEXT = 4096
 
 DEFAULT_TIMEOUT_S = 30
 
+#: The tool-call probe is the first request that reaches the model, so Ollama loads the model
+#: while answering it. A cold 8B model on a laptop can take a minute before it emits one token.
+PROBE_TIMEOUT_S = 120
+
 #: One trivial tool. A model that cannot produce a structured call for this cannot drive a skill.
 PROBE_TOOL = {
     "type": "function",
@@ -123,19 +127,70 @@ def _has_tool_call(completion: Any) -> bool:
     return False
 
 
+def _probe_problems(model: str, status: int, completion: Any, details: dict[str, Any]) -> list[str]:
+    """What an answered tool-call probe shows: a pass, a refusal, or prose instead of a call."""
+    details["tool_probe_status"] = status
+    if status != 200:
+        message = ""
+        if isinstance(completion, dict):
+            message = str((completion.get("error") or {}).get("message") or "")
+        return [
+            f"{model} refused a tool-call probe with HTTP {status}"
+            + (f": {message}" if message else "")
+            + ". A model that cannot be given tools cannot drive a skill; choose a tool-calling "
+            "model for this suite."
+        ]
+    if not _has_tool_call(completion):
+        return [
+            (
+                f"{model} answered the tool-call probe with text instead of a structured tool "
+                "call. Skills are driven by tool calls, so this model would score zero for reasons "
+                "that have nothing to do with the skills under test."
+            )
+        ]
+    return []
+
+
+def _loaded_context(endpoint: Endpoint, model: str, *, timeout: int) -> int | None:
+    """The context a loaded model is actually served with, from Ollama's `/api/ps`."""
+    try:
+        status, body = request_json(f"{endpoint.native_root}/api/ps", timeout=timeout)
+    except (urllib.error.URLError, OSError, TimeoutError):
+        return None
+    if status != 200 or not isinstance(body, dict):
+        return None
+    for entry in body.get("models") or []:
+        if not isinstance(entry, dict) or model not in (entry.get("name"), entry.get("model")):
+            continue
+        context = entry.get("context_length")
+        if isinstance(context, int) and context > 0:
+            return context
+    return None
+
+
 def ollama_context(endpoint: Endpoint, model: str, *, timeout: int) -> tuple[int | None, str]:
     """Ollama's effective context for a model, and where the number came from.
 
-    The server setting wins: a model trained for 128k tokens still only sees `OLLAMA_CONTEXT_LENGTH`
-    tokens, defaulting to 4096. The model's own maximum caps it.
+    A loaded model's entry in `/api/ps` is the answer itself, and the tool-call probe has just
+    loaded it. Failing that, the server setting wins: a model trained for 128k tokens still only
+    sees `OLLAMA_CONTEXT_LENGTH` tokens, defaulting to 4096, and the model's own maximum caps it.
+    That fallback reads this process's environment, which is only right when the server shares it.
     """
+    loaded = _loaded_context(endpoint, model, timeout=timeout)
+    if loaded is not None:
+        return loaded, "the running server"
+
     configured = os.environ.get("OLLAMA_CONTEXT_LENGTH")
     served = int(configured) if configured and configured.isdigit() else OLLAMA_DEFAULT_CONTEXT
     source = "OLLAMA_CONTEXT_LENGTH" if configured else "Ollama's 4096-token default"
 
-    status, body = request_json(
-        f"{endpoint.native_root}/api/show", payload={"model": model}, timeout=timeout
-    )
+    try:
+        status, body = request_json(
+            f"{endpoint.native_root}/api/show", payload={"model": model}, timeout=timeout
+        )
+    except (urllib.error.URLError, OSError, TimeoutError):
+        # `/api/show` only ever lowers the number; without it the server setting still stands.
+        return served, source
     if status == 200 and isinstance(body, dict):
         info = body.get("model_info") or {}
         trained = [
@@ -154,11 +209,13 @@ def check(
     *,
     min_context: int = MIN_CONTEXT_TOKENS,
     timeout: int = DEFAULT_TIMEOUT_S,
+    probe_timeout: int = PROBE_TIMEOUT_S,
 ) -> PreflightResult:
     """Reachability, model listing, a tool-call probe, and context size, in that order.
 
     Each check that fails stops the ones that depend on it, so the report names the first real cause
-    rather than four consequences of one dead endpoint.
+    rather than four consequences of one dead endpoint. The tool-call probe gets `probe_timeout`
+    rather than `timeout`, because it pays for loading the model.
     """
     problems: list[str] = []
     details: dict[str, Any] = {"base_url": endpoint.root, "model": model}
@@ -212,39 +269,30 @@ def check(
             details=details,
         )
 
-    status, completion = request_json(
-        f"{endpoint.root}/chat/completions",
-        payload={
-            "model": model,
-            "messages": PROBE_MESSAGES,
-            "tools": [PROBE_TOOL],
-            "tool_choice": "auto",
-            "temperature": 0,
-            "stream": False,
-        },
-        api_key=endpoint.api_key,
-        timeout=timeout,
-    )
-    if status != 200:
-        message = ""
-        if isinstance(completion, dict):
-            message = str((completion.get("error") or {}).get("message") or "")
-        details["tool_probe_status"] = status
-        problems.append(
-            f"{model} refused a tool-call probe with HTTP {status}"
-            + (f": {message}" if message else "")
-            + ". A model that cannot be given tools cannot drive a skill; choose a tool-calling "
-            "model for this suite."
+    try:
+        status, completion = request_json(
+            f"{endpoint.root}/chat/completions",
+            payload={
+                "model": model,
+                "messages": PROBE_MESSAGES,
+                "tools": [PROBE_TOOL],
+                "tool_choice": "auto",
+                "temperature": 0,
+                "stream": False,
+            },
+            api_key=endpoint.api_key,
+            timeout=probe_timeout,
         )
-    elif not _has_tool_call(completion):
-        details["tool_probe_status"] = status
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        reason = getattr(exc, "reason", exc)
+        details["tool_probe_status"] = None
         problems.append(
-            f"{model} answered the tool-call probe with text instead of a structured tool call. "
-            "Skills are driven by tool calls, so this model would score zero for reasons that have "
-            "nothing to do with the skills under test."
+            f"{model} did not answer the tool-call probe within {probe_timeout}s ({reason}). "
+            "The first request loads the model, so a large model on a slow machine may need "
+            "--probe-timeout raised; otherwise check the server is still running."
         )
     else:
-        details["tool_probe_status"] = status
+        problems.extend(_probe_problems(model, status, completion, details))
 
     if min_context > 0:
         if endpoint.is_ollama:

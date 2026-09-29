@@ -370,6 +370,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
         suite_root=loaded.root,
         executable=args.opencode,
         min_context=args.min_context,
+        probe_timeout=args.probe_timeout,
         output_limit_bytes=coll.output_limit_bytes if coll else 16 * 1024,
     )
 
@@ -683,6 +684,16 @@ def _add_eval_parser(sub) -> None:
         type=int,
         default=16384,
         help="minimum context window preflight accepts; 0 skips the check",
+    )
+    ev.add_argument(
+        "--probe-timeout",
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "how long preflight's tool-call probe may take, model loading included (default 120 "
+            "against --base-url, 300 through the harness)"
+        ),
     )
     ev.add_argument(
         "--workers",
