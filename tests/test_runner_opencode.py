@@ -565,7 +565,9 @@ def test_injected_supplies_the_skill_text_and_forbids_loading_it(backend):
     (instruction,) = config["instructions"]
     assert instruction.endswith("skills/smoke/SKILL.md")
     assert Path(instruction).is_file(), "the file has to exist, or OpenCode injects nothing"
-    assert config["permission"]["skill"] == {"smoke": "deny"}
+    rules = config["permission"]["skill"]
+    assert rules == {"*": "deny", "smoke": "deny"}
+    assert list(rules)[-1] == "smoke", "OpenCode applies the last match, so the deny comes last"
 
 
 def test_injected_takes_the_component_half_of_a_plugin_qualified_name(backend):
@@ -574,15 +576,14 @@ def test_injected_takes_the_component_half_of_a_plugin_qualified_name(backend):
 
     config = backend.config_for(target, root)
 
-    assert config["permission"]["skill"] == {"smoke": "deny"}
+    assert config["permission"]["skill"] == {"*": "deny", "smoke": "deny"}
 
 
 def test_injected_says_so_when_the_collection_built_no_such_skill(backend):
     target = injected_unit(skill="absent")
-    root = prepared(backend, target)
 
     with pytest.raises(backend_mod.RunnerError) as caught:
-        backend.config_for(target, root)
+        backend.prepare(target)
 
     assert "built no skill" in str(caught.value)
 
@@ -603,7 +604,7 @@ def test_an_injected_agent_is_run_directly_instead(backend, opencode_source):
     config = backend.config_for(target, root)
 
     assert "instructions" not in config, "an agent needs no text forced in; it is invoked directly"
-    assert "skill" not in config.get("permission", {})
+    assert config["permission"]["skill"] == {"*": "deny", "smoke": "allow"}, "no skill is denied"
     assert backend_mod._injected_agent(target) == "datalad-doer"
 
 
@@ -640,7 +641,75 @@ def test_routed_and_off_are_untouched_by_any_of_this(backend):
     for condition in ("off", "routed"):
         config = backend.config_for(unit(condition=condition), backend.layout.root)
         assert "instructions" not in config
-        assert "skill" not in config["permission"]
+
+
+# --------------------------------------------------------------------------- skill permissions
+
+
+def test_off_denies_every_skill_including_opencodes_own(backend):
+    """OpenCode 1.18.34 ships `customize-opencode` whatever the config directory holds."""
+    target = unit(condition="off")
+    root = prepared(backend, target)
+
+    config = backend.config_for(target, root)
+
+    assert config["permission"]["skill"] == {"*": "deny"}
+    recorded = json.loads((root / "config.json").read_text(encoding="utf-8"))
+    assert recorded["permission"]["skill"] == {"*": "deny"}, "config.json is what the unit ran"
+
+
+def test_routed_allows_back_only_what_the_collection_installed(backend):
+    target = unit(condition="routed")
+    root = prepared(backend, target)
+
+    config = backend.config_for(target, root)
+
+    assert config["permission"]["skill"] == {"*": "deny", "smoke": "allow"}
+    recorded = json.loads((root / "config.json").read_text(encoding="utf-8"))
+    assert recorded["permission"]["skill"] == config["permission"]["skill"]
+
+
+def test_a_probe_is_offered_no_skill_either(backend):
+    assert backend._config("ollama/qwen3:1.7b")["permission"]["skill"] == {"*": "deny"}
+
+
+def test_installed_skills_are_named_as_opencode_registers_them(tmp_path):
+    skills = tmp_path / "config" / "opencode" / "skills"
+    (skills / "dir-name").mkdir(parents=True)
+    (skills / "dir-name" / "SKILL.md").write_text(
+        "---\nname: front-name\ndescription: d\n---\n\nbody\n", encoding="utf-8"
+    )
+    assert backend_mod.installed_skills(tmp_path) == ["front-name"]
+    assert backend_mod.installed_skills(tmp_path / "nothing") == []
+
+
+@pytest.mark.parametrize(
+    "rules, expected",
+    [
+        ([], ["customize-opencode", "smoke"]),
+        ([{"permission": "skill", "pattern": "*", "action": "deny"}], []),
+        (
+            [
+                {"permission": "skill", "pattern": "*", "action": "deny"},
+                {"permission": "skill", "pattern": "smoke", "action": "allow"},
+            ],
+            ["smoke"],
+        ),
+        (
+            [
+                {"permission": "skill", "pattern": "smoke", "action": "allow"},
+                {"permission": "skill", "pattern": "*", "action": "deny"},
+            ],
+            [],
+        ),
+        (
+            [{"permission": "bash", "pattern": "*", "action": "deny"}],
+            ["customize-opencode", "smoke"],
+        ),
+    ],
+)
+def test_available_skills_follow_the_last_matching_rule(rules, expected):
+    assert backend_mod.available_skills(["customize-opencode", "smoke"], rules) == expected
 
 
 # --------------------------------------------------------------------------- export
@@ -671,6 +740,19 @@ def test_a_session_is_exported_to_a_file_not_a_pipe(backend, tmp_path):
     assert len(session["pad"]) == 200_000
     written = (tmp_path / "root" / "exports" / "ses_big.json").read_text(encoding="utf-8")
     assert len(written) > 65536, "the whole export is kept on disk beside the run"
+
+
+def test_debug_output_is_read_from_a_file_not_a_pipe(backend, tmp_path):
+    """`opencode debug skill` for a real collection is well past the 64 KiB a pipe keeps."""
+    skills = [{"name": f"skill-{n}", "content": "x" * 2_000} for n in range(100)]
+    payload = tmp_path / "payload.json"
+    payload.write_text(json.dumps(skills), encoding="utf-8")
+    backend.executable = stub_opencode(tmp_path, f'cat "{payload}"')
+    backend.layout.unit_dir(unit()).mkdir(parents=True, exist_ok=True)
+
+    listed = backend.debug(unit(), "skill")
+
+    assert isinstance(listed, list) and len(listed) == 100
 
 
 def test_a_truncated_export_is_an_error_not_an_empty_session_list(backend, tmp_path):

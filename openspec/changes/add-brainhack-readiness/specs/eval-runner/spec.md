@@ -42,3 +42,30 @@ any value read from its own environment.
 - **WHEN** a model is served by the harness's own provider, which refuses a direct HTTP request
 - **THEN** preflight probes the model by running the harness, and accepts it when that probe makes
   a real tool call
+
+### Requirement: Evaluations run in fresh isolated sessions
+
+Every evaluation run MUST execute in a new headless harness session with its own configuration, data
+directories, and working directory. It MUST NOT run in the session that requested it, and MUST NOT
+load the user's global or project skills, agents, MCP servers, or plugins beyond those under test.
+
+Skills the harness ships itself MUST NOT be offered either: every skill is denied, and a unit allows
+back only the skills its collection installed. The run's isolation proof MUST record the skills the
+agent is offered under those rules, not every skill the harness knows of.
+
+#### Scenario: Launch from inside OpenCode
+
+- **WHEN** the user runs `/wikiskill-eval dsh-routing` in an OpenCode session
+- **THEN** evaluation starts as a background process with a run id, and the calling session's
+  context is not used for any task
+
+#### Scenario: User has a global MCP server configured
+
+- **WHEN** the user's global OpenCode config enables an MCP server
+- **THEN** the run's captured configuration shows no MCP servers
+
+#### Scenario: Harness with a built-in skill
+
+- **WHEN** OpenCode ships `customize-opencode` regardless of the config directory
+- **THEN** under OFF the run's isolation proof shows no skill offered and no skill tool, and under
+  ROUTED it shows only the collection's skills

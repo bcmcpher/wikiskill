@@ -24,6 +24,17 @@ forward:
 - `Endpoint.is_ollama` only recognises port 11434 or "ollama" in the URL; a server on another
   port needs `--min-context 0`, and its context must be checked by hand via `/api/ps`.
 
+## 1b. Findings from the first GB10 run (2026-10-01)
+
+- [x] 1b.1 Read frontmatter Claude Code accepts (unquoted `argument-hint: [x] text`) as plain text,
+      warn in build, and have `collection check` report lenient and unreadable frontmatter
+- [x] 1b.2 Deny every skill but the collection's, so OpenCode's built-in `customize-opencode` never
+      reaches OFF; the isolation proof records the agent's offered skills and its skill tool
+- [x] 1b.3 Read `opencode debug` output from a file: through a pipe it stopped at 64 KB, so ROUTED
+      proofs for a real collection recorded no skills
+- [ ] 1b.4 A runaway generation (qwen3:1.7b, 9m48s on one request) is scored infra_error; decide on
+      a per-turn output cap or a recorded thinking setting
+
 ## 2. Leaderboard
 
 - [ ] 2.1 `wikiskill leaderboard <run>...`: load runs with `compare.load_run`, require one

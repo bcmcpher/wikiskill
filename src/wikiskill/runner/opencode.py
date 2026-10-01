@@ -14,6 +14,7 @@ spawned — which is what becomes raw events.
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import json
 import os
 import shutil
@@ -24,6 +25,7 @@ from typing import Any
 
 from .. import RAW_SCHEMA_VERSION, build, paths, rawlog
 from ..collection import Collection
+from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, check
@@ -297,9 +299,6 @@ class OpenCodeBackend(Backend):
         # ordinary directory; on an existing repository this is a harmless re-initialisation.
         _git_init(workdir)
 
-        (root / "config.json").write_text(
-            json.dumps(self.config_for(unit), indent=2) + "\n", encoding="utf-8"
-        )
         if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
             # INJECTED installs too: the point is to compare routing against content with the same
             # neighbourhood present, and a component that is absent cannot be denied either.
@@ -307,6 +306,10 @@ class OpenCodeBackend(Backend):
             agent = _injected_agent(unit)
             if agent:
                 _promote_to_primary(root, agent)
+        # After the install, because which skills the config allows depends on what it put there.
+        (root / "config.json").write_text(
+            json.dumps(self.config_for(unit, root), indent=2) + "\n", encoding="utf-8"
+        )
         return workdir
 
     def _install_collection(self, root: Path) -> None:
@@ -346,6 +349,10 @@ class OpenCodeBackend(Backend):
     def config_for(self, unit: Unit, root: Path | None = None) -> dict[str, Any]:
         """The inline config a unit runs under. Only the target provider, and no MCP at all."""
         config = self._config(unit.model)
+        if root is not None:
+            rules = config["permission"]["skill"]
+            for name in installed_skills(root):
+                rules[name] = "allow"
         if unit.condition == INJECTED:
             self._inject(config, unit, root)
         return config
@@ -375,8 +382,10 @@ class OpenCodeBackend(Backend):
         config["instructions"] = [str(text)]
         # An `instructions` file the model could also load through the skill tool would measure
         # neither condition: it would be ROUTED with a head start.
-        permission = config.setdefault("permission", {})
-        permission["skill"] = {name: "deny"}
+        # OpenCode applies the last matching rule, so the deny goes after the allow it overrides.
+        rules = config["permission"]["skill"]
+        rules.pop(name, None)
+        rules[name] = "deny"
 
     def _config(self, model: str) -> dict[str, Any]:
         """The same config a preflight probe runs under, which is the point: they must match.
@@ -396,6 +405,11 @@ class OpenCodeBackend(Backend):
                 "webfetch": "deny",
                 "external_directory": "deny",
                 "bash": {"*": "allow"},
+                # OpenCode ships skills of its own (`customize-opencode` since 1.18.34), present
+                # whatever the config directory holds, so OFF would not be OFF. Every skill is
+                # denied here and `config_for` allows back only the ones the collection installed.
+                # With nothing allowed OpenCode drops the skill tool altogether.
+                "skill": {"*": "deny"},
             },
         }
         if self.endpoint is not None:
@@ -471,16 +485,22 @@ class OpenCodeBackend(Backend):
         recorded in the manifest are the ones the model was actually given.
         """
         root = self.layout.unit_dir(unit)
+        # Into a file, as `export` does: through a pipe, OpenCode exits before writing past the
+        # first 64 KB, and `debug skill` for a collection of any size is longer than that.
+        destination = root / f"debug-{'-'.join(args)}.json"
         try:
-            done = subprocess.run(
-                [self.executable, "debug", *args],
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env=self.env_for(unit, root),
-                check=False,
-            )
-            return json.loads(done.stdout) if done.stdout.strip() else {"error": done.stderr[-500:]}
+            with destination.open("w", encoding="utf-8") as handle:
+                done = subprocess.run(
+                    [self.executable, "debug", *args],
+                    stdout=handle,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=120,
+                    env=self.env_for(unit, root),
+                    check=False,
+                )
+            stdout = destination.read_text(encoding="utf-8")
+            return json.loads(stdout) if stdout.strip() else {"error": done.stderr[-500:]}
         except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
             return {"error": str(exc)}
 
@@ -504,10 +524,17 @@ class OpenCodeBackend(Backend):
             ]
         elif isinstance(skills, dict) and isinstance(skills.get("skills"), list):
             names = [str(entry.get("name", entry)) for entry in skills["skills"]]
+        # `debug skill` lists every skill OpenCode knows, built-in ones and denied ones included.
+        # What the model is offered is the agent's view: its skill tool and its permission rules.
+        agent = self.debug(unit, "agent", "build")
+        rules = agent.get("permission") if isinstance(agent, dict) else None
+        tools = agent.get("tools") if isinstance(agent, dict) else None
         return {
             "condition": unit.condition,
             "config": config,
-            "skills": names,
+            "skills": available_skills(names, rules) if isinstance(rules, list) else names,
+            "skills_known": names,
+            "skill_tool": tools.get("skill") if isinstance(tools, dict) else None,
             "mcp": (config.get("mcp") if isinstance(config, dict) else None) or {},
         }
 
@@ -1211,6 +1238,36 @@ def _injected_agent(unit: Unit) -> str:
     if unit.condition != INJECTED or expect.skill:
         return ""
     return _bare(expect.agent)
+
+
+def installed_skills(root: Path) -> list[str]:
+    """The skills a unit's own config directory holds, by the name OpenCode registers them under.
+
+    That is the frontmatter `name`, which the build always writes, rather than the directory name.
+    """
+    names: list[str] = []
+    for main in sorted((root / "config" / "opencode" / "skills").glob("*/SKILL.md")):
+        try:
+            name = read_frontmatter(main).meta.get("name")
+        except (OSError, FrontmatterError):
+            name = None
+        names.append(str(name) if name else main.parent.name)
+    return names
+
+
+def available_skills(names: list[str], rules: list[dict[str, Any]]) -> list[str]:
+    """The skills an agent may load under OpenCode's permission rules: the last match decides."""
+    allowed = []
+    for name in names:
+        action = "allow"
+        for rule in rules:
+            if rule.get("permission") == "skill" and fnmatch.fnmatchcase(
+                name, str(rule.get("pattern", "*"))
+            ):
+                action = rule.get("action", action)
+        if action != "deny":
+            allowed.append(name)
+    return allowed
 
 
 def _split_model(model: str) -> tuple[str, str]:
