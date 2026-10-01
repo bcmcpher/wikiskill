@@ -7,6 +7,8 @@ output is owned by this module: it is cleared and rewritten on each run, and is 
 
 from __future__ import annotations
 
+import os
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -50,6 +52,21 @@ NEUTRAL_ONLY = ("role_model", "capabilities")
 
 #: Written into every build output, and required before one is cleared.
 BUILD_MARKER = ".wikiskill-build"
+
+#: Where a claude-plugin's own directory is mirrored in a built layout, one subdirectory per plugin.
+PLUGINS_DIR = "plugins"
+
+#: Never mirrored: version control and installed dependencies are not plugin content.
+MIRROR_IGNORE = (".git", "node_modules", "__pycache__", ".venv")
+
+#: `${CLAUDE_PLUGIN_ROOT}` and its unbraced form, which Claude Code also expands.
+_PLUGIN_ROOT_VAR = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT\b")
+_SKILL_DIR_VAR = re.compile(r"\$\{CLAUDE_SKILL_DIR\}|\$CLAUDE_SKILL_DIR\b")
+
+#: A path cited through either variable, as `collection check` reads it back out of a component.
+_CITED_PATH = re.compile(
+    r"\$\{?(?P<var>CLAUDE_PLUGIN_ROOT|CLAUDE_SKILL_DIR)\}?(?P<path>/[A-Za-z0-9_./-]*)"
+)
 
 
 class BuildError(Exception):
@@ -143,6 +160,7 @@ def build_collection(
     out_dir: Path,
     *,
     strip_models: bool = False,
+    installed_at: Path | None = None,
 ) -> CollectionBuildResult:
     """Build a collection's own sources into one harness layout.
 
@@ -153,6 +171,11 @@ def build_collection(
 
     ``strip_models`` removes every model pin, so a subagent runs on its caller's model. An
     evaluation needs that: a doer pinned to another model would mix two models in one row.
+
+    A plugin's own files — shared `references/`, `scripts/` — are mirrored to `plugins/<plugin>/`,
+    and `${CLAUDE_PLUGIN_ROOT}` in every built file becomes that mirror's absolute path. Claude Code
+    expands the variable itself; OpenCode would show it to the model unexpanded. ``installed_at`` is
+    where ``out_dir``'s contents will finally live, when that is somewhere else.
     """
     if harness not in HARNESSES:
         raise BuildError(f"unknown harness {harness!r}; known: {', '.join(HARNESSES)}")
@@ -173,6 +196,18 @@ def build_collection(
                     strip_models=strip_models,
                 )
                 plugin = root.name if source.layout == "claude-plugin" else None
+                if plugin:
+                    previous = owners.get(("plugins", plugin))
+                    if previous is not None:
+                        raise BuildError(
+                            f"two sources both provide a plugin named {plugin!r} ({previous} and "
+                            f"{root}); their files would share plugins/{plugin}"
+                        )
+                    owners[("plugins", plugin)] = str(root)
+                    _mirror_plugin(root, staged / PLUGINS_DIR / plugin)
+                    _expand_plugin_root(
+                        staged, (installed_at or out_dir).resolve() / PLUGINS_DIR / plugin
+                    )
                 for kind_dir, flat in _flat_names(staged):
                     qualified = f"{plugin}/{flat}" if plugin else flat
                     previous = owners.get((kind_dir, flat))
@@ -225,6 +260,60 @@ def component_roots(source: Source) -> list[Path]:
         for child in source.plugin_dirs()
         if any((child / d).is_dir() for d in ("skills", "agents", "commands"))
     ]
+
+
+def _mirror_plugin(root: Path, destination: Path) -> None:
+    """Copy a plugin's directory as it stands, so any `${CLAUDE_PLUGIN_ROOT}/...` finds its file."""
+    shutil.copytree(root, destination, ignore=shutil.ignore_patterns(*MIRROR_IGNORE))
+
+
+def _expand_plugin_root(staged: Path, plugin_root: Path) -> None:
+    """Expand the plugin path variables Claude Code would, in every text file of one built plugin.
+
+    `${CLAUDE_PLUGIN_ROOT}` becomes the plugin's mirror. `${CLAUDE_SKILL_DIR}` becomes the skill's
+    own built directory, and is left alone outside one, where Claude Code has no value for it.
+    """
+    installed = plugin_root.parent.parent
+    for path in sorted(staged.rglob("*")):
+        if not path.is_file() or path.name == BUILD_MARKER:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        if "CLAUDE_PLUGIN_ROOT" not in text and "CLAUDE_SKILL_DIR" not in text:
+            continue
+        expanded = _PLUGIN_ROOT_VAR.sub(str(plugin_root), text)
+        relative = path.relative_to(staged).parts
+        if len(relative) > 2 and relative[0] == "skills":
+            expanded = _SKILL_DIR_VAR.sub(str(installed / "skills" / relative[1]), expanded)
+        if expanded != text:
+            path.write_text(expanded, encoding="utf-8")
+
+
+def unresolved_plugin_paths(main: Path, plugin_dir: Path, skill_dir: Path | None) -> list[str]:
+    """Paths a component cites through a plugin variable that name no file in its plugin.
+
+    Claude Code expands `${CLAUDE_PLUGIN_ROOT}` to the plugin's directory and `${CLAUDE_SKILL_DIR}`
+    to the skill's, so a path written as if one were the other finds nothing in either harness. One
+    that climbs out of the plugin is reported too, since an installed plugin has no neighbours.
+    """
+    try:
+        text = main.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    problems = []
+    for match in _CITED_PATH.finditer(text):
+        variable, relative = match["var"], match["path"].rstrip(".,;:")
+        base = plugin_dir if variable == "CLAUDE_PLUGIN_ROOT" else skill_dir
+        if base is None or not relative.strip("/"):
+            continue
+        cited = Path(os.path.normpath(base / relative.lstrip("/")))
+        if not cited.is_relative_to(plugin_dir):
+            problems.append(f"{main}: ${{{variable}}}{relative} leaves the plugin")
+        elif not cited.exists():
+            problems.append(f"{main}: ${{{variable}}}{relative} names no file")
+    return sorted(set(problems))
 
 
 def _flat_names(staged: Path) -> list[tuple[str, str]]:

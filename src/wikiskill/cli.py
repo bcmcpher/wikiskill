@@ -22,7 +22,14 @@ from . import report as report_mod
 from . import review as review_mod
 from . import suite as suite_mod
 from . import wiki as wiki_mod
-from .build import HARNESSES, BuildError, build, build_collection, dist_dir
+from .build import (
+    HARNESSES,
+    BuildError,
+    build,
+    build_collection,
+    dist_dir,
+    unresolved_plugin_paths,
+)
 from .collection import Collection, ManifestError, Source
 from .frontmatter import FrontmatterError, repaired_warning
 from .frontmatter import read as read_frontmatter
@@ -96,6 +103,21 @@ def _check_frontmatter(components) -> list[str]:
             print(f"    ! {problem}")
         return [f"{len(unreadable)} components have frontmatter build cannot read"]
     return []
+
+
+def _check_plugin_paths(components) -> None:
+    """Print plugin-variable paths that resolve to nothing: a warning, as Claude Code misses too."""
+    problems: list[str] = []
+    for component in components:
+        if component.source.layout != "claude-plugin":
+            continue
+        plugin_dir = component.source.path / component.name.split("/", 1)[0]
+        skill_dir = component.path.parent if component.kind == "skill" else None
+        problems.extend(unresolved_plugin_paths(component.path, plugin_dir, skill_dir))
+    if problems:
+        print(f"  plugin paths that resolve to nothing ({len(problems)}):")
+        for problem in problems:
+            print(f"    ~ {problem}")
 
 
 # --------------------------------------------------------------------------- collection
@@ -193,6 +215,7 @@ def cmd_collection_check(args: argparse.Namespace) -> int:
     print(f"  discovered {len(discovered)} components, {len(watched)} watched (*):")
     _print_components(discovered, {c.name for c in watched})
     failures.extend(_check_frontmatter(discovered))
+    _check_plugin_paths(discovered)
 
     unresolved = coll.unresolved(discovered)
     if unresolved:

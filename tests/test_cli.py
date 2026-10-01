@@ -109,6 +109,27 @@ def test_check_exits_non_zero_on_frontmatter_build_cannot_read(xdg, plugin_sourc
     assert "frontmatter build cannot read" in captured.err
 
 
+def test_check_warns_of_plugin_paths_that_resolve_to_nothing(xdg, plugin_source, capsys):
+    """Claude Code expands `${CLAUDE_PLUGIN_ROOT}` to the plugin's directory, not the skill's."""
+    (plugin_source / "analyze" / "references").mkdir()
+    (plugin_source / "analyze" / "references" / "good.md").write_text("g\n", encoding="utf-8")
+    skill = plugin_source / "analyze" / "skills" / "run-comparison" / "SKILL.md"
+    skill.write_text(
+        "---\nname: run-comparison\ndescription: d\n---\n\n"
+        "Read ${CLAUDE_PLUGIN_ROOT}/references/good.md, ${CLAUDE_PLUGIN_ROOT}/references/gone.md,\n"
+        "${CLAUDE_PLUGIN_ROOT}/../references/out.md and ${CLAUDE_SKILL_DIR}/SKILL.md.\n",
+        encoding="utf-8",
+    )
+    write_manifest(xdg, "dsh", manifest_for(plugin_source))
+
+    assert main(["collection", "check", "dsh"]) == 0, "a warning, not a failure"
+    out = capsys.readouterr().out
+    assert "resolve to nothing (2)" in out
+    assert "${CLAUDE_PLUGIN_ROOT}/references/gone.md names no file" in out
+    assert "${CLAUDE_PLUGIN_ROOT}/../references/out.md leaves the plugin" in out
+    assert "good.md" not in out.split("resolve to nothing")[1]
+
+
 def test_check_lists_only_the_selected_plugin(xdg, plugin_source, capsys):
     write_manifest(
         xdg,

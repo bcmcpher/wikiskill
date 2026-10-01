@@ -32,6 +32,9 @@ forward:
       reaches OFF; the isolation proof records the agent's offered skills and its skill tool
 - [x] 1b.3 Read `opencode debug` output from a file: through a pipe it stopped at 64 KB, so ROUTED
       proofs for a real collection recorded no skills
+- [x] 1b.5 Let a unit read its installed `skills/` and `plugins/`: the eval's `external_directory`
+      deny came after OpenCode's own allowance for skill directories, so no model could read a file
+      beside a skill it had loaded, its own `references/` included
 - [ ] 1b.4 A runaway generation (qwen3:1.7b, 9m48s on one request) is scored infra_error; decide on
       a per-turn output cap or a recorded thinking setting
 
@@ -46,5 +49,9 @@ forward:
 
 ## 3. Packaging and docs
 
-- [ ] 3.1 Build carries plugin `references/`, with a fixture plugin that reads one
+- [x] 3.1 Build carries plugin `references/`, with a fixture plugin that reads one. A plugin is
+      mirrored to `plugins/<plugin>/`; `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_SKILL_DIR}` are expanded
+      to the installed paths, as Claude Code expands them; `collection check` warns of cited paths
+      that resolve to nothing (84 in my-skills, written as if the variable were the skill's own
+      directory, or climbing out with `../`)
 - [ ] 3.2 `docs/quickstart.md`, a bring-your-own-collection guide, and templates

@@ -8,6 +8,7 @@ a GPU, or fifteen minutes of CPU inference.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -669,6 +670,22 @@ def test_routed_allows_back_only_what_the_collection_installed(backend):
     assert recorded["permission"]["skill"] == config["permission"]["skill"]
 
 
+def test_a_unit_may_read_its_installed_skills_and_nothing_else_outside(backend):
+    """OpenCode's own allowance for skill directories comes before the deny, which would win."""
+    target = unit(condition="routed")
+    root = prepared(backend, target)
+
+    rules = backend.config_for(target, root)["permission"]["external_directory"]
+
+    installed = root / "config" / "opencode"
+    assert rules == {
+        "*": "deny",
+        f"{installed / 'skills'}/*": "allow",
+        f"{installed / 'plugins'}/*": "allow",
+    }
+    assert next(iter(rules)) == "*", "the allows come after the deny they override"
+
+
 def test_a_probe_is_offered_no_skill_either(backend):
     assert backend._config("ollama/qwen3:1.7b")["permission"]["skill"] == {"*": "deny"}
 
@@ -753,6 +770,32 @@ def test_debug_output_is_read_from_a_file_not_a_pipe(backend, tmp_path):
     listed = backend.debug(unit(), "skill")
 
     assert isinstance(listed, list) and len(listed) == 100
+
+
+@pytest.mark.skipif(not Path("/proc/self/fd/0").exists(), reason="needs /proc")
+def test_the_harness_never_inherits_stdin(backend, tmp_path):
+    """`opencode run` reads piped stdin into its prompt, and waits for EOF to do it.
+
+    An eval launched with a pipe on stdin — from CI, or from a harness's own command — would hang
+    every unit until its timeout without a single request reaching the model.
+    """
+    backend.executable = stub_opencode(
+        tmp_path, 'printf \'{"stdin": "%s"}\' "$(readlink /proc/self/fd/0)"'
+    )
+    backend.layout.unit_dir(unit()).mkdir(parents=True, exist_ok=True)
+
+    # pytest already points stdin at /dev/null; a pipe is what an inherited stdin would be.
+    read_end, write_end = os.pipe()
+    saved = os.dup(0)
+    os.dup2(read_end, 0)
+    try:
+        listed = backend.debug(unit(), "config")
+    finally:
+        os.dup2(saved, 0)
+        for fd in (saved, read_end, write_end):
+            os.close(fd)
+
+    assert listed == {"stdin": "/dev/null"}
 
 
 def test_a_truncated_export_is_an_error_not_an_empty_session_list(backend, tmp_path):

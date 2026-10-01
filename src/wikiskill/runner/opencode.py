@@ -133,6 +133,7 @@ class OpenCodeBackend(Backend):
             try:
                 done = subprocess.run(
                     [self.executable, "--version"],
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     timeout=30,
@@ -229,6 +230,7 @@ class OpenCodeBackend(Backend):
         try:
             done = subprocess.run(
                 [self.executable, "models"],
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 timeout=PROBE_LIST_TIMEOUT_S,
@@ -260,6 +262,7 @@ class OpenCodeBackend(Backend):
                     model,
                     PROBE_PROMPT,
                 ],
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -332,7 +335,9 @@ class OpenCodeBackend(Backend):
         staged = root / "built"
         try:
             # Pins stripped: every subagent runs on the model this unit evaluates.
-            built = build.build_collection("opencode", collection, staged, strip_models=True)
+            built = build.build_collection(
+                "opencode", collection, staged, strip_models=True, installed_at=target
+            )
         except build.BuildError as exc:
             raise RunnerError(f"collection {collection.name!r} cannot be installed: {exc}") from exc
         installed = _merge_tree(staged, target)
@@ -353,6 +358,15 @@ class OpenCodeBackend(Backend):
             rules = config["permission"]["skill"]
             for name in installed_skills(root):
                 rules[name] = "allow"
+            # OpenCode allows reads inside every skill's directory by default, but the deny above
+            # comes later and wins, so a model could load a skill and not one file beside it. The
+            # unit's own copies are allowed back; the source repository stays out of reach.
+            installed = root / "config" / "opencode"
+            config["permission"]["external_directory"] = {
+                "*": "deny",
+                f"{installed / 'skills'}/*": "allow",
+                f"{installed / 'plugins'}/*": "allow",
+            }
         if unit.condition == INJECTED:
             self._inject(config, unit, root)
         return config
@@ -492,6 +506,7 @@ class OpenCodeBackend(Backend):
             with destination.open("w", encoding="utf-8") as handle:
                 done = subprocess.run(
                     [self.executable, "debug", *args],
+                    stdin=subprocess.DEVNULL,
                     stdout=handle,
                     stderr=subprocess.PIPE,
                     text=True,
@@ -567,6 +582,7 @@ class OpenCodeBackend(Backend):
         try:
             done = subprocess.run(
                 command,
+                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
                 timeout=unit.task.timeout_s,
@@ -694,6 +710,7 @@ class OpenCodeBackend(Backend):
             with destination.open("w", encoding="utf-8") as handle:
                 done = subprocess.run(
                     [self.executable, "export", session_id],
+                    stdin=subprocess.DEVNULL,
                     stdout=handle,
                     stderr=subprocess.PIPE,
                     text=True,
@@ -1409,6 +1426,7 @@ def _run_setup(unit: Unit, workdir: Path, root: Path) -> None:
                     command,
                     shell=True,
                     cwd=workdir,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     text=True,
                     errors="replace",
@@ -1438,6 +1456,7 @@ def _git_init(workdir: Path) -> None:
     with contextlib.suppress(OSError, subprocess.SubprocessError):
         subprocess.run(
             ["git", "init", "--quiet", str(workdir)],
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             timeout=60,
             check=False,

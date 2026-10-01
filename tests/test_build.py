@@ -407,3 +407,76 @@ def test_a_collection_build_leaves_its_sources_byte_identical(tmp_path):
     coll = plugin_collection(root, haiku="opencode/big-pickle")
     build_collection("opencode", coll, tmp_path / "d")
     assert snapshot() == before
+
+
+# --------------------------------------------------------------------------- plugin files
+
+
+def plugin_citing_references(root):
+    """A plugin whose skill and agent cite its shared references the way Claude Code expands them."""
+    (root / "stats" / "references").mkdir(parents=True)
+    (root / "stats" / "references" / "qc.md").write_text("# QC\n", encoding="utf-8")
+    (root / "stats" / "skills" / "plan" / "notes").mkdir(parents=True)
+    (root / "stats" / "skills" / "plan" / "notes" / "local.md").write_text("n\n", encoding="utf-8")
+    (root / "stats" / "skills" / "plan" / "SKILL.md").write_text(
+        "---\nname: plan\ndescription: plan\n---\n\n"
+        "Read ${CLAUDE_PLUGIN_ROOT}/references/qc.md and ${CLAUDE_SKILL_DIR}/notes/local.md.\n",
+        encoding="utf-8",
+    )
+    add_agent(root, "stats", "merger")
+    agent = root / "stats" / "agents" / "merger.md"
+    agent.write_text(
+        agent.read_text(encoding="utf-8") + "See $CLAUDE_PLUGIN_ROOT/references/qc.md\n",
+        encoding="utf-8",
+    )
+    return plugin_collection(root)
+
+
+def test_a_plugins_shared_files_travel_with_the_build(tmp_path):
+    collection = plugin_citing_references(tmp_path / "plugins")
+    out = tmp_path / "dist"
+
+    build_collection("opencode", collection, out)
+
+    assert (out / "plugins" / "stats" / "references" / "qc.md").read_text() == "# QC\n"
+
+
+def test_plugin_path_variables_become_the_built_files_paths(tmp_path):
+    collection = plugin_citing_references(tmp_path / "plugins")
+    out = tmp_path / "dist"
+
+    build_collection("opencode", collection, out)
+
+    skill = (out / "skills" / "plan" / "SKILL.md").read_text(encoding="utf-8")
+    agent = (out / "agents" / "merger.md").read_text(encoding="utf-8")
+    plugin_root = out.resolve() / "plugins" / "stats"
+    assert f"Read {plugin_root}/references/qc.md and " in skill
+    assert f"{out.resolve()}/skills/plan/notes/local.md." in skill
+    assert f"See {plugin_root}/references/qc.md" in agent
+    assert "CLAUDE_" not in skill + agent
+    for cited in (
+        plugin_root / "references" / "qc.md",
+        out / "skills" / "plan" / "notes" / "local.md",
+    ):
+        assert cited.is_file(), cited
+
+
+def test_paths_point_where_the_build_will_be_installed(tmp_path):
+    collection = plugin_citing_references(tmp_path / "plugins")
+    final = tmp_path / "config" / "opencode"
+
+    build_collection("opencode", collection, tmp_path / "staged", installed_at=final)
+
+    skill = (tmp_path / "staged" / "skills" / "plan" / "SKILL.md").read_text(encoding="utf-8")
+    assert f"{final.resolve()}/plugins/stats/references/qc.md" in skill
+    assert str(tmp_path / "staged") not in skill
+
+
+def test_mirroring_a_plugin_leaves_its_source_untouched(tmp_path):
+    root = tmp_path / "plugins"
+    collection = plugin_citing_references(root)
+    before = {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+    build_collection("opencode", collection, tmp_path / "dist")
+
+    assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
