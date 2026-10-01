@@ -1,0 +1,46 @@
+# A task suite template. Copy it, replace every <...>, delete what you do not use, then:
+#
+#     wikiskill suite check my-suite.yaml
+#
+# Write prompts the way a user would ask, and never name the skill you expect: a prompt that names
+# its route instructs it instead of testing it. `suite check` refuses a prompt containing the full
+# `plugin/skill` name, and warns about one containing either half; read each warning, since a skill
+# is often named after the very thing a user would mention.
+
+suite: my-suite                      # an id: letters, digits, . _ -
+description: <what this suite asks of the collection, in one sentence>
+
+defaults:
+  repeats: 1                         # raise once the suite is stable; pooling adds samples too
+  timeout_s: 600                     # one unit's budget, model loading included
+  max_steps: 20                      # tool calls before the guard stops the unit
+
+tasks:
+  # 1. A routing task: does the model reach the right skill? Judged on its first activation, and
+  #    only under ROUTED, the one condition where the skill is installed and allowed.
+  - id: reaches-the-skill
+    prompt: <a request your skill exists to serve, in the user's own words>
+    split: val                       # train, val or test; refinement only ever reads train
+    expect: { skill: <skill-name> }  # the bare name, or plugin/name
+
+  # 2. A near-miss control: close to the skill's territory, but the skill should not fire. Declare
+  #    no route; judge it by what the answer says.
+  - id: near-miss-control
+    prompt: <a neighbouring request your skill should leave alone>
+    split: val
+    verifiers:
+      - { kind: regex, target: final_text, pattern: "<something a correct answer contains>" }
+
+  # 3. A task with an outcome: the work the skill guides, checked in the workdir afterwards.
+  #    Verifiers decide pass or fail under every condition.
+  - id: does-the-work
+    prompt: <a request whose result can be checked on disk>
+    split: val
+    expect: { skill: <skill-name> }
+    # fixtures: fixtures/does-the-work   # a directory copied into the workdir first
+    # setup: ["git init -q data"]        # shell commands run in the workdir before the session
+    # requires: [datalad]                # skipped with a reason, never failed, when absent
+    # guard: { deny: ["datalad push*"] } # commands the session may not run
+    verifiers:
+      - { kind: file_exists, path: <a file the work should produce> }
+      - { kind: command, run: "<a shell check that exits 0 on success>" }

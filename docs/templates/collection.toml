@@ -1,0 +1,46 @@
+# A collection manifest template. `wikiskill collection init <name> --source <dir>` writes one for
+# you from what it finds, and that is usually the better start; this shows every section it can have.
+#
+# It lives at ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/<name>.toml, and the file name must
+# match `name`. Check it with:
+#
+#     wikiskill collection check <name>
+
+name = "my-collection"
+
+# Where the components live. `claude-plugin`: a directory of plugins, each with skills/, agents/ or
+# commands/ inside (a Claude Code marketplace). `opencode`: skills/, agents/ and commands/ at the
+# top level. wikiskill never writes into a source.
+sources = [
+  { path = "~/src/my-plugins/plugins", layout = "claude-plugin" },
+  # Narrow a plugin source to the plugins under test:
+  # { path = "~/src/my-plugins/plugins", layout = "claude-plugin", plugins = ["stats"] },
+]
+
+# What gets logged during ordinary use. Evaluation installs every component either way, so a
+# near-miss neighbour is always there to be chosen wrongly.
+[watch]
+skills = ["<plugin>/<skill>"]
+agents = []
+commands = []
+
+# The models `wikiskill eval` runs when you pass no --models.
+# [targets]
+# opencode = ["ollama/qwen3:1.7b"]
+
+# Meta-roles for `wikiskill review` and `refine`, each on its own endpoint. Not needed to evaluate.
+# A judge must never be a model under test; `check` refuses the manifest if it is.
+# [roles.maintainer]
+# base_url = "http://localhost:11434/v1"
+# model = "qwen3:30b-a3b"
+
+# Model names a component pins (`model: haiku`) and what each becomes per harness. An alias left
+# unmapped is not an error: the component runs on its caller's model.
+# [aliases.opencode]
+# haiku = "ollama/qwen3:1.7b"
+# sonnet = "ollama/qwen3:30b-a3b"
+
+# [logging]
+# buffer_size = 200            # events held before an activation, then written with it
+# output_limit_bytes = 16384   # tool output above this is truncated, its length kept
+# redact = true                # environment values and secret-shaped strings are masked

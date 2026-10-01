@@ -56,4 +56,6 @@ forward:
       to the installed paths, as Claude Code expands them; `collection check` warns of cited paths
       that resolve to nothing (84 in my-skills, written as if the variable were the skill's own
       directory, or climbing out with `../`)
-- [ ] 3.2 `docs/quickstart.md`, a bring-your-own-collection guide, and templates
+- [x] 3.2 `docs/quickstart.md`, a bring-your-own-collection guide, and templates. Walked from a
+      fresh clone with `uv tool install .` and empty XDG directories, through preflight and one
+      real unit; both templates validate as written and with every option enabled

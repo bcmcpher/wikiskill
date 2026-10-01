@@ -14,6 +14,10 @@ OFF and ROUTED conditions, routing metrics and reports. Step 3, `add-minimal-loo
 and not yet built —
 see [`ROADMAP.md`](ROADMAP.md).
 
+**New here?** [The quickstart](docs/quickstart.md) goes from a clean machine to a finished,
+poolable run on a local model; [bring your own collection](docs/bring-your-own-collection.md) then
+evaluates your own skills.
+
 ## What works today
 
 A harness-neutral raw log, a collection manifest describing what is watched, an OpenCode plugin that
