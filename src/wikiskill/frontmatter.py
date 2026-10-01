@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 _FENCE = "---"
+
+#: A top-level `key: value` line. Indented lines belong to a block above them and are never touched.
+_TOP_LEVEL = re.compile(r"^(?P<key>[A-Za-z0-9_-]+):[ \t]+(?P<value>\S.*?)[ \t]*$")
 
 
 class FrontmatterError(Exception):
@@ -22,6 +26,8 @@ class Document:
     meta: dict[str, Any]
     body: str
     path: Path | None = None
+    #: Keys whose value was not valid YAML as written and was read as a plain string instead.
+    repaired: tuple[str, ...] = field(default=())
 
     def render(self, meta: dict[str, Any] | None = None) -> str:
         """The file text with ``meta`` (default: this document's) as frontmatter.
@@ -48,13 +54,54 @@ def parse(text: str, path: Path | None = None) -> Document:
         raise FrontmatterError(f"unterminated frontmatter{where}: no closing `---`")
     raw = text[len(_FENCE) : end]
     rest = text[end + len(_FENCE) + 1 :]
+    repaired: tuple[str, ...] = ()
     try:
         meta = yaml.safe_load(raw) or {}
     except yaml.YAMLError as exc:
-        raise FrontmatterError(f"frontmatter is not valid YAML{where}: {exc}") from exc
+        meta, repaired = _lenient(raw)
+        if meta is None:
+            raise FrontmatterError(f"frontmatter is not valid YAML{where}: {exc}") from exc
     if not isinstance(meta, dict):
         raise FrontmatterError(f"frontmatter{where} must be a mapping, got {type(meta).__name__}")
-    return Document(meta=meta, body=rest.lstrip("\n"), path=path)
+    return Document(meta=meta, body=rest.lstrip("\n"), path=path, repaired=repaired)
+
+
+def _lenient(raw: str) -> tuple[Any, tuple[str, ...]]:
+    """Read frontmatter the way Claude Code does when strict YAML refuses it.
+
+    Claude Code accepts `argument-hint: [path] — audit a directory`, which YAML reads as a flow
+    sequence followed by stray text. Plugins written for it carry such lines, and refusing them
+    would refuse the whole collection. A top-level line that does not parse on its own is read as
+    the plain string it was meant to be; nothing else is rewritten. Returns ``(None, ())`` when
+    the frontmatter still does not parse, so the caller reports the original error.
+    """
+    lines = raw.split("\n")
+    repaired: list[str] = []
+    for index, line in enumerate(lines):
+        match = _TOP_LEVEL.match(line)
+        if not match or match["value"][0] in "'\"|>":
+            continue
+        try:
+            yaml.safe_load(line)
+        except yaml.YAMLError:
+            quoted = "'" + match["value"].replace("'", "''") + "'"
+            lines[index] = f"{match['key']}: {quoted}"
+            repaired.append(match["key"])
+    if not repaired:
+        return None, ()
+    try:
+        return yaml.safe_load("\n".join(lines)) or {}, tuple(repaired)
+    except yaml.YAMLError:
+        return None, ()
+
+
+def repaired_warning(doc: Document) -> str:
+    """What a lenient read changed, worded for a person who can quote the value in the source."""
+    keys = ", ".join(f"`{key}`" for key in doc.repaired)
+    return (
+        f"{doc.path}: {keys} is not valid YAML as written and was read as plain text; "
+        "quote the value to make that explicit"
+    )
 
 
 def read(path: str | Path) -> Document:

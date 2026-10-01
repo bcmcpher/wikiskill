@@ -85,6 +85,30 @@ def test_check_exits_non_zero_on_a_misspelled_plugin(xdg, plugin_source, capsys)
     assert "selected plugins do not exist" in captured.err
 
 
+def test_check_reports_frontmatter_it_read_leniently(xdg, plugin_source, capsys):
+    skill = plugin_source / "analyze" / "skills" / "run-comparison" / "SKILL.md"
+    skill.write_text(
+        "---\nname: run-comparison\ndescription: d\nargument-hint: [path] — a dir\n---\n\nb\n",
+        encoding="utf-8",
+    )
+    write_manifest(xdg, "dsh", manifest_for(plugin_source))
+    assert main(["collection", "check", "dsh"]) == 0
+    out = capsys.readouterr().out
+    assert "read leniently" in out
+    assert "run-comparison/SKILL.md: `argument-hint`" in out
+
+
+def test_check_exits_non_zero_on_frontmatter_build_cannot_read(xdg, plugin_source, capsys):
+    """An unwatched component still stops ROUTED, so check has to catch it before a run does."""
+    skill = plugin_source / "analyze" / "skills" / "run-comparison" / "SKILL.md"
+    skill.write_text("---\nname: x\n  stray: indent\n---\n\nbody\n", encoding="utf-8")
+    write_manifest(xdg, "dsh", manifest_for(plugin_source))
+    assert main(["collection", "check", "dsh"]) == 1
+    captured = capsys.readouterr()
+    assert "not valid YAML" in captured.out
+    assert "frontmatter build cannot read" in captured.err
+
+
 def test_check_lists_only_the_selected_plugin(xdg, plugin_source, capsys):
     write_manifest(
         xdg,

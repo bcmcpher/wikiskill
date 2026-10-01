@@ -287,6 +287,20 @@ def test_unknown_capabilities_are_warned_not_fatal(tmp_path):
     assert any("teleport" in w for w in result.warnings)
 
 
+def test_a_hint_claude_code_accepts_builds_and_is_reported(tmp_path):
+    source = tmp_path / "source"
+    (source / "commands").mkdir(parents=True)
+    (source / "commands" / "check.md").write_text(
+        "---\ndescription: d\nargument-hint: [aspects] — e.g. all\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+    result = build("opencode", source=source, out_dir=tmp_path / "dist")
+    built = read_frontmatter(result.out_dir / "commands" / "check.md")
+    assert built.meta["argument-hint"] == "[aspects] — e.g. all"
+    assert built.repaired == (), "the built file is valid YAML"
+    assert any("`argument-hint`" in w and "check.md" in w for w in result.warnings)
+
+
 def test_the_real_source_tree_builds(tmp_path):
     """wikiskill's own components must survive their own build."""
     result = build("opencode", out_dir=tmp_path / "dist")

@@ -24,7 +24,8 @@ from . import suite as suite_mod
 from . import wiki as wiki_mod
 from .build import HARNESSES, BuildError, build, build_collection, dist_dir
 from .collection import Collection, ManifestError, Source
-from .frontmatter import FrontmatterError
+from .frontmatter import FrontmatterError, repaired_warning
+from .frontmatter import read as read_frontmatter
 from .install import SCOPES, InstallError
 from .rawlog import RawLogError
 from .runner import base as runner_base
@@ -67,6 +68,34 @@ def _print_components(components, watched_names: set[str]) -> None:
         for component in of_kind:
             mark = "*" if component.name in watched_names else " "
             print(f"    {mark} {component.name}  {component.path}")
+
+
+def _check_frontmatter(components) -> list[str]:
+    """Print frontmatter read only leniently or not at all, and return the failures.
+
+    Build reads every component's frontmatter, not only the watched ones, so a file it cannot read
+    would stop ROUTED for the whole collection. Check says so rather than a run, mid-way.
+    """
+    unreadable: list[str] = []
+    repaired: list[str] = []
+    for component in components:
+        try:
+            doc = read_frontmatter(component.path)
+        except (FrontmatterError, OSError, UnicodeDecodeError) as exc:
+            unreadable.append(str(exc))
+            continue
+        if doc.repaired:
+            repaired.append(repaired_warning(doc))
+    if repaired:
+        print("  frontmatter read leniently:")
+        for warning in repaired:
+            print(f"    ~ {warning}")
+    if unreadable:
+        print("  unreadable frontmatter:")
+        for problem in unreadable:
+            print(f"    ! {problem}")
+        return [f"{len(unreadable)} components have frontmatter build cannot read"]
+    return []
 
 
 # --------------------------------------------------------------------------- collection
@@ -163,6 +192,7 @@ def cmd_collection_check(args: argparse.Namespace) -> int:
     watched = coll.watched(discovered)
     print(f"  discovered {len(discovered)} components, {len(watched)} watched (*):")
     _print_components(discovered, {c.name for c in watched})
+    failures.extend(_check_frontmatter(discovered))
 
     unresolved = coll.unresolved(discovered)
     if unresolved:

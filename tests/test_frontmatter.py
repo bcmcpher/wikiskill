@@ -41,9 +41,49 @@ def test_a_body_with_a_fence_is_not_truncated():
         ("no frontmatter here", "must start with"),
         ("---\nname: x\n", "unterminated frontmatter"),
         ("---\n- a\n- b\n---\n\nbody\n", "must be a mapping"),
-        ("---\nname: [unclosed\n---\n\nbody\n", "not valid YAML"),
+        ("---\nname: x\n  stray: indent\n---\n\nbody\n", "not valid YAML"),
     ],
 )
 def test_bad_frontmatter_is_rejected_with_a_reason(text, expected):
     with pytest.raises(FrontmatterError, match=expected):
         parse(text)
+
+
+# --------------------------------------------------------------------------- lenient reading
+
+
+def test_a_hint_claude_code_accepts_is_read_as_plain_text():
+    """`[aspects] — e.g. ...` is a flow sequence followed by stray text to YAML, not to Claude Code."""
+    text = (
+        "---\n"
+        "description: Run a review\n"
+        'argument-hint: [aspects] — e.g. "code errors" or "all"\n'
+        "allowed-tools: Bash(git diff:*), Read\n"
+        "---\n\nbody\n"
+    )
+    doc = parse(text)
+    assert doc.meta["argument-hint"] == '[aspects] — e.g. "code errors" or "all"'
+    assert doc.meta["allowed-tools"] == "Bash(git diff:*), Read"
+    assert doc.repaired == ("argument-hint",)
+
+
+def test_a_repaired_value_keeps_its_single_quotes():
+    doc = parse("---\nargument-hint: [x] it's here\n---\n\nbody\n")
+    assert doc.meta["argument-hint"] == "[x] it's here"
+
+
+def test_a_block_scalar_beside_a_repaired_line_is_left_alone():
+    doc = parse("---\ndescription: >\n  one\n  two\nargument-hint: [p] text\n---\n\nbody\n")
+    assert doc.meta["description"] == "one two\n"
+    assert doc.repaired == ("argument-hint",)
+
+
+def test_valid_frontmatter_reports_no_repair():
+    assert parse("---\nargument-hint: [path]\n---\n\nbody\n").repaired == ()
+
+
+def test_a_repaired_document_renders_as_valid_yaml():
+    doc = parse("---\nname: x\nargument-hint: [p] text\n---\n\nbody\n")
+    again = parse(doc.render())
+    assert again.repaired == ()
+    assert again.meta == doc.meta

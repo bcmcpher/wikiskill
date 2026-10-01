@@ -15,7 +15,7 @@ from typing import Any
 
 from . import paths
 from .collection import Collection, Source
-from .frontmatter import Document
+from .frontmatter import Document, repaired_warning
 from .frontmatter import read as read_frontmatter
 
 HARNESSES = ("opencode",)
@@ -342,6 +342,8 @@ def _harness_meta(
     result: BuildResult,
     strip_models: bool = False,
 ) -> dict[str, Any]:
+    if doc.repaired:
+        result.warnings.append(repaired_warning(doc))
     meta = {k: v for k, v in doc.meta.items() if k not in NEUTRAL_ONLY}
     meta.setdefault("name", default_name)
     if not meta.get("description"):
