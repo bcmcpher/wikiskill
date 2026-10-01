@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
+from . import leaderboard
 from . import score as score_mod
+from .compare import LoadedRun
 from .runner.base import INFRA_OUTCOMES, INJECTED, OFF, ROUTED, RunLayout
 
 
@@ -49,8 +52,20 @@ def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dic
         "confusion": score_mod.confusion(scores),
         "outcomes": dict(Counter(result["outcome"] for result in results)),
         "derived": _derived(results, manifest),
+        "pooled": _pooled(results, manifest),
         "not_run": not_run(results, manifest),
     }
+
+
+def _pooled(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str, Any]:
+    """This run alone in the leaderboard's terms, so one run and many read the same way."""
+    run = LoadedRun(
+        run_id=str(manifest.get("run_id") or ""),
+        root=Path(),
+        manifest=manifest,
+        results=tuple(results),
+    )
+    return leaderboard.pool([run]).as_dict()["ranking"]
 
 
 def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -230,6 +245,21 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append("No task produced a scorable result.")
 
     lines += _failing_verifier_lines(report.get("rows") or [])
+
+    pooled = report.get("pooled") or {}
+    if any(pooled.values()):
+        lines += [
+            "",
+            "## Pooled per model and condition",
+            "",
+            (
+                "As `wikiskill leaderboard` pools it: a unit passes on its verifiers, or under "
+                "ROUTED on its first activation. Pool this run with others of the same suite to "
+                "narrow the intervals."
+            ),
+            "",
+            *leaderboard.ranking_lines(pooled),
+        ]
 
     lines += ["", "## Per model and condition", ""]
     for key, summary in sorted((report.get("per_model_condition") or {}).items()):

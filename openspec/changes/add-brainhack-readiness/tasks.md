@@ -40,12 +40,14 @@ forward:
 
 ## 2. Leaderboard
 
-- [ ] 2.1 `wikiskill leaderboard <run>...`: load runs with `compare.load_run`, require one
+- [x] 2.1 `wikiskill leaderboard <run>...`: load runs with `compare.load_run`, require one
       `suite_hash` and matching component `source_hash`es
-- [ ] 2.2 Pool per model and condition with `compare.wilson`, rank, and mark overlapping intervals
-- [ ] 2.3 A per-task by model matrix; write `leaderboard.md` and `leaderboard.json`
-- [ ] 2.4 The same pooled table in a single run's `report.md`
-- [ ] 2.5 Tests in `tests/test_leaderboard.py`
+- [x] 2.2 Pool per model and condition with `compare.wilson`, rank, and mark overlapping intervals
+- [x] 2.3 A per-task by model matrix; write `leaderboard.md` and `leaderboard.json`
+- [x] 2.4 The same pooled table in a single run's `report.md`
+- [x] 2.5 Tests in `tests/test_leaderboard.py`
+- A route-scored unit counts only under ROUTED: OFF installs nothing and INJECTED denies the skill,
+  so counting it there adds a failure by construction. Units that did not run sit beside the rate.
 
 ## 3. Packaging and docs
 

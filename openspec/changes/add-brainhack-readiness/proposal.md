@@ -29,6 +29,7 @@ None.
 ### Modified Capabilities
 
 - `eval-runner`: preflight timeouts and the server-reported context.
+- `eval-scoring`: pooling runs of one suite across machines.
 
 ## Impact
 

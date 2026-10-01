@@ -17,6 +17,7 @@ from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
 from . import compare as compare_mod
 from . import install as install_mod
+from . import leaderboard as leaderboard_mod
 from . import refine as refine_mod
 from . import report as report_mod
 from . import review as review_mod
@@ -566,6 +567,26 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return OK
 
 
+def cmd_leaderboard(args: argparse.Namespace) -> int:
+    runs = []
+    for run in args.run:
+        if not Path(run).is_dir() and not args.collection:
+            print(f"error: {run} is not a directory; pass a path, or --collection", file=sys.stderr)
+            return MISUSE
+        runs.append(compare_mod.load_run(args.collection or "", run))
+    board = leaderboard_mod.pool(runs)
+    if args.out:
+        out = Path(args.out)
+    else:
+        collection = args.collection or runs[0].manifest.get("collection") or board.suite or "runs"
+        out = paths.evals_dir(collection) / "leaderboard" / leaderboard_mod.output_name(runs)
+    md, js = leaderboard_mod.write(board, out)
+    print(leaderboard_mod.render(board))
+    print(f"wrote {md}")
+    print(f"wrote {js}")
+    return OK
+
+
 def cmd_review(args: argparse.Namespace) -> int:
     coll = _load(args.collection)
     runs = [compare_mod.load_run(coll.name, run) for run in args.run] if args.run else None
@@ -691,6 +712,20 @@ def _add_compare_parser(sub) -> None:
     )
     cmp.add_argument("--proposal", default=None, help="the proposal id the decision is about")
     cmp.set_defaults(func=cmd_compare)
+
+
+def _add_leaderboard_parser(sub) -> None:
+    board = sub.add_parser(
+        "leaderboard", help="pool runs of one suite, from any machines, per model and condition"
+    )
+    board.add_argument(
+        "run", nargs="+", help="a run directory, or a run id under --collection's evals"
+    )
+    board.add_argument("--collection", default=None, help="where to find runs given by id")
+    board.add_argument(
+        "--out", default=None, help="output directory (default: under the collection's evals)"
+    )
+    board.set_defaults(func=cmd_leaderboard)
 
 
 def _add_eval_parser(sub) -> None:
@@ -847,6 +882,7 @@ def build_parser() -> argparse.ArgumentParser:
     inst.set_defaults(func=cmd_install)
 
     _add_compare_parser(sub)
+    _add_leaderboard_parser(sub)
     _add_review_parser(sub)
     _add_refine_parser(sub)
 
