@@ -73,3 +73,25 @@ carries these.
 - [x] 3.2 `docs/quickstart.md`, a bring-your-own-collection guide, and templates. Walked from a
       fresh clone with `uv tool install .` and empty XDG directories, through preflight and one
       real unit; both templates validate as written and with every option enabled
+
+## 4. Before the event (about 20 GB10s for participants)
+
+- [ ] 4.1 Seed each unit's OpenCode cache from one shared per-machine copy. Every unit now installs
+      OpenCode's npm packages (63 MB, into `config/opencode/node_modules`) and downloads ripgrep and
+      `models.json` into its own fresh cache: about 2.3 GB for one toy-routing run, or ~45 GB across
+      20 machines on event Wi-Fi, and a registry hiccup fails units. First confirm OpenCode skips
+      its install when the packages are already present
+- [ ] 4.2 Pre-stage models on every machine: pull once and copy Ollama's model store, or pull well
+      ahead (qwen3:30b-a3b took two hours here)
+- [ ] 4.3 Pin one OpenCode and one Ollama version on every machine. OpenCode updates itself in
+      interactive use; the leaderboard only warns about mixed versions after the fact
+- [ ] 4.4 Choose and freeze the suite participants run. toy-routing proves the pipeline but its three
+      tasks will not separate models; candidates are the data-science-harness suites, or
+      `my-skills` once its 84 unresolved plugin paths are fixed. Its hash must not change after
+- [ ] 4.5 Decide how runs are collected (`run.json` and `results.jsonl` per run) and who runs
+      `wikiskill leaderboard` over them
+- [ ] 4.6 Rehearse the quickstart on one event GB10 as a participant, from its stock accounts and
+      software; the walk-through here had OpenCode, Ollama and uv already installed
+- [ ] 4.7 Tag the commit participants check out, and announce it
+- [ ] 4.8 Update the README's Status paragraph, which still says step 3 is next
+- [ ] 4.9 After the event: pool the runs, record what they showed, and archive this change
