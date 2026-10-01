@@ -374,6 +374,19 @@ def _report_preflight(backend, models: list[str], layout) -> int:
     return OK if all(checked.ok for checked in checks.values()) else 1
 
 
+def _eval_misuse(args: argparse.Namespace, conditions: list[str]) -> str | None:
+    """Arguments that cannot describe a run, before anything is loaded or written."""
+    unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
+    if unknown:
+        return f"unknown condition(s): {', '.join(unknown)}"
+    if args.thinking != "default" and not args.base_url:
+        return (
+            "--thinking needs --base-url: a model the harness serves itself keeps the harness's "
+            "own settings"
+        )
+    return None
+
+
 def cmd_eval(args: argparse.Namespace) -> int:
     # The collection first: an adapted fixture names delegated *plugins*, and the collection is what
     # knows which agent each of them provides.
@@ -382,9 +395,9 @@ def cmd_eval(args: argparse.Namespace) -> int:
     for warning in loaded.warnings:
         print(f"  ? {warning}")
     conditions = [c.strip() for c in args.condition.split(",") if c.strip()]
-    unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
-    if unknown:
-        print(f"error: unknown condition(s): {', '.join(unknown)}", file=sys.stderr)
+    misuse = _eval_misuse(args, conditions)
+    if misuse:
+        print(f"error: {misuse}", file=sys.stderr)
         return MISUSE
 
     models = _eval_models(args, coll)
@@ -426,6 +439,8 @@ def cmd_eval(args: argparse.Namespace) -> int:
         min_context=args.min_context,
         probe_timeout=args.probe_timeout,
         output_limit_bytes=coll.output_limit_bytes if coll else 16 * 1024,
+        max_output_tokens=args.max_output_tokens,
+        thinking=args.thinking,
     )
 
     print(f"run {run_id}  suite {loaded.name}  {len(models)} model(s)  {', '.join(conditions)}")
@@ -781,6 +796,25 @@ def _add_eval_parser(sub) -> None:
         help=(
             "how long preflight's tool-call probe may take, model loading included (default 120 "
             "against --base-url, 300 through the harness)"
+        ),
+    )
+    ev.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS,
+        metavar="N",
+        help=(
+            "tokens one model turn may generate, thinking included, against --base-url (default "
+            f"{opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS}). Recorded in run.json"
+        ),
+    )
+    ev.add_argument(
+        "--thinking",
+        choices=tuple(opencode_backend.THINKING_EFFORT),
+        default="default",
+        help=(
+            "ask the model to think (on) or not (off), against --base-url; default leaves it to "
+            "the model, and models differ. Recorded in run.json, and never pooled across settings"
         ),
     )
     ev.add_argument(

@@ -44,6 +44,7 @@ def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dic
         "models": manifest.get("models", []),
         "conditions": manifest.get("conditions", []),
         "duration_s": manifest.get("duration_s"),
+        "options": manifest.get("options") or {},
         "rows": rows,
         "per_model_condition": {
             f"{model}|{condition}": score_mod.aggregate(group)
@@ -215,6 +216,11 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- models: {', '.join(report.get('models') or []) or '—'}",
         f"- conditions: {', '.join(report.get('conditions') or []) or '—'}",
         f"- wall time: {report.get('duration_s')}s",
+        *[
+            f"- {name.replace('_', ' ')}: {value}"
+            for name, value in sorted((report.get("options") or {}).items())
+            if value is not None
+        ],
         "",
         "## Outcomes",
         "",

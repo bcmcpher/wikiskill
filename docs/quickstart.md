@@ -108,6 +108,15 @@ Each task runs in a fresh, isolated OpenCode session, under three conditions:
 On a GPU one unit takes seconds to a few minutes. The command prints each unit as it finishes and
 ends with the path to `report.md`.
 
+Two options change how the model behaves, so both are recorded with the run:
+
+- `--thinking off` (or `on`) tells a model whether to reason before answering. Left at `default`,
+  models differ — qwen3 thinks unasked, gemma4 does not. Runs with different settings appear as
+  separate rows in the leaderboard and are never pooled together, so trying both is a fair
+  comparison.
+- `--max-output-tokens` caps one model turn, thinking included (default 8192). A model that would
+  otherwise think for minutes is cut off and scored on what it produced.
+
 ## 6. Read the report
 
 Results land in `~/.local/share/wikiskill/wikiskill-self/evals/<run-id>/`. `report.md` has:
@@ -144,9 +153,10 @@ table is not mistaken for a finding.
 | You see | It means |
 |---|---|
 | `... answered the tool-call probe with text` | the model cannot call tools; choose another |
+| `... cannot think, and this run asks it to` | drop `--thinking on` for that model |
 | `... is served with a 4096-token context` | set `OLLAMA_CONTEXT_LENGTH` on the server (step 3) and restart it |
 | `did not answer the tool-call probe within 120s` | the model is still loading; retry, or pass `--probe-timeout 300` |
-| a unit ends `timed out after 600s` | the model is too slow here, or got stuck in a long answer; a smaller model helps |
+| a unit ends `timed out after 600s` | the model is too slow here; a smaller model, or `--thinking off`, helps |
 | `step_exhausted` | the model kept calling tools past the task's step budget instead of answering |
 | every unit stalls after a timeout | Ollama keeps working on a request after its client has gone; wait, or restart Ollama |
 

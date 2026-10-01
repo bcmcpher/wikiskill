@@ -134,6 +134,13 @@ def _probe_problems(model: str, status: int, completion: Any, details: dict[str,
         message = ""
         if isinstance(completion, dict):
             message = str((completion.get("error") or {}).get("message") or "")
+        if "support thinking" in message:
+            return [
+                (
+                    f"{model} cannot think, and this run asks it to: {message}. Run it with "
+                    "--thinking default or off."
+                )
+            ]
         return [
             f"{model} refused a tool-call probe with HTTP {status}"
             + (f": {message}" if message else "")
@@ -210,12 +217,15 @@ def check(
     min_context: int = MIN_CONTEXT_TOKENS,
     timeout: int = DEFAULT_TIMEOUT_S,
     probe_timeout: int = PROBE_TIMEOUT_S,
+    reasoning_effort: str | None = None,
 ) -> PreflightResult:
     """Reachability, model listing, a tool-call probe, and context size, in that order.
 
     Each check that fails stops the ones that depend on it, so the report names the first real cause
     rather than four consequences of one dead endpoint. The tool-call probe gets `probe_timeout`
-    rather than `timeout`, because it pays for loading the model.
+    rather than `timeout`, because it pays for loading the model. It asks for the same
+    `reasoning_effort` the units will, so a model that cannot think fails here rather than in every
+    unit.
     """
     problems: list[str] = []
     details: dict[str, Any] = {"base_url": endpoint.root, "model": model}
@@ -279,6 +289,7 @@ def check(
                 "tool_choice": "auto",
                 "temperature": 0,
                 "stream": False,
+                **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
             },
             api_key=endpoint.api_key,
             timeout=probe_timeout,

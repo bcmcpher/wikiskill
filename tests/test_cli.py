@@ -491,3 +491,14 @@ def test_eval_needs_a_collection_for_the_routed_condition(xdg, tmp_path, capsys)
     )
     assert code == 2
     assert "needs a collection" in capsys.readouterr().err
+
+
+def test_eval_refuses_thinking_without_an_endpoint(xdg, tmp_path, capsys):
+    suite = tmp_path / "s.yaml"
+    suite.write_text(
+        "suite: s\ntasks:\n  - {id: t, prompt: p, split: val, expect: {skill: x}}\n",
+        encoding="utf-8",
+    )
+    code = main(["eval", "--suite", str(suite), "--models", "opencode/x", "--thinking", "off"])
+    assert code == 2
+    assert "--thinking needs --base-url" in capsys.readouterr().err

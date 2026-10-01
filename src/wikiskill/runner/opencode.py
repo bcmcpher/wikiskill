@@ -71,6 +71,15 @@ PROBE_LIST_TIMEOUT_S = 120
 #: `opencode export` on a long session is a few hundred kilobytes of JSON off local storage.
 EXPORT_TIMEOUT_S = 120
 
+#: Tokens one model turn may generate. OpenCode asks for 32,000 unless told otherwise, and a small
+#: thinking model once spent ten minutes of a unit on one turn; a cap turns that into a fast failure
+#: scored as the model's own, rather than a timeout scored as nobody's.
+DEFAULT_MAX_OUTPUT_TOKENS = 8192
+
+#: `--thinking` and the `reasoning_effort` each sends. `default` sends none, and a model's default
+#: differs: qwen3 thinks unasked, gemma4 does not. That is why the setting is recorded with a run.
+THINKING_EFFORT = {"default": None, "off": "none", "on": "medium"}
+
 _SKILL_TOOLS = {"skill", "skills"}
 _TASK_TOOLS = {"task", "agent"}
 
@@ -113,7 +122,11 @@ class OpenCodeBackend(Backend):
         probe_timeout: int | None = None,
         output_limit_bytes: int = 16 * 1024,
         guard_plugin: Path | None = None,
+        max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+        thinking: str = "default",
     ) -> None:
+        if thinking not in THINKING_EFFORT:
+            raise RunnerError(f"thinking must be one of {', '.join(THINKING_EFFORT)}")
         self.collection = collection
         self.endpoint = endpoint
         self.layout = layout
@@ -124,7 +137,23 @@ class OpenCodeBackend(Backend):
         self.probe_timeout = probe_timeout
         self.output_limit_bytes = output_limit_bytes
         self.guard_plugin = guard_plugin or _default_guard_plugin()
+        self.max_output_tokens = max_output_tokens
+        self.thinking = thinking
+        #: model → the context its server reported in preflight, which OpenCode is then told.
+        self._served_context: dict[str, int] = {}
         self._version: str | None = None
+
+    def run_options(self) -> dict[str, Any]:
+        """What changes a model's behaviour beyond the model itself, recorded in `run.json`.
+
+        Both apply only where wikiskill declares the provider. A model the harness serves itself
+        keeps the harness's own limits, and the record says so with `None`.
+        """
+        declared = self.endpoint is not None
+        return {
+            "max_output_tokens": self.max_output_tokens if declared else None,
+            "thinking": self.thinking if declared else None,
+        }
 
     # ------------------------------------------------------------------ identity
 
@@ -157,12 +186,17 @@ class OpenCodeBackend(Backend):
         path no unit uses. So the probe goes through `opencode run` instead.
         """
         if self.endpoint is not None:
-            return check(
+            result = check(
                 self.endpoint,
                 _model_id(model),
                 min_context=self.min_context,
                 probe_timeout=self.probe_timeout or HTTP_PROBE_TIMEOUT_S,
+                reasoning_effort=THINKING_EFFORT[self.thinking],
             )
+            context = result.details.get("context_tokens")
+            if isinstance(context, int) and context > 0:
+                self._served_context[model] = context
+            return result
         return self.harness_preflight(model)
 
     def harness_preflight(self, model: str) -> PreflightResult:
@@ -440,7 +474,7 @@ class OpenCodeBackend(Backend):
                         "headerTimeout": False,
                         "chunkTimeout": False,
                     },
-                    "models": {model_id: {"name": model_id}},
+                    "models": {model_id: self._model_block(model)},
                 }
             }
             # A local server answers one request at a time. The title request queues the real one
@@ -449,6 +483,26 @@ class OpenCodeBackend(Backend):
         if self.guard_plugin is not None:
             config["plugin"] = [str(self.guard_plugin)]
         return config
+
+    def _model_block(self, model: str) -> dict[str, Any]:
+        """The model's entry in its declared provider: its output cap, context and thinking.
+
+        OpenCode will not take an output limit without a context beside it, and uses that context to
+        decide when to compact. The server's own figure from preflight is the true one; the minimum
+        preflight demands stands in when there is none.
+        """
+        model_id = _model_id(model)
+        context = self._served_context.get(model) or self.min_context or MIN_CONTEXT_TOKENS
+        block: dict[str, Any] = {
+            "name": model_id,
+            "limit": {"context": context, "output": min(self.max_output_tokens, context // 2)},
+        }
+        effort = THINKING_EFFORT[self.thinking]
+        if effort:
+            # OpenCode passes `reasoningEffort` on only for a model it believes can reason.
+            block["reasoning"] = True
+            block["options"] = {"reasoningEffort": effort}
+        return block
 
     def env_for(self, unit: Unit, root: Path) -> dict[str, str]:
         """The environment one unit runs in: isolated XDG, inline config, discovery switched off."""

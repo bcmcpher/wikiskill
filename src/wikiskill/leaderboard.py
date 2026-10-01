@@ -6,6 +6,10 @@ components and the same verifiers pooled across machines is a sample worth an in
 refuses runs whose suite content or component versions differ, rather than averaging two different
 experiments into one number.
 
+Thinking on and off are pooled as two entrants, never one: the same weights reasoning and not
+reasoning are different experiments. Runs that capped a turn's output differently are pooled with a
+warning.
+
 A unit counts as passed the way a report counts it: its verifiers' verdict where the task declares
 any, and otherwise whether its first activation was the expected component. A task always uses the
 same basis on every model, so models remain comparable on one suite. A route is only possible under
@@ -163,11 +167,26 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
             + ", ".join(sorted(str(v) for v in versions))
         )
 
+    caps = {(run.manifest.get("options") or {}).get("max_output_tokens") for run in runs}
+    if len(caps) > 1:
+        board.warnings.append(
+            "the runs capped a model turn differently: "
+            + ", ".join(sorted(str(cap) for cap in caps))
+            + " output tokens"
+        )
+
     for run in runs:
         contexts = _contexts(run)
+        label = _thinking_label(run)
         for result in run.results:
-            _add(board, run, result, contexts)
+            _add(board, run, result, contexts, label)
     return board
+
+
+def _thinking_label(run: LoadedRun) -> str:
+    """What a model is called in this run's rows: thinking on and off are two different entrants."""
+    thinking = (run.manifest.get("options") or {}).get("thinking")
+    return f" (thinking {thinking})" if thinking in ("on", "off") else ""
 
 
 def _components(runs: list[LoadedRun]) -> dict[str, str | None]:
@@ -197,12 +216,15 @@ def _contexts(run: LoadedRun) -> dict[str, int]:
     return found
 
 
-def _add(board: Leaderboard, run: LoadedRun, result: dict[str, Any], contexts: dict) -> None:
-    model, condition, task = result["model"], result["condition"], result["task_id"]
+def _add(
+    board: Leaderboard, run: LoadedRun, result: dict[str, Any], contexts: dict, label: str
+) -> None:
+    served, condition, task = result["model"], result["condition"], result["task_id"]
+    model = served + label
     cell = board.cells.setdefault((model, condition), Cell(model=model, condition=condition))
     cell.runs.add(run.run_id)
-    if model in contexts:
-        cell.contexts.add(contexts[model])
+    if served in contexts:
+        cell.contexts.add(contexts[served])
     if result.get("outcome") in UNSCORED:
         cell.not_run += 1
         return

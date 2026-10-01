@@ -69,3 +69,24 @@ agent is offered under those rules, not every skill the harness knows of.
 - **WHEN** OpenCode ships `customize-opencode` regardless of the config directory
 - **THEN** under OFF the run's isolation proof shows no skill offered and no skill tool, and under
   ROUTED it shows only the collection's skills
+
+## ADDED Requirements
+
+### Requirement: A model's output cap and thinking are run options
+
+For a provider wikiskill declares, the runner MUST cap each model turn's output (default 8192
+tokens) and MUST tell the harness the context the server reported in preflight. `--thinking` MUST
+accept `default`, `off` and `on`; anything but `default` MUST be sent with every request, the
+preflight probe included. Both MUST be recorded in `run.json`, as `null` for a model the harness
+serves itself, where wikiskill applies neither.
+
+#### Scenario: Thinking off
+
+- **WHEN** a run uses `--thinking off`
+- **THEN** every request to the model, the preflight probe included, carries `reasoning_effort:
+  none`, and `run.json` records `thinking: off`
+
+#### Scenario: Thinking asked of a model that cannot
+
+- **WHEN** a run uses `--thinking on` with a model the server says cannot think
+- **THEN** preflight fails that model, naming `--thinking default or off`, and no unit runs on it

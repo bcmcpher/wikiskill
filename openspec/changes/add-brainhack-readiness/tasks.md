@@ -45,8 +45,12 @@ carries these.
 - [x] 1b.5 Let a unit read its installed `skills/` and `plugins/`: the eval's `external_directory`
       deny came after OpenCode's own allowance for skill directories, so no model could read a file
       beside a skill it had loaded, its own `references/` included
-- [ ] 1b.4 A runaway generation (qwen3:1.7b, 9m48s on one request) is scored infra_error; decide on
-      a per-turn output cap or a recorded thinking setting
+- [x] 1b.4 A runaway generation (qwen3:1.7b, 9m48s on one request) is scored infra_error. Both
+      answers: `--max-output-tokens` (default 8192) caps a turn through OpenCode's `limit.output`,
+      which needs `limit.context` beside it, so preflight's served context is passed on; and
+      `--thinking default|off|on` sends `reasoning_effort`, which OpenCode passes on only for a model
+      marked `reasoning`. Both are recorded in `run.json`; the leaderboard keeps thinking settings
+      apart and warns on differing caps. qwen3:1.7b with thinking off: one ROUTED unit in 5.6 s
 
 ## 2. Leaderboard
 

@@ -162,6 +162,47 @@ def test_a_unit_that_did_not_run_is_counted_beside_the_rate(tmp_path):
     assert (cell.passed, cell.total, cell.not_run) == (1, 1, 1)
 
 
+def with_options(directory, **options):
+    manifest = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+    manifest["options"] = options
+    (directory / "run.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return directory
+
+
+def test_thinking_on_and_off_are_two_entrants_never_one(tmp_path):
+    off = with_options(
+        write_run(tmp_path, "r1", [result("t", "m", "routed", first="trace")]),
+        thinking="off",
+        max_output_tokens=8192,
+    )
+    default = with_options(
+        write_run(tmp_path, "r2", [result("t", "m", "routed")]),
+        thinking="default",
+        max_output_tokens=8192,
+    )
+
+    board = leaderboard.pool(loaded(off, default))
+
+    assert set(board.cells) == {("m (thinking off)", "routed"), ("m", "routed")}
+    assert board.cells[("m (thinking off)", "routed")].contexts == {16384}
+    assert not board.warnings
+
+
+def test_a_different_output_cap_pools_with_a_warning(tmp_path):
+    one = with_options(
+        write_run(tmp_path, "r1", [result("t", "m", "routed", first="trace")]),
+        max_output_tokens=8192,
+    )
+    two = with_options(
+        write_run(tmp_path, "r2", [result("t", "m", "routed")]), max_output_tokens=4096
+    )
+
+    board = leaderboard.pool(loaded(one, two))
+
+    assert board.cells[("m", "routed")].total == 2
+    assert any("4096, 8192 output tokens" in warning for warning in board.warnings)
+
+
 # --------------------------------------------------------------------------- ranking
 
 

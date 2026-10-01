@@ -10,6 +10,9 @@ A unit MUST count as passed on its verifiers where its task declares any. A task
 on its first activation, and only under ROUTED, the one condition in which the route is possible.
 Units that did not run MUST be reported beside the rate and MUST NOT enter it.
 
+Runs of one model with different thinking settings MUST be reported as separate entrants and never
+pooled into one; runs with different output caps MUST be pooled with a warning.
+
 The ranking MUST mark every model whose interval overlaps the leader's, so a place in the table is
 not read as a finding. A single run's report MUST carry the same pooled table.
 

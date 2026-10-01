@@ -686,6 +686,51 @@ def test_a_unit_may_read_its_installed_skills_and_nothing_else_outside(backend):
     assert next(iter(rules)) == "*", "the allows come after the deny they override"
 
 
+def test_a_declared_model_is_capped_per_turn_and_told_its_context(backend):
+    block = backend.config_for(unit())["provider"]["ollama"]["models"]["qwen2.5-coder:1.5b"]
+
+    assert block["limit"] == {"context": 16384, "output": 8192}
+    assert "reasoning" not in block, "the default leaves thinking to the model"
+
+
+def test_the_context_preflight_read_is_the_one_opencode_is_told(backend, monkeypatch):
+    result = runner_base.PreflightResult(model="m", ok=True, details={"context_tokens": 40960})
+    monkeypatch.setattr(backend_mod, "check", lambda *a, **k: result)
+
+    backend.preflight("ollama/qwen2.5-coder:1.5b")
+
+    block = backend.config_for(unit())["provider"]["ollama"]["models"]["qwen2.5-coder:1.5b"]
+    assert block["limit"]["context"] == 40960
+
+
+@pytest.mark.parametrize(("thinking", "effort"), [("off", "none"), ("on", "medium")])
+def test_thinking_is_sent_as_a_reasoning_effort(backend, thinking, effort):
+    backend.thinking = thinking
+
+    block = backend.config_for(unit())["provider"]["ollama"]["models"]["qwen2.5-coder:1.5b"]
+
+    assert block["reasoning"] is True, "OpenCode passes the effort on only for a reasoning model"
+    assert block["options"] == {"reasoningEffort": effort}
+
+
+def test_run_options_say_what_was_applied(backend):
+    backend.thinking = "off"
+    assert backend.run_options() == {"max_output_tokens": 8192, "thinking": "off"}
+    backend.endpoint = None
+    assert backend.run_options() == {"max_output_tokens": None, "thinking": None}
+
+
+def test_an_unknown_thinking_setting_is_refused(tmp_path, toy_collection):
+    with pytest.raises(runner_base.RunnerError, match="thinking must be one of"):
+        backend_mod.OpenCodeBackend(
+            collection=toy_collection,
+            endpoint=None,
+            layout=None,
+            suite_root=tmp_path,
+            thinking="maybe",
+        )
+
+
 def test_a_probe_is_offered_no_skill_either(backend):
     assert backend._config("ollama/qwen3:1.7b")["permission"]["skill"] == {"*": "deny"}
 

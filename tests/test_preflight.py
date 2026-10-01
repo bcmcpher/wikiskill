@@ -142,3 +142,32 @@ def test_another_loaded_models_context_is_not_this_ones(server):
     server.ps = {"models": [{"name": "other:7b", "model": "other:7b", "context_length": 2048}]}
     context, source = preflight.ollama_context(server.endpoint, "tiny:1b", timeout=5)
     assert (context, source) == (16384, "OLLAMA_CONTEXT_LENGTH")
+
+
+# --------------------------------------------------------------------------- thinking
+
+
+def test_the_probe_asks_for_the_thinking_the_units_will(server, monkeypatch):
+    sent = []
+    real = preflight.request_json
+
+    def recording(url, **kwargs):
+        sent.append(kwargs.get("payload") or {})
+        return real(url, **kwargs)
+
+    monkeypatch.setattr(preflight, "request_json", recording)
+
+    preflight.check(server.endpoint, "tiny:1b", reasoning_effort="none")
+    preflight.check(server.endpoint, "tiny:1b")
+
+    probes = [payload for payload in sent if "tools" in payload]
+    assert probes[0]["reasoning_effort"] == "none"
+    assert "reasoning_effort" not in probes[1], "the default sends nothing, as a unit would"
+
+
+def test_a_model_that_cannot_think_is_told_how_to_run_instead():
+    refusal = {"error": {"message": '"ministral-3:3b" does not support thinking'}}
+    (problem,) = preflight._probe_problems("ministral-3:3b", 400, refusal, {})
+    assert "cannot think" in problem
+    assert "--thinking default or off" in problem
+    assert "tool-calling" not in problem, "it can call tools; the thinking is what it refused"
