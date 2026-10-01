@@ -4,8 +4,8 @@
 - [x] 1.2 Give the probe its own `--probe-timeout` (120s HTTP, 300s harness)
 - [x] 1.3 Read the served context from `/api/ps` before falling back to the environment
 - [x] 1.4 Tests against a real local HTTP server (`tests/test_preflight.py`)
-- [ ] 1.5 At least one Ollama model completes `toy-routing` OFF on a 16k server
-- [ ] 1.6 Record which models pass, and at what context, for the quickstart
+- [x] 1.5 At least one Ollama model completes `toy-routing` OFF on a 16k server
+- [x] 1.6 Record which models pass, and at what context, for the quickstart
 
 Rehearsal on 2026-09-29 (qwen3:1.7b, 16k context, i7-1185G7 laptop, CPU only) did not reach 1.5;
 the machine was too slow, so 1.5 and 1.6 move to a machine that can serve a local model. Carry
@@ -23,6 +23,16 @@ forward:
   recorded in `run.json`, so thinking and non-thinking results are never pooled) is undecided.
 - `Endpoint.is_ollama` only recognises port 11434 or "ollama" in the URL; a server on another
   port needs `--min-context 0`, and its context must be checked by hand via `/api/ps`.
+
+Done on 2026-10-01 on an NVIDIA GB10 (Ollama 0.34.2, OpenCode 1.18.34), two runs of toy-routing
+under OFF, ROUTED and INJECTED (`01M3WK8CCMNH60QTB1KHWKPGYB`, `01M3WNDM7QH52GTMST14ERCR80`): 56
+units completed, 7 skipped by design, no timeouts and no exhausted step budgets. Served contexts
+were each model's own maximum or the server's default for this memory: qwen3:1.7b 40k, gemma4
+128k, ministral-3:3b and qwen3:30b-a3b 256k. Pooled under ROUTED: gemma4 5/6, qwen3:1.7b 4/6,
+qwen3:30b-a3b 2/3 (one run), ministral-3:3b 3/6, every interval overlapping. qwen2.5-coder:1.5b
+fails the tool-call probe. Run 1's units took 1–4 minutes and run 2's 10–35 s; run 1 overlapped a
+large model download, which is the likely cause but was not isolated. The quickstart's table
+carries these.
 
 ## 1b. Findings from the first GB10 run (2026-10-01)
 

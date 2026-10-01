@@ -53,16 +53,19 @@ Then pull a model that can call tools:
 ollama pull qwen3:1.7b
 ```
 
-Models tried so far, on one machine (NVIDIA GB10, toy-routing, 2026-10-01):
+Models tried so far, on one machine (NVIDIA GB10, toy-routing pooled over two runs, 2026-10-01):
 
-| Model | Size | Preflight | Notes |
-|---|---|---|---|
-| `qwen3:1.7b` | 1.4 GB | ok | found the skill on both routing tasks; thinks at length, and once spent ten minutes on one turn |
-| `ministral-3:3b` | 3.0 GB | ok | fast; found the skill on one routing task of two |
-| `gemma4` | 9.6 GB | ok | found the skill on both routing tasks |
-| `qwen2.5-coder:1.5b` | 1.0 GB | **refused** | answers in text instead of calling a tool, so it would score zero for reasons unrelated to any skill |
+| Model | Size | Preflight | Passed under ROUTED | Typical unit |
+|---|---|---|---|---|
+| `qwen3:1.7b` | 1.4 GB | ok | 4 of 6 | 15 s; once spent ten minutes thinking on one turn |
+| `ministral-3:3b` | 3.0 GB | ok | 3 of 6 | 10 s |
+| `gemma4` | 9.6 GB | ok | 5 of 6 | 15 s |
+| `qwen3:30b-a3b` | 18 GB | ok | 2 of 3 (one run) | 35 s |
+| `qwen2.5-coder:1.5b` | 1.0 GB | **refused** | — | answers in text instead of calling a tool, so it would score zero for reasons unrelated to any skill |
 
-One run each: these say which models work, not which is better. That is what pooling is for.
+"Passed" counts the two routing tasks and the control together; a typical unit is the median of the
+second run. Every one of those intervals overlaps the others: the table says which models work, not
+which is better. That is what pooling many people's runs is for.
 
 ## 4. Point wikiskill at a collection
 
