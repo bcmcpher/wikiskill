@@ -10,6 +10,7 @@ import { bound, merge, redact, redactValue } from "./redact"
 import { timestamp, ulid } from "./ulid"
 import type {
   ComponentKind,
+  Confidence,
   ComponentRef,
   Identity,
   RawEvent,
@@ -376,6 +377,82 @@ export function mapDelegation(
     [],
     now,
   )
+}
+
+// --------------------------------------------------------------------------- corrections
+
+/**
+ * A user message inside a component's follow-up window.
+ *
+ * Recorded as it was said, with no label: whether it corrects, approves or changes the subject is
+ * for the wiki maintainer to read from context. Confidence falls with distance from the activation.
+ */
+export function mapUserTurn(
+  text: string,
+  component: ComponentRef,
+  turnsSinceActivation: number,
+  secondsSinceComponent: number | null,
+  identity: Identity,
+  options: MapperOptions,
+  now = Date.now(),
+): RawEvent {
+  const { text: clean, redactions } = options.redactEnabled
+    ? redact(text, options.envValues)
+    : { text, redactions: [] as Redaction[] }
+  const limited = bound(clean, options.outputLimitBytes)
+  const event = makeEvent(
+    { ...identity, component },
+    "user_turn",
+    {
+      text: limited.text,
+      text_length: text.length,
+      text_truncated: limited.truncated,
+      turns_since_activation: turnsSinceActivation,
+      seconds_since_component: secondsSinceComponent,
+    },
+    redactions,
+    now,
+  )
+  event.confidence = confidenceForTurn(turnsSinceActivation)
+  return event
+}
+
+export function confidenceForTurn(turnsSinceActivation: number): Confidence {
+  return turnsSinceActivation <= 1 ? "high" : "medium"
+}
+
+/** The same component activated again while its previous activation's window was still open. */
+export function mapRepeatActivation(
+  component: ComponentRef,
+  turnsSincePrevious: number,
+  secondsSincePrevious: number | null,
+  trigger: ActivationHint["trigger"],
+  identity: Identity,
+  now = Date.now(),
+): RawEvent {
+  const event = makeEvent(
+    { ...identity, component },
+    "repeat_activation",
+    {
+      turns_since_previous: turnsSincePrevious,
+      seconds_since_previous: secondsSincePrevious,
+      trigger,
+    },
+    [],
+    now,
+  )
+  event.confidence = "high"
+  return event
+}
+
+/** The plain text of a user message: its non-synthetic text parts, in order. */
+export function userText(parts: unknown): string {
+  if (!Array.isArray(parts)) return ""
+  return parts
+    .filter((part: any) => part?.type === "text" && !part.synthetic && typeof part.text === "string")
+    .map((part: any) => part.text as string)
+    .join("\n")
+    .trim()
 }
 
 // --------------------------------------------------------------------------- helpers

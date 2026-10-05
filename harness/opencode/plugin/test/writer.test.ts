@@ -8,7 +8,13 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { mapSessionStart, mapToolCall, DEFAULT_OPTIONS } from "../wikiskill/mapper"
-import { appendEvent, logError, sessionLogPath } from "../wikiskill/writer"
+import {
+  activeSessionsPath,
+  appendEvent,
+  logError,
+  noteActiveSession,
+  sessionLogPath,
+} from "../wikiskill/writer"
 
 import { NOW, identity } from "./helpers"
 
@@ -123,5 +129,25 @@ describe("failing open", () => {
     chmodSync(raw, 0o500)
     expect(() => logError(join(raw, "nested", "_logger-errors.log"), "append", "x")).not.toThrow()
     expect(existsSync(join(raw, "nested"))).toBe(false)
+  })
+})
+
+describe("the active-session file", () => {
+  test("is keyed by the same project hash `wikiskill note` computes", () => {
+    // tests/test_corrections.py asserts the same digest from Python.
+    expect(activeSessionsPath("/raw", "/tmp/wikiskill-capture")).toBe(
+      "/raw/.sessions/f87d00567a7a8385.json",
+    )
+  })
+
+  test("keeps the other recent sessions, newest first, and drops a day-old one", () => {
+    const raw = mkdtempSync(join(tmpdir(), "wikiskill-active-"))
+    const now = Date.parse("2026-10-05T12:00:00Z")
+    noteActiveSession(raw, "/p", "ses_stale", now - 25 * 60 * 60 * 1000)
+    noteActiveSession(raw, "/p", "ses_a", now - 60_000)
+    noteActiveSession(raw, "/p", "ses_b", now)
+    const published = JSON.parse(readFileSync(activeSessionsPath(raw, "/p"), "utf8"))
+    expect(Object.keys(published.sessions)).toEqual(["ses_b", "ses_a"])
+    rmSync(raw, { recursive: true, force: true })
   })
 })

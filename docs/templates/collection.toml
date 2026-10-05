@@ -44,3 +44,4 @@ commands = []
 # buffer_size = 200            # events held before an activation, then written with it
 # output_limit_bytes = 16384   # tool output above this is truncated, its length kept
 # redact = true                # environment values and secret-shaped strings are masked
+# follow_up_turns = 3          # user messages after a skill runs that are logged against it

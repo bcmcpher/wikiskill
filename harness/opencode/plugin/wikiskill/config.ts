@@ -11,6 +11,9 @@ import { join } from "node:path"
 
 import type { CollectionConfig, RuntimeConfig } from "./types"
 
+/** User turns attributed to a component after it activates, when the manifest does not say. */
+export const DEFAULT_FOLLOW_UP_TURNS = 3
+
 /** How long a loaded configuration is trusted before its mtime is checked again. */
 const RECHECK_MS = 5_000
 
@@ -35,6 +38,7 @@ function normalise(raw: CollectionConfig): CollectionConfig {
     buffer_size: raw.buffer_size > 0 ? raw.buffer_size : 200,
     output_limit_bytes: raw.output_limit_bytes > 0 ? raw.output_limit_bytes : 16 * 1024,
     redact: raw.redact !== false,
+    follow_up_turns: raw.follow_up_turns > 0 ? raw.follow_up_turns : DEFAULT_FOLLOW_UP_TURNS,
     watch: {
       skill: raw.watch?.skill ?? [],
       agent: raw.watch?.agent ?? [],

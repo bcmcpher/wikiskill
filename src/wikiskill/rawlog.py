@@ -26,7 +26,7 @@ from . import RAW_SCHEMA_VERSION, paths
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 _ULID_RE = re.compile(r"^[0-7][0-9ABCDEFGHJKMNPQRSTVWXYZ]{25}$")
 
-#: Event types defined by add-trace-logging. add-correction-capture appends to this list.
+#: Event types defined by add-trace-logging (schema 1.0).
 EVENT_TYPES = (
     "session_start",
     "component_activated",
@@ -37,6 +37,10 @@ EVENT_TYPES = (
     "error",
     "session_end",
 )
+
+#: Correction signals, added by add-correction-capture (schema 1.1). Each carries a confidence.
+CORRECTION_TYPES = ("user_turn", "output_edit", "note", "repeat_activation")
+CONFIDENCES = ("explicit", "high", "medium", "low")
 
 
 class RawLogError(Exception):

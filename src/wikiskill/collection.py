@@ -30,6 +30,8 @@ _DIR_NAMES = {
 
 DEFAULT_BUFFER_SIZE = 200
 DEFAULT_OUTPUT_LIMIT = 16 * 1024
+#: User turns after an activation that are still attributed to it (add-correction-capture).
+DEFAULT_FOLLOW_UP_TURNS = 3
 
 
 class ManifestError(Exception):
@@ -118,6 +120,7 @@ class Collection:
     output_limit_bytes: int = DEFAULT_OUTPUT_LIMIT
     redact: bool = True
     retention_days: int | None = None
+    follow_up_turns: int = DEFAULT_FOLLOW_UP_TURNS
     manifest_path: Path | None = None
 
     # ------------------------------------------------------------------ discovery
@@ -188,6 +191,7 @@ class Collection:
             "buffer_size": self.buffer_size,
             "output_limit_bytes": self.output_limit_bytes,
             "redact": self.redact,
+            "follow_up_turns": self.follow_up_turns,
             "watch": {kind: list(self.watch.get(kind, ())) for kind in KINDS},
             "source_roots": [{"path": str(s.path), "layout": s.layout} for s in self.sources],
             "watched": [
@@ -285,6 +289,9 @@ def parse(
     output_limit = _parse_positive_int(
         logging_table, "output_limit_bytes", DEFAULT_OUTPUT_LIMIT, problems
     )
+    follow_up_turns = _parse_positive_int(
+        logging_table, "follow_up_turns", DEFAULT_FOLLOW_UP_TURNS, problems
+    )
     redact = logging_table.get("redact", True)
     if not isinstance(redact, bool):
         problems.append("`logging.redact` must be a boolean")
@@ -309,6 +316,7 @@ def parse(
         output_limit_bytes=output_limit,
         redact=redact,
         retention_days=retention,
+        follow_up_turns=follow_up_turns,
         manifest_path=manifest_path,
     )
     problems.extend(judge_target_conflicts(collection))

@@ -38,6 +38,7 @@ export function collection(overrides: Partial<CollectionConfig> = {}): Collectio
     raw_dir: "/tmp/wikiskill-test/raw",
     error_log: "/tmp/wikiskill-test/raw/_logger-errors.log",
     buffer_size: 200,
+    follow_up_turns: 3,
     output_limit_bytes: 16 * 1024,
     redact: true,
     watch: { skill: ["govern/preregister"], agent: ["datalad-doer"], command: ["wikiskill-trace"] },

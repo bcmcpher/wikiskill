@@ -16,6 +16,7 @@ from pathlib import Path
 from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
 from . import compare as compare_mod
+from . import corrections as corrections_mod
 from . import install as install_mod
 from . import leaderboard as leaderboard_mod
 from . import refine as refine_mod
@@ -311,6 +312,52 @@ def cmd_log_tail(args: argparse.Namespace) -> int:
                 )
     except KeyboardInterrupt:
         return OK
+    return OK
+
+
+# --------------------------------------------------------------------------- note
+
+
+def _note_collections(name: str | None) -> list[Collection]:
+    if name:
+        return [_load(name)]
+    found = []
+    for manifest in sorted(paths.collections_dir().glob("*.toml")):
+        try:
+            found.append(_load(manifest.stem))
+        except ManifestError:
+            continue
+    return found
+
+
+def cmd_note(args: argparse.Namespace) -> int:
+    text = " ".join(args.text)
+    collections = _note_collections(args.collection)
+    if not collections:
+        print("error: no collection manifests to attach a note to", file=sys.stderr)
+        return FAILED
+    # Without --collection, the note goes to every collection logging the session, as the logger
+    # writes every other event to each of them.
+    written, problems = [], []
+    for coll in collections:
+        try:
+            note = corrections_mod.write_note(
+                coll, text, session=args.session, component=args.component
+            )
+        except corrections_mod.NoteError as exc:
+            problems.append(f"{coll.name}: {exc}")
+            continue
+        written.append((coll, note))
+    if not written:
+        for problem in problems:
+            print(f"error: {problem}", file=sys.stderr)
+        return FAILED
+    for coll, note in written:
+        component = note.event.get("component") or {}
+        label = f"{component['kind']}:{component['name']}" if component else "no component"
+        print(f"note  {coll.name}  {note.event['session_id']}  {label}")
+        for warning in note.warnings:
+            print(f"  warning: {warning}", file=sys.stderr)
     return OK
 
 
@@ -710,6 +757,28 @@ def _add_review_parser(sub) -> None:
     rev.set_defaults(func=cmd_review)
 
 
+def _add_note_parser(sub) -> None:
+    note = sub.add_parser(
+        "note", help="record an explicit note on what a skill or agent got wrong, in its session"
+    )
+    note.add_argument("text", nargs="+", help="the note, as you would say it")
+    note.add_argument(
+        "--component",
+        default=None,
+        help="the component it is about, e.g. preregister or agent:datalad-doer "
+        "(default: the session's last activated)",
+    )
+    note.add_argument(
+        "--session",
+        default=None,
+        help="the session it is about (default: the most recent logged one in this directory)",
+    )
+    note.add_argument(
+        "--collection", default=None, help="only this collection (default: every one logging it)"
+    )
+    note.set_defaults(func=cmd_note)
+
+
 def _add_compare_parser(sub) -> None:
     cmp = sub.add_parser(
         "compare", help="compare two runs of one suite across versions of a component"
@@ -924,10 +993,14 @@ def build_parser() -> argparse.ArgumentParser:
     inst.add_argument("--force", action="store_true", help="on uninstall, remove changed files too")
     inst.set_defaults(func=cmd_install)
 
-    _add_compare_parser(sub)
-    _add_leaderboard_parser(sub)
-    _add_review_parser(sub)
-    _add_refine_parser(sub)
+    for add_parser in (
+        _add_note_parser,
+        _add_compare_parser,
+        _add_leaderboard_parser,
+        _add_review_parser,
+        _add_refine_parser,
+    ):
+        add_parser(sub)
 
     return parser
 

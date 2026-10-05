@@ -12,6 +12,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { wikiskillLogger } from "../wikiskill-logger"
+import { activeSessionsPath } from "../wikiskill/writer"
 import type { CollectionConfig } from "../wikiskill/types"
 
 import { RECORDED_VERSION, collection, events, tools } from "./helpers"
@@ -522,5 +523,187 @@ describe("the pre-activation buffer", () => {
 
     const turn = logLines().find((e) => e.type === "assistant_turn")
     expect(turn.payload.text).toBe("the answer")
+  })
+})
+
+describe("correction signals", () => {
+  const say = (hooks: any, text: string, sessionID = SESSION) =>
+    hooks["chat.message"](
+      { sessionID, model: { providerID: "ollama", modelID: "qwen3:1.7b" } },
+      { message: { role: "user" }, parts: [{ type: "text", text }] },
+    )
+  const turns = () => logLines().filter((e) => e.type === "user_turn")
+
+  test("the first message after an activation is a high-confidence user turn for it", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await say(hooks, "no, use a mixed model")
+
+    const activated = logLines().find((e) => e.type === "component_activated")
+    const [turn] = turns()
+    expect(turn.confidence).toBe("high")
+    expect(turn.component).toEqual(activated.component)
+    expect(turn.payload.text).toBe("no, use a mixed model")
+    expect(turn.payload.turns_since_activation).toBe(1)
+    expect(turn.payload.seconds_since_component).toBeGreaterThanOrEqual(0)
+  })
+
+  test("later turns are medium, and the window closes after three", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    for (const text of ["one", "two", "three", "four", "five"]) await say(hooks, text)
+
+    expect(turns().map((e) => [e.payload.text, e.confidence])).toEqual([
+      ["one", "high"],
+      ["two", "medium"],
+      ["three", "medium"],
+    ])
+  })
+
+  test("the manifest sets the window's length", async () => {
+    writeRuntime({ follow_up_turns: 1 })
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await say(hooks, "one")
+    await say(hooks, "two")
+    expect(turns().map((e) => e.payload.text)).toEqual(["one"])
+  })
+
+  test("a message before any activation is nobody's follow-up", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await say(hooks, "please preregister the comparison")
+    await hooks["tool.execute.after"](...realSkillCall())
+    expect(turns()).toEqual([])
+  })
+
+  test("another component's activation takes the window over", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await hooks["tool.execute.after"](...toolCall(tools.task))
+    await say(hooks, "the dataset is in the wrong place")
+
+    const [turn] = turns()
+    expect(turn.component.kind).toBe("agent")
+    expect(turn.component.name).toBe("datalad-doer")
+    expect(turn.confidence).toBe("high")
+  })
+
+  test("a follow-up is stored as said, with no correction or approval label", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await say(hooks, "thanks, that's exactly right")
+    const [turn] = turns()
+    expect(Object.keys(turn.payload).sort()).toEqual([
+      "seconds_since_component",
+      "text",
+      "text_length",
+      "text_truncated",
+      "turns_since_activation",
+    ])
+  })
+
+  test("a secret in a follow-up is redacted like any other text", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await say(hooks, "use key sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789")
+    const [turn] = turns()
+    expect(turn.payload.text).not.toContain("sk-ant-api03")
+    expect(turn.redactions?.length).toBeGreaterThan(0)
+  })
+
+  test("a command's expansion is not a user turn", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await hooks["command.execute.before"]({ sessionID: SESSION, command: "unwatched-cmd" })
+    await say(hooks, "<the command's template text>")
+    await say(hooks, "that was wrong")
+    expect(turns().map((e) => e.payload.text)).toEqual(["that was wrong"])
+  })
+
+  test("re-running the same skill after a follow-up records a repeat activation", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await say(hooks, "try again")
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    const types = logLines().map((e) => e.type)
+    const repeat = logLines().find((e) => e.type === "repeat_activation")
+    expect(repeat.confidence).toBe("high")
+    expect(repeat.payload.turns_since_previous).toBe(1)
+    expect(repeat.payload.trigger).toBe("skill_tool")
+    // It accompanies the second activation, so it is written after it.
+    expect(types.lastIndexOf("component_activated")).toBeLessThan(types.indexOf("repeat_activation"))
+  })
+
+  test("loading a skill twice in one answer is not a repeat", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await hooks["tool.execute.after"](...realSkillCall())
+    expect(logLines().some((e) => e.type === "repeat_activation")).toBe(false)
+  })
+
+  test("a re-run after the window closed is not a repeat", async () => {
+    writeRuntime({ follow_up_turns: 1 })
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    await say(hooks, "one")
+    await say(hooks, "two")
+    await hooks["tool.execute.after"](...realSkillCall())
+    expect(logLines().some((e) => e.type === "repeat_activation")).toBe(false)
+  })
+
+  test("an evaluation has no user, so records no user turns", async () => {
+    writeRuntime()
+    process.env.WIKISKILL_ORIGIN = "eval"
+    try {
+      const hooks = await wikiskillLogger()
+      await session(hooks)
+      await hooks["tool.execute.after"](...realSkillCall())
+      await say(hooks, "task prompt")
+      expect(turns()).toEqual([])
+    } finally {
+      delete process.env.WIKISKILL_ORIGIN
+    }
+  })
+
+  test("a logged session publishes itself for `wikiskill note`", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    const directory = events["session.created"].properties.info.directory
+    const path = activeSessionsPath(rawDir, directory)
+    const published = JSON.parse(readFileSync(path, "utf8"))
+    expect(published.directory).toBe(directory)
+    expect(Object.keys(published.sessions)).toEqual([SESSION])
+  })
+
+  test("an unlogged session publishes nothing", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await say(hooks, "hello")
+    expect(existsSync(join(rawDir, ".sessions"))).toBe(false)
   })
 })

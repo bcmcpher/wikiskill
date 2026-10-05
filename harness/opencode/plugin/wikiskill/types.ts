@@ -18,6 +18,13 @@ export type RawEventType =
   | "step_usage"
   | "error"
   | "session_end"
+  | "user_turn"
+  | "output_edit"
+  | "note"
+  | "repeat_activation"
+
+/** How surely a correction signal belongs to its component. Never whether it is a correction. */
+export type Confidence = "explicit" | "high" | "medium" | "low"
 
 export type RedactionKind =
   | "env_value"
@@ -55,6 +62,8 @@ export interface RawEvent {
   component: ComponentRef | null
   type: RawEventType
   payload: Record<string, unknown>
+  /** Present on correction signals, and only on them. */
+  confidence?: Confidence
   redactions?: Redaction[]
 }
 
@@ -86,6 +95,8 @@ export interface CollectionConfig {
   buffer_size: number
   output_limit_bytes: number
   redact: boolean
+  /** User turns after an activation that are still attributed to it. */
+  follow_up_turns: number
   watch: { skill: string[]; agent: string[]; command: string[] }
   source_roots: { path: string; layout: string }[]
   watched: WatchedComponent[]

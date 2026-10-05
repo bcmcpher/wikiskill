@@ -3,6 +3,7 @@
   "$id": "https://github.com/bcmcpher/wikiskill/schemas/raw-event.schema.json",
   "title": "wikiskill raw event",
   "description": "One line of a harness-neutral raw trace log. Every event carries harness, provider and model identity so the same skill can be compared across both.",
+  "$comment": "Version 1.1. 1.0 was add-trace-logging; 1.1 (add-correction-capture) adds user_turn, output_edit, note and repeat_activation, and the confidence field. Minor versions only add, so schema_version stays the major.",
   "type": "object",
   "unevaluatedProperties": false,
   "required": [
@@ -97,7 +98,7 @@
       ]
     },
     "type": {
-      "description": "Event type. This enum grows by minor addition; add-correction-capture adds user_turn, output_edit, note and repeat_activation.",
+      "description": "Event type. This enum grows by minor addition. user_turn, output_edit, note and repeat_activation (1.1) are correction signals: what happened after a component ran, recorded without saying whether it was a correction.",
       "enum": [
         "session_start",
         "component_activated",
@@ -106,8 +107,16 @@
         "assistant_turn",
         "step_usage",
         "error",
-        "session_end"
+        "session_end",
+        "user_turn",
+        "output_edit",
+        "note",
+        "repeat_activation"
       ]
+    },
+    "confidence": {
+      "description": "How surely a correction signal belongs to its component: explicit for a note, high for the first user turn after an activation, medium for later turns, low for an edit found in a later session. Never a judgement of whether the signal is a correction.",
+      "enum": ["explicit", "high", "medium", "low"]
     },
     "payload": { "type": "object" },
     "redactions": {
@@ -133,6 +142,123 @@
       "if": { "properties": { "origin": { "const": "eval" } }, "required": ["origin"] },
       "then": { "required": ["eval"] },
       "else": { "not": { "required": ["eval"] } }
+    },
+    {
+      "description": "Correction signals say how surely they belong to their component; nothing else does.",
+      "if": {
+        "properties": { "type": { "enum": ["user_turn", "output_edit", "note", "repeat_activation"] } },
+        "required": ["type"]
+      },
+      "then": { "required": ["confidence"] },
+      "else": { "not": { "required": ["confidence"] } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "user_turn" } }, "required": ["type"] },
+      "then": {
+        "description": "A user message inside a component's follow-up window, attributed to that component.",
+        "properties": {
+          "component": { "not": { "type": "null" } },
+          "confidence": { "enum": ["high", "medium"] },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text_length", "turns_since_activation"],
+            "properties": {
+              "text": {
+                "description": "The message, redacted, and truncated to the logger's output bound.",
+                "type": ["string", "null"]
+              },
+              "text_length": { "type": "integer", "minimum": 0 },
+              "text_truncated": { "type": ["boolean", "null"] },
+              "turns_since_activation": {
+                "description": "1 for the first user message after the activation.",
+                "type": "integer",
+                "minimum": 1
+              },
+              "seconds_since_component": {
+                "description": "Seconds since the component's last tool call, or since its activation when it made none.",
+                "type": ["number", "null"],
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "required": ["component"]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "repeat_activation" } }, "required": ["type"] },
+      "then": {
+        "description": "The same component activated again inside its own follow-up window. Written after the activation it accompanies.",
+        "properties": {
+          "component": { "not": { "type": "null" } },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["turns_since_previous"],
+            "properties": {
+              "turns_since_previous": {
+                "description": "User messages between the previous activation and this one.",
+                "type": "integer",
+                "minimum": 1
+              },
+              "seconds_since_previous": { "type": ["number", "null"], "minimum": 0 },
+              "trigger": { "enum": ["skill_tool", "task_tool", "command", "read", null] }
+            }
+          }
+        },
+        "required": ["component"]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "note" } }, "required": ["type"] },
+      "then": {
+        "description": "An explicit note from the user. Attributed to the named component, else the last one activated, else none.",
+        "properties": {
+          "confidence": { "const": "explicit" },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string", "minLength": 1 },
+              "attributed_by": {
+                "description": "named = the user said which component; last_activated = the session's most recent activation; none = nothing had activated.",
+                "enum": ["named", "last_activated", "none"]
+              },
+              "cwd": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "output_edit" } }, "required": ["type"] },
+      "then": {
+        "description": "A file a component wrote, changed afterwards by something no logged tool call explains.",
+        "properties": {
+          "component": { "not": { "type": "null" } },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "before_hash", "after_hash", "diff", "diff_truncated"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "before_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "after_hash": {
+                "description": "null when the file has since been deleted.",
+                "type": ["string", "null"],
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "diff": { "description": "Unified diff, capped at 8 KB.", "type": ["string", "null"] },
+              "diff_truncated": { "type": "boolean" },
+              "diff_source": { "enum": ["git", "content", null] },
+              "produced_by_call_id": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "required": ["component"]
+      }
     },
     {
       "if": { "properties": { "type": { "const": "session_start" } }, "required": ["type"] },

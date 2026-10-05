@@ -21,11 +21,14 @@ import {
   mapAssistantTurn,
   mapDelegation,
   mapError,
+  mapRepeatActivation,
   mapSessionEnd,
   mapSessionStart,
   mapStepUsage,
   mapToolCall,
+  mapUserTurn,
   stringField,
+  userText,
   type ActivationHint,
   type MapperOptions,
   type TextPartInfo,
@@ -35,8 +38,8 @@ import { watchedComponentFor, watches } from "./wikiskill/match"
 import { envSecrets } from "./wikiskill/redact"
 import { SessionRegistry, type EventFactory } from "./wikiskill/sessions"
 import { ToolCallStates, outcomeOf, type ToolPartInfo } from "./wikiskill/toolstate"
-import { appendEvent, logError } from "./wikiskill/writer"
-import type { CollectionConfig, ComponentKind, RawEvent } from "./wikiskill/types"
+import { appendEvent, logError, noteActiveSession } from "./wikiskill/writer"
+import type { CollectionConfig, ComponentKind, ComponentRef, RawEvent } from "./wikiskill/types"
 
 /** Sessions idle longer than this are forgotten, so a long-lived server does not accumulate state. */
 const SESSION_TTL_MS = 6 * 60 * 60 * 1000
@@ -84,6 +87,35 @@ export const wikiskillLogger = async () => {
   const configFor = (name: string): CollectionConfig | undefined =>
     collections().find((collection) => collection.collection === name)
 
+  /** The follow-up window of the most generous collection logging this session. */
+  const followUpLimit = (sessionId: string): number => {
+    const names = registry.collectionsFor(sessionId)
+    const limits = collections()
+      .filter((collection) => names.includes(collection.collection))
+      .map((collection) => collection.follow_up_turns)
+    return limits.length ? Math.max(...limits) : 0
+  }
+
+  /**
+   * Tell `wikiskill note` which session it is being run from.
+   *
+   * Only a live root session: a note is the user's, and the user talks to the root. Written into
+   * each logging collection's raw directory, keyed by the project directory the session runs in.
+   */
+  const publishActive = (sessionId: string, now: number): void => {
+    const state = registry.peek(sessionId)
+    if (!state || state.parentId || state.origin !== "live" || !state.directory) return
+    for (const name of registry.collectionsFor(sessionId)) {
+      const collection = configFor(name)
+      if (!collection) continue
+      try {
+        noteActiveSession(collection.raw_dir, state.directory, sessionId, now)
+      } catch (error) {
+        logError(collection.error_log, "active-session", error)
+      }
+    }
+  }
+
   /**
    * Start logging a session for the collections an ancestor is already logging.
    *
@@ -112,6 +144,7 @@ export const wikiskillLogger = async () => {
     const outcome = outcomeOf(part)
     if (!sessionId || !outcome) return
     toolStates.note(part.callID, outcome)
+    registry.noteComponentActivity(sessionId, now)
     if (!toolStates.claim(part.callID)) return
     const state = part.state ?? {}
     const call: ToolCallInfo = {
@@ -146,13 +179,27 @@ export const wikiskillLogger = async () => {
     now: number,
   ): void => {
     const hash = sourceHash(hint.sourcePath)
-    for (const collection of collections()) {
-      if (!watches(collection, hint.kind, hint.name)) continue
+    const component: ComponentRef = { kind: hint.kind, name: hint.name, source_hash: hash }
+    const watching = collections().filter((collection) => watches(collection, hint.kind, hint.name))
+    for (const collection of watching) {
       for (const event of registry.activate(sessionId, collection)) write(collection, event)
       const identity = registry.identity(sessionId, collection.collection)
       write(collection, mapActivation(hint, hash, identity, inputSummary, now))
     }
-    registry.setComponent(sessionId, { kind: hint.kind, name: hint.name, source_hash: hash })
+    // The previous window's turns decide whether this is a repeat, so it is read as it is replaced.
+    const limit = Math.max(0, ...watching.map((collection) => collection.follow_up_turns))
+    const repeat = registry.openWindow(sessionId, component, limit, now)
+    if (repeat) {
+      for (const collection of watching) {
+        const identity = registry.identity(sessionId, collection.collection)
+        write(
+          collection,
+          mapRepeatActivation(component, repeat.turns, repeat.seconds, hint.trigger, identity, now),
+        )
+      }
+    }
+    registry.setComponent(sessionId, component)
+    publishActive(registry.rootOf(sessionId), now)
     // Children spawned before the activation was recognised are part of this trajectory too.
     for (const child of registry.descendants(sessionId)) adopt(child)
   }
@@ -315,16 +362,43 @@ export const wikiskillLogger = async () => {
       }
     },
 
-    /** Model identity arrives here before the first assistant message does. */
-    "chat.message": async (input: any) => {
+    /**
+     * A user message: model identity arrives here before the first assistant message does, and a
+     * message inside a component's follow-up window is recorded as a `user_turn` for it.
+     */
+    "chat.message": async (input: any, output?: any) => {
       try {
         const now = Date.now()
-        if (!input?.sessionID || ready(now).length === 0) return
-        registry.noteIdentity(input.sessionID, {
+        const sessionId = input?.sessionID
+        if (!sessionId || ready(now).length === 0) return
+        registry.noteIdentity(sessionId, {
           provider: input.model?.providerID,
           model: input.model?.modelID,
         })
-        registry.clearIdle(input.sessionID)
+        registry.clearIdle(sessionId)
+
+        // A command's expansion is the command's text, not the user's reaction to anything.
+        if (registry.takeCommand(sessionId, now)) return
+        const state = registry.peek(sessionId)
+        // A subagent's prompt comes from its parent, and an evaluation has no user at all.
+        if (!state || state.parentId || state.origin !== "live" || !registry.isLogging(sessionId)) {
+          return
+        }
+        publishActive(sessionId, now)
+        const turn = registry.userTurn(sessionId, followUpLimit(sessionId), now)
+        if (!turn) return
+        const text = userText(output?.parts)
+        emit(sessionId, (collection) =>
+          mapUserTurn(
+            text,
+            turn.component,
+            turn.turns,
+            turn.secondsSinceComponent,
+            registry.identity(sessionId, collection.collection),
+            optionsFor(collection),
+            now,
+          ),
+        )
       } catch (error) {
         logError(errorLog(), "chat.message", error)
       }
@@ -335,6 +409,7 @@ export const wikiskillLogger = async () => {
       try {
         const now = Date.now()
         if (!input?.sessionID || ready(now).length === 0) return
+        registry.expectCommand(input.sessionID, now)
         const hint = detectCommandActivation(String(input.command ?? ""), anyWatchesName)
         if (hint) startLogging(input.sessionID, hint, input.arguments || null, now)
       } catch (error) {
@@ -355,6 +430,7 @@ export const wikiskillLogger = async () => {
         const sessionId = input?.sessionID
         if (!sessionId || ready(now).length === 0) return
         registry.clearIdle(sessionId)
+        registry.noteComponentActivity(sessionId, now)
 
         // The hook's own payload carries no timing and no error; a tool part may already have
         // reported both for this call.

@@ -16,10 +16,12 @@ import {
   mapAssistantTurn,
   mapDelegation,
   mapError,
+  mapRepeatActivation,
   mapSessionEnd,
   mapSessionStart,
   mapStepUsage,
   mapToolCall,
+  mapUserTurn,
 } from "../wikiskill/mapper"
 import { watchedComponentFor, watches } from "../wikiskill/match"
 import type { ComponentKind, RawEvent } from "../wikiskill/types"
@@ -49,6 +51,7 @@ const skillHint = detectActivation(call(tools.skill), watchedName, watchedPath)!
 const readHint = detectActivation(call(tools.read_watched), watchedName, watchedPath)!
 const commandHint = detectCommandActivation("/wikiskill-trace", watchedName)!
 const hash = "sha256:" + "0".repeat(64)
+const skill = { kind: skillHint.kind, name: skillHint.name, source_hash: hash }
 
 const emitted: (RawEvent | null)[] = [
   mapSessionStart(events["session.created"].properties.info, root, NOW),
@@ -78,6 +81,9 @@ const emitted: (RawEvent | null)[] = [
     NOW,
   ),
   mapError(events["session.error"].properties.error.data.message, "session", root, NOW),
+  mapUserTurn("no, use a mixed model", skill, 1, 4.2, root, options, NOW),
+  mapUserTurn("key correct-horse-battery", skill, 2, null, root, options, NOW),
+  mapRepeatActivation(skill, 1, 30.5, "skill_tool", root, NOW),
   mapSessionEnd("idle", root, NOW),
 ]
 

@@ -20,6 +20,34 @@ import type { CollectionConfig, ComponentRef, Identity, RawEvent } from "./types
  */
 export type EventFactory = (config: CollectionConfig) => RawEvent | null
 
+/**
+ * A component's follow-up window: the user turns after it activated that are attributed to it.
+ *
+ * It lives on the root session, where the user talks, even when the component ran in a subagent.
+ * It closes after `follow_up_turns` user turns, or when another component activates.
+ */
+export interface FollowUpWindow {
+  component: ComponentRef
+  /** User turns since the activation. */
+  turns: number
+  activatedAt: number
+  /** The component's last tool call, in this session or a descendant. */
+  lastActivityAt: number
+}
+
+/** A user turn that fell inside a window, with what `user_turn` needs to say about it. */
+export interface AttributedTurn {
+  component: ComponentRef
+  turns: number
+  secondsSinceComponent: number
+}
+
+/** The previous activation of the same component, when this one repeats it inside its window. */
+export interface Repeat {
+  turns: number
+  seconds: number
+}
+
 export interface SessionState {
   id: string
   parentId: string | null
@@ -39,9 +67,15 @@ export interface SessionState {
   lastSeenAt: number
   /** Whether a session_end has already been recorded for the current idle period. */
   idle: boolean
+  window: FollowUpWindow | null
+  /** When a slash command last began expanding into a message the user did not type. */
+  commandPendingAt: number | null
 }
 
 const UNKNOWN = "unknown"
+
+/** How soon after `command.execute.before` the command's own message is expected. */
+const COMMAND_EXPANSION_MS = 10_000
 
 /** How many message ids to remember a role for, across all sessions. */
 const MESSAGE_ROLE_LIMIT = 2_000
@@ -83,6 +117,8 @@ export class SessionRegistry {
         startedAt: Date.now(),
         lastSeenAt: Date.now(),
         idle: false,
+        window: null,
+        commandPendingAt: null,
       }
       this.sessions.set(id, state)
     }
@@ -226,6 +262,80 @@ export class SessionRegistry {
 
   setComponent(id: string, component: ComponentRef | null): void {
     this.ensure(id).component = component
+  }
+
+  /** The session the user talks in: the root of this session's delegation chain. */
+  rootOf(id: string): string {
+    return this.ensure(id).rootId
+  }
+
+  /**
+   * Open a follow-up window for a component that just activated, replacing any open one.
+   *
+   * Returns the previous activation when this one repeats it: same component, and at least one but
+   * no more than `limit` user turns in between. A component a model loads twice within one answer
+   * is not repeated by anyone, so zero turns does not count.
+   */
+  openWindow(id: string, component: ComponentRef, limit: number, now = Date.now()): Repeat | null {
+    const root = this.ensure(this.rootOf(id))
+    const previous = root.window
+    root.window = { component, turns: 0, activatedAt: now, lastActivityAt: now }
+    if (
+      previous &&
+      previous.component.kind === component.kind &&
+      previous.component.name === component.name &&
+      previous.turns >= 1 &&
+      previous.turns <= limit
+    ) {
+      return { turns: previous.turns, seconds: Math.max(0, (now - previous.activatedAt) / 1000) }
+    }
+    return null
+  }
+
+  /** The component did something: its window measures silence from here. */
+  noteComponentActivity(id: string, now = Date.now()): void {
+    const window = this.sessions.get(this.rootOf(id))?.window
+    if (window) window.lastActivityAt = now
+  }
+
+  /**
+   * Count a user turn against the open window, and return it if it is still attributed.
+   *
+   * The turn past the limit closes the window and is not recorded: by then the user has had three
+   * chances to react, and what they say next is more likely about something else.
+   */
+  userTurn(id: string, limit: number, now = Date.now()): AttributedTurn | null {
+    const state = this.ensure(id)
+    const window = state.window
+    if (!window) return null
+    window.turns += 1
+    if (window.turns > limit) {
+      state.window = null
+      return null
+    }
+    return {
+      component: window.component,
+      turns: window.turns,
+      secondsSinceComponent: Math.max(0, (now - window.lastActivityAt) / 1000),
+    }
+  }
+
+  /** Mark the next user message of this session as a command's expansion, not the user's words. */
+  expectCommand(id: string, now = Date.now()): void {
+    this.ensure(id).commandPendingAt = now
+  }
+
+  /**
+   * Whether this message is a command's expansion, clearing the mark either way.
+   *
+   * The mark expires: a command run as a subtask expands in a child session, and a mark left
+   * standing would swallow the user's next real message.
+   */
+  takeCommand(id: string, now = Date.now()): boolean {
+    const state = this.ensure(id)
+    const at = state.commandPendingAt
+    state.commandPendingAt = null
+    return at !== null && now - at <= COMMAND_EXPANSION_MS
   }
 
   /**

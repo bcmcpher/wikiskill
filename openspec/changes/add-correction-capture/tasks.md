@@ -6,10 +6,10 @@ real sessions.
 
 ## 1. Follow-up turns and repeats
 
-- [ ] 1.1 Bump the raw schema minor version; add `user_turn`, `output_edit`, `note`, and
+- [x] 1.1 Bump the raw schema minor version; add `user_turn`, `output_edit`, `note`, and
   `repeat_activation` with their payloads and the `confidence` field.
-- [ ] 1.2 Plugin: record user turns inside the follow-up window with attribution and confidence.
-- [ ] 1.3 Plugin: emit `repeat_activation` on re-activation within the window.
+- [x] 1.2 Plugin: record user turns inside the follow-up window with attribution and confidence.
+- [x] 1.3 Plugin: emit `repeat_activation` on re-activation within the window.
 
 ## 2. Output edits
 
@@ -21,18 +21,39 @@ real sessions.
 
 ## 3. Explicit notes
 
-- [ ] 3.1 Plugin writes the active session id to `raw/.sessions/<project-hash>`.
-- [ ] 3.2 `wikiskill note [--session] [--component] <text>` writes a `note` event with confidence
+- [x] 3.1 Plugin writes the active session id to `raw/.sessions/<project-hash>`.
+- [x] 3.2 `wikiskill note [--session] [--component] <text>` writes a `note` event with confidence
   `explicit`.
-- [ ] 3.3 `harness/source/commands/wikiskill-note.md`; build it for OpenCode.
+- [x] 3.3 `harness/source/commands/wikiskill-note.md`; build it for OpenCode.
+
+## Implementation notes (2026-10-05)
+
+1.x and 3.x are built and unit-tested; nothing has run in a live OpenCode yet (4.3).
+
+- The schema stays at major version 1. 1.1 is recorded in its `$comment`, and adds a top-level
+  `confidence` that correction signals must carry and no other event may.
+- User turns come from the `chat.message` hook's text parts, only for a live root session that is
+  already logging. A subagent's prompt and an evaluation's task prompt are not user turns.
+- A slash command's expansion is not a user turn and does not count against the window:
+  `command.execute.before` marks the session and the next `chat.message` within 10 s is skipped.
+  That this ordering holds is an assumption to confirm in 4.3.
+- A repeat needs at least one user turn between the two activations; a model loading a skill twice
+  in one answer is not anyone re-running it.
+- The window lives on the root session. A component activated only inside a subagent opens it, but
+  if the root session itself is not logging, its user turns are not recorded.
+- `raw/.sessions/<sha256(directory)[:16]>.json` lists the logged root sessions active in a project
+  for the past day. `wikiskill note` warns when more than one was active in the last hour.
+- `[logging] follow_up_turns` (default 3) sets the window per collection.
 
 ## 4. Verify
 
 - [ ] 4.1 `uv run pytest tests/test_corrections.py`: fixtures for window closing, repeat detection,
-  and edit-explained-by-tool-call exclusion.
-- [ ] 4.2 `bun test harness/opencode/plugin`: user-turn attribution cases.
+  and edit-explained-by-tool-call exclusion. Window closing and repeat detection are plugin-side and
+  tested in `logger.test.ts`; `test_corrections.py` covers the schema, the manifest setting and
+  `wikiskill note`. The edit exclusion waits for 2.2.
+- [x] 4.2 `bun test harness/opencode/plugin`: user-turn attribution cases.
 - [ ] 4.3 Manual check in OpenCode:
   1. Run a watched skill, then reply with a correction, then run `/wikiskill-note`.
   2. `wikiskill log tail <collection>` should show `user_turn` (high) and `note` (explicit) on that
      component.
-- [ ] 4.4 `openspec validate add-correction-capture --strict --no-interactive`.
+- [x] 4.4 `openspec validate add-correction-capture --strict --no-interactive`.

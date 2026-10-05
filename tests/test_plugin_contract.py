@@ -65,10 +65,19 @@ def test_emitted_timestamps_parse_as_the_day_python_files_them_under(emitted):
         assert rawlog.day_of(event["ts"]).count("-") == 2
 
 
-def test_every_event_type_this_change_defines_is_exercised(emitted):
-    """A type in the schema that the plugin never produces is a gap, not a feature."""
+def test_every_event_type_the_plugin_owns_is_exercised(emitted):
+    """A type in the schema that the plugin never produces is a gap, not a feature.
+
+    Two correction signals are not the plugin's: `wikiskill note` writes `note`, and `output_edit`
+    comes from a scan of files on disk.
+    """
     produced = {event["type"] for event in emitted}
-    assert produced == set(rawlog.EVENT_TYPES)
+    assert produced == set(rawlog.EVENT_TYPES) | {"user_turn", "repeat_activation"}
+
+
+def test_only_correction_signals_carry_a_confidence(emitted):
+    for event in emitted:
+        assert ("confidence" in event) == (event["type"] in rawlog.CORRECTION_TYPES)
 
 
 def test_a_python_reader_accepts_a_log_the_plugin_wrote(emitted, tmp_path):

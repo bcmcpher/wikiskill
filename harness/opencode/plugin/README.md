@@ -11,8 +11,8 @@ skill, subagent or command.
 | `wikiskill/mapper.ts` | **pure** OpenCode event → raw record, and activation/delegation detection |
 | `wikiskill/match.ts` | watch-list globbing, matching Python's `fnmatch` semantics |
 | `wikiskill/redact.ts` | secret redaction and output bounds, pure |
-| `wikiskill/sessions.ts` | session identity, the pre-activation ring buffer, the delegation tree |
-| `wikiskill/writer.ts` | append-only writes and the logger error log |
+| `wikiskill/sessions.ts` | session identity, the pre-activation ring buffer, the delegation tree, the follow-up window |
+| `wikiskill/writer.ts` | append-only writes, the logger error log, and the active-session file `wikiskill note` reads |
 | `wikiskill/config.ts` | reads `runtime.json`, published by the Python CLI |
 | `wikiskill/hash.ts` | the component `source_hash`, cached by path *and* mtime/size |
 | `wikiskill/types.ts` | the raw event shape, mirroring `schemas/raw-event.schema.json` |
