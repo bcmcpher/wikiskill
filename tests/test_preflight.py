@@ -64,7 +64,10 @@ class FakeOllama:
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.server.daemon_threads = True
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        # `shutdown` waits for the serve loop's next poll, which by default is half a second away.
+        threading.Thread(
+            target=self.server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+        ).start()
         # "ollama" in the URL is what marks an endpoint as Ollama, as the port 11434 would.
         self.endpoint = Endpoint(f"http://localhost:{self.server.server_port}/ollama/v1")
 

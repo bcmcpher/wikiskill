@@ -104,11 +104,19 @@ Storage follows XDG: config in `${XDG_CONFIG_HOME:-~/.config}/wikiskill/`, data 
 ## Development
 
 ```bash
-uv sync --extra dev
-uv run pytest                                 # Python core, and the cross-language contract
-cd harness/opencode/plugin && bun test test   # the OpenCode mapper against recorded events
-cd harness/opencode/guard && bun test test    # the evaluation guard's deny patterns
+uv sync          # the package and its dev tools: pytest, ruff, pyright
+bin/check        # everything a commit should pass
 ```
+
+`bin/check` runs, stopping at the first failure:
+1. `ruff check` and `ruff format --check`.
+2. `pytest`: the Python core, and the cross-language contract.
+3. For each of `harness/opencode/plugin` (the OpenCode mapper, against recorded events) and
+   `harness/opencode/guard` (the evaluation guard's deny patterns): `bun test` and `tsc`. With bun
+   absent, this step is skipped, and the script says so.
+
+It also runs pyright, but only to report errors: they do not fail the check. A package without
+`node_modules` gets a `bun install --frozen-lockfile` first.
 
 The OpenCode logger targets the plugin API at **1.18.31 or newer**. Its mapper tests run against
 payloads **captured from a real OpenCode session**, and read the version out of the fixture rather

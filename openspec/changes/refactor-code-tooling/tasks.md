@@ -10,10 +10,20 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
 
 ## 1. Tooling baseline — FIRST SLICE (D1, D2; S; no conflict with step 4)
 
-- [ ] 1.1 Move `pytest` and `ruff` from `[project.optional-dependencies] dev` to
+- [x] 1.1 Move `pytest` and `ruff` from `[project.optional-dependencies] dev` to
   `[dependency-groups] dev`, and add `pyright`. Update the README's `uv sync --extra dev`. Check: in
   a fresh clone, `uv sync && uv run pytest -q && uv run ruff check` works.
-- [ ] 1.2 Add `bin/check`. It runs, in order:
+
+  Done 2026-10-05. The group pins `pyright[nodejs]>=1.1.411`: its `nodejs` extra brings Node as a
+  wheel, so pyright downloads nothing at first run and needs no Node on the machine. The lockfile
+  adds only pyright 1.1.414, nodejs-wheel-binaries and nodeenv; pytest and ruff keep their locked
+  versions. `[tool.pyright] include = ["src"]` scopes the report to the source. Unscoped, it also
+  checked `tests/`, and gave 57 errors (43 in tests) against the source's 14. The README's
+  Development section now says `uv sync` then `bin/check`.
+
+  Fresh clone of this branch in `/tmp`: `uv sync` exited 0, then `bin/check` exited 0. The clone was
+  then deleted.
+- [x] 1.2 Add `bin/check`. It runs, in order:
   - `ruff check`;
   - `ruff format --check`;
   - `pytest -q`;
@@ -21,10 +31,32 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
     `harness/opencode/guard`. Without bun, print that this part was skipped and carry on.
 
   Exit non-zero on the first failure.
-- [ ] 1.3 Run `ruff format` on `tests/test_logtools.py`, `tests/test_packaging.py` and
-  `tests/test_rawlog.py` only.
-- [ ] 1.4 `tests/test_preflight.py:67`: `serve_forever(poll_interval=0.05)`. Record the suite time
+
+  Done. A POSIX `sh` script, run from any directory. The steps:
+  1. `uv run --frozen ruff check` and `ruff format --check`.
+  2. `pyright`, report-only: it prints its summary and never fails the run, until slice 3 fixes the
+     14 errors.
+  3. `pytest -q`.
+  4. For each OpenCode package: `bun install --frozen-lockfile` when `node_modules` is missing,
+     then `bun test test` and `bun run typecheck` (`tsc --noEmit`).
+
+  bun is looked for on PATH, then `~/.bun/bin`, then `~/.claude-node-tools/bin`, as
+  `test_plugin_contract.py` does.
+
+  Fresh-clone run: ruff passed; 209 files already formatted; pyright reported 14 errors, as
+  intended; 702 passed; the plugin's 178 bun tests and the guard's 19 passed; both type checks passed.
+- [x] 1.3 Run `ruff format` on `tests/test_logtools.py`, `tests/test_packaging.py` and
+  `tests/test_rawlog.py` only. Done: 3 files reformatted, and `ruff format --check` is clean across
+  the repository.
+- [x] 1.4 `tests/test_preflight.py:67`: `serve_forever(poll_interval=0.05)`. Record the suite time
   before and after (baseline: 21.5 s overall, 10.6 s for this file).
+
+  Done. The design's 21.5 s baseline was measured under coverage. Measured again here without it,
+  on the same machine:
+  - `tests/test_preflight.py`: 10.63 s before, 4.74 s after.
+  - The whole suite: 15.78 s and 17.66 s before; 11.16 s and 11.55 s after.
+
+  The 4.7 s left is the tests' deliberate timeouts.
 - [ ] 1.5 (Optional, needs the user's approval) Add `.pre-commit-config.yaml` with ruff check and
   format.
 - [ ] 1.6 (Optional, outward-facing, needs the user's approval) Add a GitHub Actions workflow

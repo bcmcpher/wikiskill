@@ -37,9 +37,7 @@ def test_every_packaged_resource_is_shipped_by_the_wheel(kind):
     covered = [
         (source, target)
         for source, target in force_include().items()
-        if target == prefix
-        or target.startswith(f"{prefix}/")
-        or prefix.startswith(f"{target}/")
+        if target == prefix or target.startswith(f"{prefix}/") or prefix.startswith(f"{target}/")
     ]
     assert covered, (
         f"nothing in pyproject.toml's force-include ships {prefix}, so an installed wikiskill "
@@ -95,7 +93,6 @@ def test_the_installed_logger_is_the_same_file_set_as_the_checkout(wheel_layout)
     expected = {
         f"plugin/{path.relative_to(checkout)}"
         for path in checkout.rglob("*.ts")
-        if path.is_file()
-        and not {"test", "node_modules"} & set(path.relative_to(checkout).parts)
+        if path.is_file() and not {"test", "node_modules"} & set(path.relative_to(checkout).parts)
     }
     assert from_wheel == expected

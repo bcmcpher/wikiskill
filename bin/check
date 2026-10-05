@@ -1,0 +1,61 @@
+#!/bin/sh
+# Everything a commit should pass, from the repository root, stopping at the first failure.
+#
+#   bin/check
+#
+# Needs `uv sync` first, which installs the dev group (pytest, ruff, pyright). The OpenCode packages
+# need bun; without it their step is skipped and said so, as the contract test does.
+#
+# pyright is report-only until its known errors are fixed (refactor-code-tooling, slice 3): it prints
+# its summary but never fails the check.
+
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$root"
+
+step() {
+    printf '\n== %s\n' "$*"
+}
+
+step "ruff check"
+uv run --frozen ruff check
+
+step "ruff format --check"
+uv run --frozen ruff format --check
+
+step "pyright (report only)"
+if report=$(uv run --frozen pyright 2>&1); then
+    printf '%s\n' "$report" | tail -n 1
+else
+    printf '%s\n' "$report" | tail -n 1
+    echo "pyright found errors; report only, not failing (run \`uv run pyright\` for detail)"
+fi
+
+step "pytest"
+uv run --frozen pytest -q
+
+# The same places the contract test looks: PATH, then bun's own install, then the harness tools.
+bun=$(command -v bun || true)
+for candidate in "$HOME/.bun/bin/bun" "$HOME/.claude-node-tools/bin/bun"; do
+    if [ -z "$bun" ] && [ -x "$candidate" ]; then
+        bun=$candidate
+    fi
+done
+
+for package in harness/opencode/plugin harness/opencode/guard; do
+    if [ -z "$bun" ]; then
+        step "$package: skipped, bun is not installed"
+        continue
+    fi
+    if [ ! -d "$package/node_modules" ]; then
+        step "$package: bun install --frozen-lockfile"
+        (cd "$package" && "$bun" install --frozen-lockfile)
+    fi
+    step "$package: bun test"
+    (cd "$package" && "$bun" test test)
+    step "$package: tsc --noEmit"
+    (cd "$package" && "$bun" run typecheck)
+done
+
+printf '\nall checks passed\n'

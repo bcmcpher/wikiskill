@@ -41,7 +41,9 @@ def test_validate_reports_a_schema_error_with_its_location(xdg):
     day = raw / "2026-09-17"
     day.mkdir(parents=True)
     line = (RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()[0]
-    (day / "ses_bad.jsonl").write_text(line.replace('"type":"session_start"', '"type":"nope"'), encoding="utf-8")
+    (day / "ses_bad.jsonl").write_text(
+        line.replace('"type":"session_start"', '"type":"nope"'), encoding="utf-8"
+    )
 
     report = logtools.validate("dsh")
 
@@ -129,9 +131,7 @@ def test_validate_reports_the_real_line_of_a_bad_event(xdg):
     day.mkdir(parents=True)
     lines = (RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()
     broken = lines[1].replace('"type":"component_activated"', '"type":"nope"')
-    (day / "ses_gap.jsonl").write_text(
-        f"{lines[0]}\n\n\n{broken}\n", encoding="utf-8"
-    )
+    (day / "ses_gap.jsonl").write_text(f"{lines[0]}\n\n\n{broken}\n", encoding="utf-8")
 
     report = logtools.validate("dsh")
     assert [p.line for p in report.problems] == [4]
@@ -143,9 +143,7 @@ def test_stats_survives_a_malformed_component(xdg):
     day = raw / "2026-09-17"
     day.mkdir(parents=True)
     lines = (RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()
-    mangled = lines[1].replace(
-        '"component":{"kind":"skill"', '"component":{"unexpected":"shape"'
-    )
+    mangled = lines[1].replace('"component":{"kind":"skill"', '"component":{"unexpected":"shape"')
     (day / "ses_odd.jsonl").write_text(f"{lines[0]}\n{mangled}\n", encoding="utf-8")
 
     summary = logtools.stats("dsh")

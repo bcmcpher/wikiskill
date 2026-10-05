@@ -13,10 +13,14 @@ dependencies = [
 [project.scripts]
 wikiskill = "wikiskill.cli:main"
 
-[project.optional-dependencies]
+# A dependency group, not an extra: `uv sync` installs the `dev` group by default, so a fresh clone
+# can run `bin/check` without remembering a flag. Pyright's `nodejs` extra brings its own Node, so
+# the type checker needs nothing from the machine and downloads nothing at first run.
+[dependency-groups]
 dev = [
     "pytest>=8.0",
     "ruff>=0.14",
+    "pyright[nodejs]>=1.1.411",
 ]
 
 [build-system]
@@ -44,6 +48,11 @@ packages = ["src/wikiskill"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+# Report-only in `bin/check` for now. The source alone, in pyright's default mode; tests are left
+# out until the source is clean (refactor-code-tooling, slice 3).
+[tool.pyright]
+include = ["src"]
 
 [tool.ruff]
 line-length = 100

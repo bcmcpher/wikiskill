@@ -49,9 +49,7 @@ def test_reader_refuses_before_yielding_the_bad_line(tmp_path):
     good = next(rawlog.read_events(RAW_FIXTURES / "opencode-skill-session.jsonl"))
     future = dict(good, schema_version=99)
     path = tmp_path / "mixed.jsonl"
-    path.write_text(
-        json.dumps(good) + "\n" + json.dumps(future) + "\n", encoding="utf-8"
-    )
+    path.write_text(json.dumps(good) + "\n" + json.dumps(future) + "\n", encoding="utf-8")
     events = rawlog.read_events(path)
     assert next(events)["schema_version"] == 1
     with pytest.raises(rawlog.UnsupportedSchemaVersion):
@@ -69,9 +67,7 @@ def test_reader_reports_malformed_json_with_a_line_number(tmp_path):
 
 
 def _event(**overrides):
-    event = json.loads(
-        (RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()[1]
-    )
+    event = json.loads((RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()[1])
     event.update(overrides)
     return event
 
@@ -97,9 +93,7 @@ def test_unknown_envelope_key_is_rejected():
 
 
 def test_tool_call_requires_its_truncation_bookkeeping():
-    call = json.loads(
-        (RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()[2]
-    )
+    call = json.loads((RAW_FIXTURES / "opencode-skill-session.jsonl").read_text().splitlines()[2])
     assert rawlog.schema_errors(call) == []
     del call["payload"]["output_length"]
     assert rawlog.schema_errors(call)
@@ -196,7 +190,10 @@ def test_file_hash_is_none_for_an_unreadable_file(tmp_path):
             "a trigger the logger cannot produce",
             lambda e: {**e, "payload": {**e["payload"], "trigger": "telepathy"}},
         ),
-        ("an unknown redaction kind", lambda e: {**e, "redactions": [{"kind": "vibes", "count": 1}]}),
+        (
+            "an unknown redaction kind",
+            lambda e: {**e, "redactions": [{"kind": "vibes", "count": 1}]},
+        ),
         (
             "a redaction that redacted nothing",
             lambda e: {**e, "redactions": [{"kind": "api_key", "count": 0}]},
