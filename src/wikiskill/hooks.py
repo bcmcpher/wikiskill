@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from . import corrections, paths, rawlog
+from . import corrections, names, paths, rawlog
 from .redact import bound, env_secrets, merge, redact, redact_value
 
 HARNESS = "claude-code"
@@ -80,11 +80,11 @@ def watched_name(config: dict[str, Any], kind: str, name: str) -> str | None:
     full = qualified(name)
     if any(fnmatch.fnmatchcase(full, pattern) for pattern in patterns):
         return full
-    bare = full.rsplit("/", 1)[-1]
+    bare = names.bare(full)
     if "/" in full:
         flat = [pattern for pattern in patterns if "/" not in pattern]
         return bare if any(fnmatch.fnmatchcase(bare, pattern) for pattern in flat) else None
-    if any(fnmatch.fnmatchcase(bare, pattern.rsplit("/", 1)[-1]) for pattern in patterns):
+    if any(fnmatch.fnmatchcase(bare, names.bare(pattern)) for pattern in patterns):
         return bare
     return None
 
