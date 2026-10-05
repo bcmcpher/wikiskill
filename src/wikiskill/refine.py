@@ -30,7 +30,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from . import paths, rawlog, review, wiki
+from . import names, paths, rawlog, review, wiki
 from . import rubric as rubric_mod
 from . import suite as suite_mod
 from .collection import Collection
@@ -267,11 +267,12 @@ def _suite_leaks(loaded: suite_mod.Suite, found: Leaks) -> None:
 
 
 def _notes(collection: str, component: str) -> Iterable[dict[str, Any]]:
-    bare = component.rsplit("/", 1)[-1]
+    # Both sides bare, as review compares evidence: a note on any plugin's component of this name.
+    bare = names.bare(component)
     for file in rawlog.log_files(paths.raw_dir(collection)):
         for event in rawlog.read_events(file):
             name = (event.get("component") or {}).get("name", "")
-            if event.get("type") == "note" and name.rsplit("/", 1)[-1] == bare:
+            if event.get("type") == "note" and names.bare(name) == bare:
                 yield event
 
 
@@ -388,7 +389,7 @@ def leak_problems(added: str, found: Leaks) -> list[str]:
 
 def model_names(model: str) -> set[str]:
     """The names a model goes by: `ollama/qwen3:1.7b`, `qwen3:1.7b`, and the family `qwen3`."""
-    bare = model.split("/", 1)[-1]
+    bare = names.model_id(model)
     return {model.lower(), bare.lower(), bare.split(":", 1)[0].lower()}
 
 
