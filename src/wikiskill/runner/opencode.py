@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, paths, rawlog
+from .. import RAW_SCHEMA_VERSION, build, names, paths, rawlog
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
@@ -1162,9 +1162,10 @@ class OpenCodeBackend(Backend):
             return False
         if self.collection.matches(kind, name):
             return True
-        bare = name.rsplit("/", maxsplit=1)[-1]
+        # Both sides bare: an evaluation counts any plugin's component of this name.
+        bare = names.bare(name)
         return any(
-            component.kind == kind and component.name.split("/")[-1] == bare
+            component.kind == kind and names.bare(component.name) == bare
             for component in self.collection.discover()
         )
 
@@ -1356,7 +1357,7 @@ def classify(
 
 def _bare(name: str | None) -> str:
     """The component half of a `<plugin>/<component>` name. Built trees use the bare name."""
-    return name.rsplit("/", 1)[-1] if name else ""
+    return names.bare(name)
 
 
 def _promote_to_primary(root: Path, agent: str) -> None:
