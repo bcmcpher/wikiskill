@@ -162,9 +162,9 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
 
 ## 4. Shared name matching (D5; M; after step 4 merges)
 
-- [ ] 4.1 Add `src/wikiskill/names.py` (`bare`, `qualify`, `matches`, `model_id`), with a table test
+- [x] 4.1 Add `src/wikiskill/names.py` (`bare`, `qualify`, `matches`, `model_id`), with a table test
   first: exact, bare, cross-plugin refusal, case folding, and provider stripping.
-- [ ] 4.2 Move these sites to it, one commit per module, each keeping its current rule explicitly:
+- [x] 4.2 Move these sites to it, one commit per module, each keeping its current rule explicitly:
   - `review.py:111`, `:828`
   - `refine.py:269-273`
   - `corrections.py:179`
@@ -174,7 +174,23 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
   - `runner/opencode.py:1167`, `:1357`
   - `score/judge.py:103-105`, `:242`
   - `collection.py:366`
-- [ ] 4.3 Run `bin/check`, and confirm the plugin contract test runs (not skipped) and passes.
+- [x] 4.3 Run `bin/check`, and confirm the plugin contract test runs (not skipped) and passes.
+
+  Done 2026-10-05, one commit per module after the module and its 23-case table test
+  (`tests/test_names.py`). `build.py:258` also moved. Kept where they are: `opencode._split_model`
+  and `_model_id` (slice 5; `_bare` now calls `names.bare` and goes when `claude.py` stops importing
+  it), `cli.py:124`, `Component.plugin`, `compare.py:312` (a path) and `hooks.qualified`. Rules that
+  differ today stay different, each commented at its site:
+  - both sides bare, so two plugins' components match: review evidence, `refine._notes`,
+    `opencode._watched`;
+  - `names.matches`, where a qualified name matches only itself: `corrections`, `compare`;
+  - bare, stripped and lowercased: `route.bare`, judge self-judging;
+  - a model's last segment for an endpoint payload (review, judge) against provider-only stripping
+    (`names.model_id`: `compare._event_model`, `refine.model_names`, the review evidence key);
+  - `hooks.watched_name` stays glob-based; `collection._model_forms` keeps both lowercased forms.
+  `names` was already a local in `corrections.py` and `compare.py`; those locals were renamed.
+  After rebasing onto slices 2 and 3, `bin/check` exits 0 with 743 passed and pyright clean;
+  `test_plugin_contract.py` ran all 14 tests, none skipped.
 
 ## 5. Shared runner helpers (D6, D8 part two; M; after step 4 merges)
 
