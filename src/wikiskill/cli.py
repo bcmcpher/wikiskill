@@ -20,6 +20,7 @@ from . import collection as collection_mod
 from . import compare as compare_mod
 from . import corrections as corrections_mod
 from . import gate as gate_mod
+from . import graph as graph_mod
 from . import guard as guard_mod
 from . import hooks as hooks_mod
 from . import install as install_mod
@@ -1017,6 +1018,69 @@ def _add_proposal_parser(sub) -> None:
         action.add_argument("--collection", required=True)
 
 
+def _stored_graph(collection: str) -> graph_mod.Graph:
+    found = graph_mod.load(collection)
+    if found is None:
+        raise wiki_mod.WikiError(
+            f"{collection} has no graph yet; run `wikiskill graph build --collection {collection}`"
+        )
+    return found
+
+
+def cmd_graph_build(args: argparse.Namespace) -> int:
+    found = graph_mod.build(_load(args.collection), args.run or None)
+    target = graph_mod.write(found)
+    print(graph_mod.render(found))
+    print(f"\nwrote {target}")
+    return OK
+
+
+def cmd_graph_show(args: argparse.Namespace) -> int:
+    found = _stored_graph(args.collection)
+    if args.json:
+        print(json.dumps(found.as_dict(), indent=2))
+    else:
+        print(graph_mod.render(found))
+    return OK
+
+
+def cmd_graph_neighbours(args: argparse.Namespace) -> int:
+    found = _stored_graph(args.collection)
+    neighbours = found.neighbours(args.component, min_conflict=args.min_conflict)
+    print(graph_mod.render_neighbours(args.component, neighbours))
+    return OK
+
+
+def _add_graph_parser(sub) -> None:
+    graph_cmd = sub.add_parser("graph", help="build and read the collection's relation graph")
+    actions = graph_cmd.add_subparsers(dest="action", required=True)
+    build_graph = actions.add_parser(
+        "build", help="rebuild graph.json from the sources and eval runs, and commit it"
+    )
+    build_graph.add_argument(
+        "--run",
+        action="append",
+        default=None,
+        metavar="RUN",
+        help="read only this run (repeatable; default every run of the collection)",
+    )
+    build_graph.set_defaults(func=cmd_graph_build)
+    show = actions.add_parser("show", help="print the stored graph")
+    show.add_argument("--json", action="store_true")
+    show.set_defaults(func=cmd_graph_show)
+    near = actions.add_parser("neighbours", help="a component's depth-1 neighbours")
+    near.add_argument("component")
+    near.add_argument(
+        "--min-conflict",
+        type=float,
+        default=graph_mod.MIN_CONFLICT,
+        help="smallest confusion rate that makes a neighbour (default 0.05)",
+    )
+    near.set_defaults(func=cmd_graph_neighbours)
+    for action in (build_graph, show, near):
+        action.add_argument("--collection", required=True)
+
+
 def _add_review_parser(sub) -> None:
     rev = sub.add_parser("review", help="distil one component's evidence into wiki patterns")
     _add_sampling_arguments(rev)
@@ -1373,6 +1437,7 @@ def build_parser() -> argparse.ArgumentParser:
         _add_review_parser,
         _add_refine_parser,
         _add_proposal_parser,
+        _add_graph_parser,
     ):
         add_parser(sub)
 

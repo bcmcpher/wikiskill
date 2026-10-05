@@ -59,6 +59,20 @@ beside them.
 Its live check ran the whole gate on `wikiskill-trace` without touching the source. A replay with a
 motivating eval task waits on a pattern drawn from a verifier suite, which step 4's pilot provides.
 
+Step 9 is **done**: archived on 2026-10-05, rebased onto step 8's gate before it was built.
+- `wikiskill graph build` writes `graph.json` to the wiki. Dependency edges come from `delegates_to`
+  (a plugin name stands for its agents) and from component names in bodies. Conflict edges come from
+  routing confusions in eval runs, per model. Candidate runs are left out.
+- Replay runs nothing extra. With a graph, it names each neighbour and the suite tasks that expect
+  it, and lists neighbours the suite does not cover.
+- A description edit gets a trigger-theft check: conflict neighbours' `route@1`, per model. A
+  conflict neighbour the suite cannot route keeps the recommendation from "accept".
+- Co-usage edges are deferred: no live session on hand has activated two components.
+
+Built read-only on this machine's runs, the graph finds a real near-miss pair in `my-skills`,
+`analysis-plan` and `analysis-refactor`, confused in opposite directions by two models. Against the
+real data-science-harness it finds `disseminate/dataset-release -> archive/archive-doer`.
+
 Steps 5 and 6 are **done**: both archived on 2026-10-05 with their capabilities live.
 - Step 5 captures corrections. Its last check ran live in OpenCode: a watched skill, a correction
   reply and `/wikiskill-note` logged `user_turn` (high) and `note` (explicit).
@@ -104,7 +118,7 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | 6 ✅ | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
 | 7 ✅ | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
 | 8 ✅ | `add-skill-refinement` | refinement-proposal, refinement-gate (+ version-comparison) | 3, 7 | Extends step 3's proposals with gate states and cross-model replay. |
-| 9 | `add-collection-graph` | collection-graph | 1, 2, 8 | Needs confusion and co-usage data; widens the existing gate. |
+| 9 ✅ | `add-collection-graph` | collection-graph (+ refinement-gate) | 1, 2, 8 | Dependency and conflict edges; replay names neighbours and checks description edits for trigger theft. Co-usage deferred. |
 
 Steps 7 and 8 were rebased onto step 3's capabilities before they were built (`add-minimal-loop`
 task 7.1). Step 9 extends step 8's gate the same way.

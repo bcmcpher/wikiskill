@@ -34,6 +34,8 @@ from . import paths, rawlog, review, wiki
 from . import rubric as rubric_mod
 from . import suite as suite_mod
 from .collection import Collection
+from .frontmatter import FrontmatterError
+from .frontmatter import parse as parse_frontmatter
 from .frontmatter import read as read_frontmatter
 from .review import DEFAULT_RETRIES, Ask
 from .runner.base import new_run_id
@@ -601,6 +603,18 @@ def refine(
     )
 
 
+def description_changed(before: str, after: str) -> bool:
+    """Whether an edit moved the `description`, the text a harness routes on."""
+    return _description(before) != _description(after)
+
+
+def _description(text: str) -> Any:
+    try:
+        return parse_frontmatter(text).meta.get("description")
+    except FrontmatterError:
+        return None
+
+
 def _write(
     collection: Collection,
     reply: dict[str, Any],
@@ -641,6 +655,7 @@ def _write(
         "repository": str(repo) if repo else None,
         "source_hash": found.source_hash,
         "candidate_hash": rawlog.file_hash(rendered),
+        "description_changed": description_changed(found.text, after),
         "patterns": proposal.patterns,
         "evidence": {label: item.ref for label, item in cited.items()},
         "models": list(reply.get("models") or []),

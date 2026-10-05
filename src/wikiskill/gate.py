@@ -12,6 +12,10 @@ with `compare`, and breaks the result down per model and per task:
 - the *regression bank* is every other task of the suite
 - evidence that cannot be replayed (a live session, a task from another suite) is listed with why
 
+With a collection graph (`wikiskill graph build`), replay also names the component's neighbours and
+the suite tasks that expect them, lists the neighbours the suite leaves out, and checks a
+description edit for trigger theft: `route@1` of each conflict neighbour's routing tasks, per model.
+
 Every decision appends to `skill-impact.md`; a rejected or withdrawn proposal keeps its full content
 there, which the next proposer for the component is shown.
 """
@@ -26,8 +30,11 @@ from pathlib import Path
 from typing import Any
 
 from . import compare, rawlog, refine, wiki
+from . import graph as graph_mod
 from .collection import Collection
-from .runner.base import OFF
+from .frontmatter import FrontmatterError
+from .runner.base import OFF, ROUTED
+from .score.route import UNSCORED, first_activation, same
 
 PROPOSED, REPLAYED = "proposed", "replayed"
 DECISIONS = {"accept": "accepted", "reject": "rejected", "withdraw": "withdrawn"}
@@ -79,11 +86,34 @@ class Replay:
     )
     #: every task whose pass rate fell, whatever the tolerance
     regressions: list[TaskChange] = field(default_factory=list)
+    #: neighbour → its edge kinds, weight, and the suite tasks that expect it; empty with no graph
+    neighbours: dict[str, dict[str, Any]] = field(default_factory=dict)
+    graph: bool = False
+    #: whether the proposal changed the description; None when that cannot be told
+    description_changed: bool | None = None
+    #: conflict neighbours' routing tasks whose route@1 fell under ROUTED
+    theft: list[TaskChange] = field(default_factory=list)
     recommendation: str = NO_RECOMMENDATION
     reasons: list[str] = field(default_factory=list)
 
     def beyond_tolerance(self) -> list[TaskChange]:
-        return [r for r in self.regressions if r.drop > self.tolerance + 1e-9]
+        changes = [*self.regressions, *self.theft]
+        return [r for r in changes if r.drop > self.tolerance + 1e-9]
+
+    @property
+    def uncovered(self) -> list[str]:
+        return sorted(name for name, seen in self.neighbours.items() if not seen["tasks"])
+
+    @property
+    def unchecked(self) -> list[str]:
+        """Conflict neighbours of a description edit with no routing task in the suite."""
+        if not self.description_changed:
+            return []
+        return sorted(
+            name
+            for name, seen in self.neighbours.items()
+            if graph_mod.CONFLICT in seen["kinds"] and not seen["routing_tasks"]
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -102,6 +132,15 @@ class Replay:
                 {**r.as_dict(), "beyond_tolerance": r.drop > self.tolerance + 1e-9}
                 for r in self.regressions
             ],
+            "graph": self.graph,
+            "neighbours": self.neighbours,
+            "uncovered": self.uncovered,
+            "description_changed": self.description_changed,
+            "theft": [
+                {**r.as_dict(), "beyond_tolerance": r.drop > self.tolerance + 1e-9}
+                for r in self.theft
+            ],
+            "unchecked": self.unchecked,
             "recommendation": self.recommendation,
             "reasons": self.reasons,
             "comparison": self.comparison.as_dict(),
@@ -260,8 +299,10 @@ def replay(
         bank=bank,
         unreplayable=unreplayable,
         tolerance=tolerance,
+        description_changed=_description_changed(collection, meta),
     )
     _breakdown(result, a, b)
+    _neighbours(result, graph_mod.load(collection), component, a, b)
     _recommend(result)
     out = directory(collection, proposal)
     (out / "replay.json").write_text(json.dumps(result.as_dict(), indent=2) + "\n", "utf-8")
@@ -321,6 +362,84 @@ def _breakdown(result: Replay, a: compare.LoadedRun, b: compare.LoadedRun) -> No
                     result.regressions.append(TaskChange(condition, model, task, ra, rb))
 
 
+def _description_changed(collection: str, meta: dict[str, Any]) -> bool | None:
+    """From `meta.json`, or for an older proposal from its source while that is unchanged."""
+    if "description_changed" in meta:
+        return meta["description_changed"]
+    source = Path(meta["source_path"])
+    if not source.is_file() or rawlog.file_hash(source) != meta["source_hash"]:
+        return None
+    rendered = directory(collection, meta["id"]) / "rendered" / source.name
+    try:
+        after = rendered.read_text(encoding="utf-8")
+        return refine.description_changed(source.read_text(encoding="utf-8"), after)
+    except (OSError, FrontmatterError):
+        return None
+
+
+def _expects(run: compare.LoadedRun) -> dict[str, tuple[str | None, tuple[str, ...]]]:
+    """Task → its expected primary route and expected agents."""
+    found: dict[str, tuple[str | None, tuple[str, ...]]] = {}
+    for result in run.results:
+        expected = result.get("expected") or {}
+        found.setdefault(
+            result["task_id"], (expected.get("primary"), tuple(expected.get("agents") or ()))
+        )
+    return found
+
+
+def _neighbours(
+    result: Replay,
+    graph: graph_mod.Graph | None,
+    component: str,
+    a: compare.LoadedRun,
+    b: compare.LoadedRun,
+) -> None:
+    """Name each neighbour and its tasks, and check conflict neighbours' routes for theft."""
+    if graph is None:
+        return
+    result.graph = True
+    expects = _expects(a)
+    models = sorted({r["model"] for r in a.results} & {r["model"] for r in b.results})
+    for neighbour in graph.neighbours(component):
+        name = neighbour.name
+        routing = sorted(t for t, (primary, _) in expects.items() if same(primary, name))
+        tasks = sorted(
+            t
+            for t, (primary, agents) in expects.items()
+            if same(primary, name) or any(same(agent, name) for agent in agents)
+        )
+        result.neighbours[name] = {
+            "kinds": list(neighbour.kinds),
+            "weight": neighbour.weight,
+            "tasks": tasks,
+            "routing_tasks": routing,
+        }
+        if not result.description_changed or graph_mod.CONFLICT not in neighbour.kinds:
+            continue
+        for task in routing:
+            for model in models:
+                ra, rb = _route_rate(a, task, model), _route_rate(b, task, model)
+                if ra.total and rb.total and (rb.rate or 0.0) < (ra.rate or 0.0):
+                    result.theft.append(TaskChange(ROUTED, model, task, ra, rb))
+
+
+def _route_rate(run: compare.LoadedRun, task: str, model: str) -> compare.Rate:
+    """route@1 of one task on one model under ROUTED, over its scored repeats."""
+    units = [
+        r
+        for r in run.results
+        if r["task_id"] == task
+        and r["model"] == model
+        and r["condition"] == ROUTED
+        and r.get("outcome") not in UNSCORED
+    ]
+    hits = sum(
+        1 for r in units if same(first_activation(r), (r.get("expected") or {}).get("primary"))
+    )
+    return compare.Rate(passed=hits, total=len(units))
+
+
 def _task_rate(
     run: compare.LoadedRun, condition: str, model: str, models: list[str], tasks: list[str]
 ) -> compare.Rate:
@@ -335,6 +454,7 @@ def _recommend(result: Replay) -> None:
         if ra.total and rb.total and (rb.rate or 0.0) > (ra.rate or 0.0)
     ]
     broken = result.beyond_tolerance()
+    _neighbour_reasons(result)
     if not result.motivating:
         result.reasons.append("no motivating case is a task of this suite")
     elif improved:
@@ -349,9 +469,37 @@ def _recommend(result: Replay) -> None:
     if not result.motivating:
         result.recommendation = NO_RECOMMENDATION
     elif improved and not broken:
-        result.recommendation = ACCEPT
+        # A description edit whose conflict neighbours the suite cannot route is unchecked.
+        result.recommendation = NO_RECOMMENDATION if result.unchecked else ACCEPT
     else:
         result.recommendation = DO_NOT_ACCEPT
+
+
+def _neighbour_reasons(result: Replay) -> None:
+    for name in result.uncovered:
+        kinds = " and ".join(result.neighbours[name]["kinds"])
+        result.reasons.append(
+            f"neighbour {name} ({kinds}) is not covered: no task of this suite expects it"
+        )
+    for change in result.theft:
+        result.reasons.append(
+            f"trigger theft: {change.task} reached its route first less often on "
+            f"{change.model}: {_fmt(change.a)} -> {_fmt(change.b)}"
+        )
+    for name in result.unchecked:
+        result.reasons.append(
+            f"the description changed and conflict neighbour {name} has no routing task in this "
+            "suite, so trigger theft from it cannot be checked"
+        )
+    if result.description_changed is None:
+        result.reasons.append(
+            "whether the description changed is not known, so trigger theft was not checked"
+        )
+    elif result.description_changed and not result.graph:
+        result.reasons.append(
+            "the description changed, but the collection has no graph: trigger theft was not "
+            "checked (`wikiskill graph build`)"
+        )
 
 
 def _fmt(rate: compare.Rate) -> str:
@@ -393,6 +541,23 @@ def render(result: Replay) -> str:
         ]
     else:
         lines.append("- none")
+    lines += ["", "## Neighbours", ""]
+    if not result.graph:
+        lines.append("- no collection graph; `wikiskill graph build` adds this section")
+    elif not result.neighbours:
+        lines.append("- none above the thresholds")
+    for name, seen in sorted(result.neighbours.items()):
+        tasks = ", ".join(seen["tasks"]) or "not covered by this suite"
+        lines.append(f"- {name} ({', '.join(seen['kinds'])}, {seen['weight']:.2f}): {tasks}")
+    if result.theft:
+        lines += ["", "### Trigger theft: route@1 under routed", ""]
+        lines += ["| model | task | baseline | candidate | beyond tolerance |"]
+        lines.append("|---|---|---|---|---|")
+        lines += [
+            f"| {r.model} | {r.task} | {_fmt(r.a)} | {_fmt(r.b)} | "
+            f"{'yes' if r.drop > result.tolerance + 1e-9 else 'no'} |"
+            for r in result.theft
+        ]
     lines += ["", "## Not replayable", ""]
     lines += [f"- {what}: {why}" for what, why in sorted(result.unreplayable.items())] or ["- none"]
     lines += ["", compare.render(comparison)]
@@ -490,6 +655,13 @@ def _replay_lines(summary: dict[str, Any] | None) -> list[str]:
             f"- fell: {row['task']} on {row['model']} ({row['condition']}): "
             f"{_rate_text(row['a'])} -> {_rate_text(row['b'])}"
         )
+    for row in summary.get("theft") or []:
+        lines.append(
+            f"- trigger theft: {row['task']} on {row['model']}: route@1 "
+            f"{_rate_text(row['a'])} -> {_rate_text(row['b'])}"
+        )
+    for name in summary.get("uncovered") or []:
+        lines.append(f"- neighbour not covered: {name}")
     for what, why in sorted(summary["unreplayable"].items()):
         lines.append(f"- not replayable: {what}: {why}")
     return lines

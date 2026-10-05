@@ -9,7 +9,7 @@ import pytest
 import test_refine
 from test_refine import DOER, PATCH, git, replies
 from wikiskill import collection as collection_mod
-from wikiskill import gate, paths, rawlog, refine, wiki
+from wikiskill import gate, graph, paths, rawlog, refine, wiki
 from wikiskill.cli import main
 
 #: Shared with the proposal tests.
@@ -32,11 +32,16 @@ def proposed(evaluated):
     return coll, doer, source
 
 
-def write_run(coll, run_id, *, source_hash, outcomes, proposal=None):
-    """A finished run: ``outcomes`` maps (task, model) to that cell's verdicts, one per repeat."""
+def write_run(coll, run_id, *, source_hash, outcomes, proposal=None, routed=None):
+    """A finished run: ``outcomes`` maps (task, model) to that cell's verdicts, one per repeat.
+
+    ``routed`` maps (task, model) to (expected route, first activation of each repeat) for
+    routing-only tasks under ROUTED.
+    """
     directory = paths.evals_dir(coll.name) / run_id
     directory.mkdir(parents=True)
-    tasks = sorted({task for task, _ in outcomes})
+    routed = routed or {}
+    tasks = sorted({task for task, _ in outcomes} | {task for task, _ in routed})
     (directory / "run.json").write_text(
         json.dumps(
             {
@@ -65,6 +70,21 @@ def write_run(coll, run_id, *, source_hash, outcomes, proposal=None):
         for condition in ("off", "injected")
         for repeat, verdict in enumerate(verdicts)
     ]
+    rows += [
+        {
+            "run_id": run_id,
+            "task_id": task,
+            "model": model,
+            "condition": "routed",
+            "repeat": repeat,
+            "outcome": "completed",
+            "passed": None,
+            "expected": {"primary": expected},
+            "activations": [{"kind": "skill", "name": chosen}],
+        }
+        for (task, model), (expected, chosen_per_repeat) in routed.items()
+        for repeat, chosen in enumerate(chosen_per_repeat)
+    ]
     (directory / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     return directory
 
@@ -76,13 +96,18 @@ def meta(coll, proposal="p-001"):
 QWEN, GEMMA = "ollama/qwen3:1.7b", "ollama/gemma4"
 
 
-def runs_for(coll, *, after_plain_gemma):
-    """Baseline and candidate: motivating case fixed on qwen3; `plain` on gemma4 as given."""
+def runs_for(coll, *, after_plain_gemma, routed=None):
+    """Baseline and candidate: motivating case fixed on qwen3; `plain` on gemma4 as given.
+
+    ``routed`` is (baseline, candidate) routing-only tasks, as `write_run` takes them.
+    """
     m = meta(coll)
+    routed_a, routed_b = routed or (None, None)
     base = write_run(
         coll,
         "01BASE",
         source_hash=m["source_hash"],
+        routed=routed_a,
         outcomes={
             ("save-with-message", QWEN): [False, False, False],
             ("save-with-message", GEMMA): [True, True, True],
@@ -95,6 +120,7 @@ def runs_for(coll, *, after_plain_gemma):
         "01CAND",
         source_hash=m["candidate_hash"],
         proposal="p-001",
+        routed=routed_b,
         outcomes={
             ("save-with-message", QWEN): [True, True, True],
             ("save-with-message", GEMMA): [True, True, True],
@@ -215,6 +241,100 @@ def test_the_impact_entry_carries_the_replay(proposed):
     assert "- fell: plain on ollama/gemma4 (injected): 3/3 -> 1/3" in text
     assert "### Proposal" not in text, "an accepted proposal is its diff"
     assert meta(coll)["status"] == "accepted"
+
+
+# --------------------------------------------------------------------------- neighbours
+
+
+PLANNER, RIVAL, LONER = "analyze/run-comparison", "govern/preregister", "govern/obligations"
+
+
+def with_graph(coll):
+    """A planner delegating to the doer, a rival skill it is confused with, and one off-suite."""
+    graph.write(
+        graph.Graph(
+            collection=coll.name,
+            edges=[
+                graph.Edge(graph.DEPENDENCY, PLANNER, DOER, graph.DECLARED),
+                graph.Edge(graph.CONFLICT, RIVAL, DOER, 0.4, per_model={GEMMA: 0.4}),
+                graph.Edge(graph.DEPENDENCY, DOER, LONER, graph.MENTIONED),
+            ],
+        )
+    )
+
+
+def description_edit(coll):
+    found = meta(coll)
+    found["description_changed"] = True
+    gate._save(coll.name, found)
+
+
+def rival_routes(after):
+    """The rival's routing task: three repeats on gemma4, routed right in the baseline."""
+    return (
+        {("rival-task", GEMMA): ("preregister", ["preregister"] * 3)},
+        {("rival-task", GEMMA): ("preregister", after)},
+    )
+
+
+def test_refine_records_whether_the_description_changed(proposed):
+    coll, _, _ = proposed
+    assert meta(coll)["description_changed"] is False
+    assert refine.description_changed("---\ndescription: a\n---\nx", "---\ndescription: b\n---\nx")
+
+
+def test_replay_names_neighbours_and_what_the_suite_leaves_out(proposed):
+    coll, _, _ = proposed
+    with_graph(coll)
+    base, cand = runs_for(coll, after_plain_gemma=[True] * 3, routed=rival_routes(["preregister"]))
+
+    result = gate.replay(coll.name, "p-001", base, cand)
+
+    assert result.neighbours[RIVAL]["tasks"] == ["rival-task"]
+    assert result.uncovered == [PLANNER, LONER]
+    assert f"neighbour {PLANNER} (dependency) is not covered" in " ".join(result.reasons)
+    assert result.recommendation == gate.ACCEPT, "coverage alone does not block a body edit"
+    assert result.theft == [], "a body edit gets no trigger-theft check"
+    assert f"- {RIVAL} (conflict, 0.40): rival-task" in gate.render(result)
+
+
+def test_a_description_edit_that_steals_a_neighbours_trigger_is_a_regression(proposed):
+    coll, _, _ = proposed
+    with_graph(coll)
+    description_edit(coll)
+    stolen = ["datalad-doer", "datalad-doer", "preregister"]
+    base, cand = runs_for(coll, after_plain_gemma=[True] * 3, routed=rival_routes(stolen))
+
+    result = gate.replay(coll.name, "p-001", base, cand)
+
+    (theft,) = result.theft
+    assert (theft.task, theft.model, theft.condition) == ("rival-task", GEMMA, "routed")
+    assert result.recommendation == gate.DO_NOT_ACCEPT
+    assert "| ollama/gemma4 | rival-task | 3/3 | 1/3 | yes |" in gate.render(result)
+    text = gate.decide(coll.name, "p-001", "reject").read_text()
+    assert "- trigger theft: rival-task on ollama/gemma4: route@1 3/3 -> 1/3" in text
+
+
+def test_a_description_edit_with_an_unroutable_conflict_neighbour_is_not_recommended(proposed):
+    coll, _, _ = proposed
+    with_graph(coll)
+    description_edit(coll)
+    base, cand = runs_for(coll, after_plain_gemma=[True] * 3)
+
+    result = gate.replay(coll.name, "p-001", base, cand)
+
+    assert result.unchecked == [RIVAL]
+    assert result.recommendation == gate.NO_RECOMMENDATION
+    assert "trigger theft from it cannot be checked" in " ".join(result.reasons)
+
+
+def test_a_description_edit_without_a_graph_says_theft_was_not_checked(proposed):
+    coll, _, _ = proposed
+    description_edit(coll)
+    base, cand = runs_for(coll, after_plain_gemma=[True] * 3)
+    result = gate.replay(coll.name, "p-001", base, cand)
+    assert result.recommendation == gate.ACCEPT
+    assert "no graph: trigger theft was not checked" in " ".join(result.reasons)
 
 
 # --------------------------------------------------------------------------- candidate runs
