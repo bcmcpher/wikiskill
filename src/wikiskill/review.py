@@ -29,7 +29,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from . import compare, paths, rawlog, wiki
+from . import compare, names, paths, rawlog, wiki
 from .collection import Collection
 from .errors import WikiskillError
 from .frontmatter import read as read_frontmatter
@@ -109,10 +109,6 @@ class Outcome:
 # --------------------------------------------------------------------------- evidence
 
 
-def _bare(name: str) -> str:
-    return name.rsplit("/", 1)[-1]
-
-
 def component_runs(collection: str, component: str) -> list[compare.LoadedRun]:
     """Every finished run that evaluated this component, newest first."""
     directory = paths.evals_dir(collection)
@@ -156,7 +152,7 @@ def _live_sessions(raw_root: Path, component: str) -> dict[str, list[dict[str, A
         events = list(rawlog.read_events(file))
         if not any(
             e.get("origin") == "live"
-            and _bare((e.get("component") or {}).get("name", "")) == _bare(component)
+            and names.bare((e.get("component") or {}).get("name", "")) == names.bare(component)
             for e in events
         ):
             continue
@@ -338,7 +334,7 @@ def _eval_candidates(
         harness = run.manifest.get("harness") or "unknown"
         for result in run.results:
             expected = (result.get("expected") or {}).get("primary")
-            if (expected and _bare(expected) != _bare(component)) or result.get(
+            if (expected and names.bare(expected) != names.bare(component)) or result.get(
                 "outcome"
             ) in UNINFORMATIVE:
                 continue
@@ -458,7 +454,7 @@ def _live_source_hash(events: Sequence[dict[str, Any]], component: str) -> str |
     """The version of the component the session ran: the hash on its activation."""
     for event in events:
         ref = event.get("component") or {}
-        if _bare(ref.get("name", "")) == _bare(component) and ref.get("source_hash"):
+        if names.bare(ref.get("name", "")) == names.bare(component) and ref.get("source_hash"):
             return ref["source_hash"]
     return None
 
@@ -477,7 +473,7 @@ def _signals(events: Sequence[dict[str, Any]], component: str) -> tuple[int, lis
             rank = min(rank, FAILURE)
             continue
         named = (event.get("component") or {}).get("name")
-        if named and _bare(named) != _bare(component):
+        if named and names.bare(named) != names.bare(component):
             continue
         if kind == "note":
             rank = min(rank, NOTE)
@@ -835,7 +831,7 @@ def endpoint_asker(
 
     def ask(messages: list[dict[str, str]]) -> str:
         payload = {
-            "model": role.model.rsplit("/", 1)[-1] if "/" in role.model else role.model,
+            "model": names.bare(role.model),  # the last segment, as the endpoint serves it
             "messages": messages,
             "temperature": 0,
             "stream": False,
