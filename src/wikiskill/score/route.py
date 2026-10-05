@@ -15,6 +15,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from .. import names
+
 #: Results with these outcomes are not evidence about a component.
 UNSCORED = ("infra_error", "skipped")
 
@@ -28,7 +30,8 @@ def bare(name: str | None) -> str:
     OpenCode reports `preregister` where a manifest says `govern/preregister`; the same component
     must compare equal either way, or every route would read as a miss.
     """
-    return (name or "").split("/")[-1].strip().lower()
+    # Case-folded and stripped, unlike names.bare: a model may answer `Preregister ` for the route.
+    return names.bare(name).strip().lower()
 
 
 def same(left: str | None, right: str | None) -> bool:
