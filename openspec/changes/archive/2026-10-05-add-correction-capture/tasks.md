@@ -75,8 +75,19 @@ Output edits (2.x), also built and unit-tested only:
   `wikiskill note`, and the scan: edits found once, explained by a later write or a shell command
   naming the file, unattributed files ignored, git and logged-content diffs.
 - [x] 4.2 `bun test harness/opencode/plugin`: user-turn attribution cases.
-- [ ] 4.3 Manual check in OpenCode:
+- [x] 4.3 Manual check in OpenCode:
   1. Run a watched skill, then reply with a correction, then run `/wikiskill-note`.
   2. `wikiskill log tail <collection>` should show `user_turn` (high) and `note` (explicit) on that
      component.
+
+  Done 2026-10-05 on OpenCode 1.18.34 with gemma4 via Ollama, `wikiskill-self` installed at project
+  scope in a scratch repo. Three turns went to one `opencode serve`, through `opencode run --attach`.
+  Session `ses_ef2ff779cffeY0rOzsY1rJnyBq` logged `component_activated`, then `user_turn` (high) for
+  the correction, then `note` (explicit), all on `skill:wikiskill-trace`. The
+  `/wikiskill-note` expansion logged no `user_turn`, so `command.execute.before` does precede
+  `chat.message`, as assumed. Separate `opencode run -s <session>` processes instead do not work: each
+  is a new plugin instance that does not know the session was logging, so the correction turn was
+  not recorded (session `ses_ef30082d4ffepl3TJtzqxAmFWT`). Only the note was recorded, because
+  `wikiskill note` reads the session list on disk. An interactive session is one process, so that
+  limitation does not arise there.
 - [x] 4.4 `openspec validate add-correction-capture --strict --no-interactive`.

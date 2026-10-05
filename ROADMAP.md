@@ -37,12 +37,15 @@ Step 3 is **closed**: archived on 2026-10-05 with its three capabilities live. T
 and review and refine ran live on `datalad/datalad-doer`, but DSH deleted that unit upstream before
 its v1-against-v2 comparison, so that comparison moved to step 4's first per-unit pilot.
 
-Step 6 is **built** as of 2026-10-05: every task is ticked and the change validates, but it waits
-to be archived behind step 5. Its `correction-signal` delta modifies a capability that only step 5's
-archive creates, and step 5 still has one live check open. Built: the Claude Code plugin build and
-hooks logger; `wikiskill eval --harness claude-code`, with open models served through an
-Anthropic-compatible endpoint; and the harness axis. A leaderboard pools runs from both harnesses
-as separate entrants and sets the same model's harnesses side by side.
+Steps 5 and 6 are **done**: both archived on 2026-10-05 with their capabilities live.
+- Step 5 captures corrections. Its last check ran live in OpenCode: a watched skill, a correction
+  reply and `/wikiskill-note` logged `user_turn` (high) and `note` (explicit).
+- Step 6 adds Claude Code as a second harness:
+  - the plugin build and hooks logger;
+  - `wikiskill eval --harness claude-code`, with open models served through an Anthropic-compatible
+    endpoint;
+  - a harness axis, so a leaderboard pools runs from both harnesses as separate entrants and sets
+    the same model's harnesses side by side.
 
 Step 2 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
@@ -75,8 +78,8 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | 2 ✅ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
 | 3 ✅ | `add-minimal-loop` | experience-wiki, refinement-proposal, version-comparison (+ collection-config, harness-packaging, eval-runner) | 1, 2 | The whole loop once, on one unit (`datalad-doer`), with a light gate: a human decision informed by a v1-vs-v2 comparison with intervals. |
 | 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. |
-| 5 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
-| 6 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
+| 5 ✅ | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
+| 6 ✅ | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
 | 7 | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
 | 8 | `add-skill-refinement` | refinement-proposal, refinement-gate | 3, 7 | Extends step 3's proposals with gate states and cross-model replay. |
 | 9 | `add-collection-graph` | collection-graph | 1, 2, 8 | Needs confusion and co-usage data; widens the existing gate. |
