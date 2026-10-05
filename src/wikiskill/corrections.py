@@ -50,10 +50,45 @@ class Note:
     warnings: list[str] = field(default_factory=list)
 
 
+#: How long a session stays in the active-session file, and how many it keeps.
+ACTIVE_TTL = timedelta(hours=24)
+ACTIVE_LIMIT = 20
+
+
 def active_sessions_path(raw_dir: Path, directory: str | os.PathLike[str]) -> Path:
     """`raw/.sessions/<project-hash>.json`, as the OpenCode logger writes it."""
     digest = hashlib.sha256(str(directory).encode("utf-8")).hexdigest()[:16]
     return Path(raw_dir) / ".sessions" / f"{digest}.json"
+
+
+def publish_active(
+    raw_dir: Path, directory: str, session_id: str, now: datetime | None = None
+) -> Path:
+    """Record a logged root session as active in `directory`: the Claude Code hooks' twin of the
+    OpenCode logger's `noteActiveSession`, writing the same file in the same shape."""
+    now = now or datetime.now(UTC)
+    path = active_sessions_path(raw_dir, directory)
+    sessions = {session: seen for session, seen in active_sessions(raw_dir, directory)}
+    sessions[session_id] = now
+    kept = sorted(
+        ((s, seen) for s, seen in sessions.items() if now - seen <= ACTIVE_TTL),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:ACTIVE_LIMIT]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    staging = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    staging.write_text(
+        json.dumps(
+            {
+                "directory": directory,
+                "sessions": {s: seen.isoformat().replace("+00:00", "Z") for s, seen in kept},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    os.replace(staging, path)
+    return path
 
 
 def active_sessions(raw_dir: Path, directory: str | os.PathLike[str]) -> list[tuple[str, datetime]]:

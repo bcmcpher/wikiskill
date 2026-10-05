@@ -7,6 +7,7 @@ output is owned by this module: it is cleared and rewritten on each run, and is 
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -15,12 +16,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import paths
+from . import __version__, paths
 from .collection import Collection, Source
 from .frontmatter import Document, repaired_warning
 from .frontmatter import read as read_frontmatter
 
-HARNESSES = ("opencode",)
+HARNESSES = ("opencode", "claude-code")
 
 #: Neutral capabilities and the OpenCode permission key each one gates.
 CAPABILITY_PERMISSION = {"edit": "edit", "bash": "bash", "web": "webfetch"}
@@ -29,6 +30,29 @@ CAPABILITY_PERMISSION = {"edit": "edit", "bash": "bash", "web": "webfetch"}
 CAPABILITY_TOOLS = {"read": ("read",), "search": ("grep", "glob", "list")}
 
 CAPABILITIES = tuple(sorted({*CAPABILITY_PERMISSION, *CAPABILITY_TOOLS}))
+
+#: Neutral capabilities and the Claude Code tools each one grants, in the order `tools:` lists them.
+CLAUDE_CAPABILITY_TOOLS = {
+    "read": ("Read",),
+    "search": ("Grep", "Glob"),
+    "bash": ("Bash",),
+    "edit": ("Edit", "Write"),
+    "web": ("WebFetch",),
+}
+
+#: Model values Claude Code understands itself. Unmapped, they pass through rather than drop.
+CLAUDE_NATIVE_MODELS = frozenset({"haiku", "sonnet", "opus", "inherit"})
+
+#: The hook events the Claude Code logger listens to, each run as `wikiskill hook <event>`.
+CLAUDE_HOOK_EVENTS = (
+    "SessionStart",
+    "UserPromptSubmit",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "SubagentStop",
+    "Stop",
+    "SessionEnd",
+)
 
 #: Claude Code tool names, as a claude-plugin agent's `tools:` lists them, and the neutral
 #: capability each needs. A plugin written for Claude Code declares tools rather than capabilities,
@@ -103,12 +127,18 @@ def build(
     source: Path | None = None,
     out_dir: Path | None = None,
     strip_models: bool = False,
+    plugin_name: str | None = "wikiskill",
+    hooks: bool | None = None,
 ) -> BuildResult:
     """Generate ``harness``'s layout from the neutral source tree.
 
     ``collection`` supplies the alias table. Without one, every ``role_model`` is left unmapped and
     the built agents inherit their caller's model — which is the same behaviour as an alias with no
     mapping, so a build never fails for want of a manifest.
+
+    For Claude Code the layout is a plugin: ``plugin_name`` names its manifest (None writes none),
+    and ``hooks`` adds the logger's hooks — by default only to wikiskill's own tree, since an
+    evaluation reads its stream instead and must not log twice.
     """
     if harness not in HARNESSES:
         raise BuildError(f"unknown harness {harness!r}; known: {', '.join(HARNESSES)}")
@@ -125,6 +155,8 @@ def build(
 
     result = BuildResult(harness=harness, out_dir=target)
     used_aliases: list[str] = []
+    if harness == "claude-code":
+        _plugin_files(target, result, plugin_name, hooks if hooks is not None else source is None)
 
     for kind, directory in (("skill", "skills"), ("agent", "agents"), ("command", "commands")):
         source_kind_dir = src / directory
@@ -194,6 +226,9 @@ def build_collection(
                     source=root,
                     out_dir=staged,
                     strip_models=strip_models,
+                    # One manifest for the whole collection, written below, not one per root.
+                    plugin_name=None,
+                    hooks=False,
                 )
                 plugin = root.name if source.layout == "claude-plugin" else None
                 if plugin:
@@ -237,6 +272,8 @@ def build_collection(
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, destination)
                 result.files.append(destination)
+        if harness == "claude-code":
+            result.files.append(write_plugin_manifest(out_dir, collection.name))
 
     result.unmapped_aliases = sorted(unmapped)
     for alias in result.unmapped_aliases:
@@ -245,6 +282,49 @@ def build_collection(
             "inherits its caller's"
         )
     return result
+
+
+def _plugin_files(target: Path, result: BuildResult, name: str | None, hooks: bool) -> None:
+    if name:
+        result.files.append(write_plugin_manifest(target, name))
+    if hooks:
+        result.files.append(write_hooks(target))
+
+
+def write_plugin_manifest(target: Path, name: str) -> Path:
+    """`.claude-plugin/plugin.json`, which is what makes a directory a Claude Code plugin."""
+    path = target / ".claude-plugin" / "plugin.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "name": name,
+        "version": __version__,
+        "description": f"Built by wikiskill {__version__} from its single-source tree",
+    }
+    path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def write_hooks(target: Path, command: str | None = None) -> Path:
+    """`hooks/hooks.json`: every logged event runs `wikiskill hook <event>` by absolute path.
+
+    A hook runs in a non-interactive shell with a minimal PATH, where a bare `wikiskill` is not
+    found, so the command is resolved now, at build or install time. The hook reads its event from
+    stdin, never writes to stdout and always exits 0, so it cannot block or steer the session.
+    """
+    cli = command or paths.cli_command()
+    entry = {
+        event: [
+            {
+                **({"matcher": "*"} if "ToolUse" in event else {}),
+                "hooks": [{"type": "command", "command": f"{cli} hook {event}", "timeout": 10}],
+            }
+        ]
+        for event in CLAUDE_HOOK_EVENTS
+    }
+    path = target / "hooks" / "hooks.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"hooks": entry}, indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def component_roots(source: Source) -> list[Path]:
@@ -439,9 +519,12 @@ def _harness_meta(
         raise BuildError(f"{doc.path}: `description` is required in neutral frontmatter")
 
     alias, concrete = _model_alias(doc)
-    if alias and not concrete:
-        used_aliases.append(alias)
     resolved = collection.resolve_alias(harness, alias) if (collection and alias) else None
+    if harness == "claude-code" and not resolved and alias in CLAUDE_NATIVE_MODELS:
+        # `haiku` means something to Claude Code without any alias table.
+        resolved = alias
+    if alias and not concrete and not resolved:
+        used_aliases.append(alias)
     resolved = resolved or concrete
 
     capabilities = _capabilities(doc, result)
@@ -451,23 +534,47 @@ def _harness_meta(
         meta.pop("tools", None)
 
     if harness == "opencode":
-        if kind == "agent":
-            meta["mode"] = "subagent"
-            meta["permission"] = {
-                key: ("allow" if capability in capabilities else "deny")
-                for capability, key in sorted(CAPABILITY_PERMISSION.items(), key=lambda kv: kv[1])
-            }
-            meta["tools"] = {
-                tool: capability in capabilities
-                for capability, tools in sorted(CAPABILITY_TOOLS.items())
-                for tool in tools
-            }
-        if resolved and not strip_models:
-            meta["model"] = resolved
-        else:
-            # No model key at all: OpenCode then runs the component on its caller's model.
-            meta.pop("model", None)
+        _opencode_agent(meta, kind, capabilities)
+    elif harness == "claude-code":
+        _claude_agent(meta, kind, capabilities)
+    if resolved and not strip_models:
+        meta["model"] = resolved
+    else:
+        # No model key at all: the harness then runs the component on its caller's model.
+        meta.pop("model", None)
     return meta
+
+
+def _opencode_agent(meta: dict[str, Any], kind: str, capabilities: set[str]) -> None:
+    if kind != "agent":
+        return
+    meta["mode"] = "subagent"
+    meta["permission"] = {
+        key: ("allow" if capability in capabilities else "deny")
+        for capability, key in sorted(CAPABILITY_PERMISSION.items(), key=lambda kv: kv[1])
+    }
+    meta["tools"] = {
+        tool: capability in capabilities
+        for capability, tools in sorted(CAPABILITY_TOOLS.items())
+        for tool in tools
+    }
+
+
+def _claude_agent(meta: dict[str, Any], kind: str, capabilities: set[str]) -> None:
+    # OpenCode's keys, from a source written for it, mean nothing to Claude Code.
+    meta.pop("mode", None)
+    meta.pop("permission", None)
+    if isinstance(meta.get("tools"), dict):
+        meta.pop("tools")
+    if kind != "agent":
+        return
+    # Deny by default: a tool no capability grants is simply not listed.
+    meta["tools"] = ", ".join(
+        tool
+        for capability, tools in CLAUDE_CAPABILITY_TOOLS.items()
+        if capability in capabilities
+        for tool in tools
+    )
 
 
 def _model_alias(doc: Document) -> tuple[str | None, str | None]:

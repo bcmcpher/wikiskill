@@ -17,6 +17,7 @@ from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
 from . import compare as compare_mod
 from . import corrections as corrections_mod
+from . import hooks as hooks_mod
 from . import install as install_mod
 from . import leaderboard as leaderboard_mod
 from . import refine as refine_mod
@@ -313,6 +314,14 @@ def cmd_log_tail(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         return OK
     return OK
+
+
+# --------------------------------------------------------------------------- hook
+
+
+def cmd_hook(args: argparse.Namespace) -> int:
+    """Claude Code runs this per hook event. Silent and always 0, whatever happens inside."""
+    return hooks_mod.run(args.event or "", sys.stdin.read())
 
 
 # --------------------------------------------------------------------------- note
@@ -757,6 +766,14 @@ def _add_review_parser(sub) -> None:
     rev.set_defaults(func=cmd_review)
 
 
+def _add_hook_parser(sub) -> None:
+    hook = sub.add_parser(
+        "hook", help="(Claude Code) log one hook event read from stdin; always exits 0, silently"
+    )
+    hook.add_argument("event", nargs="?", default="", help="e.g. PostToolUse")
+    hook.set_defaults(func=cmd_hook)
+
+
 def _add_note_parser(sub) -> None:
     note = sub.add_parser(
         "note", help="record an explicit note on what a skill or agent got wrong, in its session"
@@ -994,6 +1011,7 @@ def build_parser() -> argparse.ArgumentParser:
     inst.set_defaults(func=cmd_install)
 
     for add_parser in (
+        _add_hook_parser,
         _add_note_parser,
         _add_compare_parser,
         _add_leaderboard_parser,

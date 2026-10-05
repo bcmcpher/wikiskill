@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import shlex
+import shutil
+import sys
 from pathlib import Path
 
 _APP = "wikiskill"
@@ -121,3 +124,15 @@ def source_tree() -> Path:
     if not found.is_dir():
         raise FileNotFoundError(f"harness/source not found next to the package or at {found}")
     return found
+
+
+def cli_command() -> str:
+    """The running ``wikiskill`` as an absolute, shell-quoted command, for hooks to call.
+
+    Hooks run in a non-interactive shell with a minimal PATH, so a bare ``wikiskill`` would not
+    resolve there. Without a ``wikiskill`` on PATH, this interpreter runs the module instead.
+    """
+    found = shutil.which("wikiskill")
+    if found:
+        return shlex.quote(os.path.abspath(found))
+    return f"{shlex.quote(sys.executable)} -m wikiskill"

@@ -6,6 +6,8 @@ is generated from this tree by `wikiskill build`, so a fix reaches every harness
 ```bash
 wikiskill build --harness opencode            # preview into dist/; aliases stay unmapped
 wikiskill install --harness opencode --scope global --collection <name>   # resolves its aliases
+wikiskill build --harness claude-code         # a Claude Code plugin, with the logger's hooks
+wikiskill install --harness claude-code --scope global   # a local marketplace holding it
 ```
 
 `wikiskill build --collection <name>` builds that collection's own sources instead, which is what an
@@ -52,7 +54,8 @@ its caller's model, and the build lists the alias as unmapped so the omission is
 
 `capabilities: [read, search]` becomes, for OpenCode, `mode: subagent` plus a permission block that
 denies `edit`, `bash` and `webfetch`, and a `tools` map that leaves only the read and search tools
-enabled. Grant the least a component needs; a meta-agent that summarises logs has no business
+enabled. For Claude Code it becomes `tools: Read, Grep, Glob`: `bash` adds Bash, `edit` adds Edit
+and Write, `web` adds WebFetch, and anything unlisted is unavailable. Grant the least a component needs; a meta-agent that summarises logs has no business
 running a shell.
 
 ## Status

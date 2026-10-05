@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sys
 import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -24,11 +23,18 @@ from .rawlog import content_hash
 
 SCOPES = ("global", "project")
 
-#: Where each harness keeps its components, per scope.
+#: Where each harness keeps its components, per scope. Claude Code installs plugins from a
+#: marketplace, so its target is a local marketplace holding the one plugin, not its config dir.
 _TARGETS = {
     ("opencode", "global"): lambda: _xdg_config() / "opencode",
     ("opencode", "project"): lambda: Path.cwd() / ".opencode",
+    ("claude-code", "global"): lambda: paths.data_home() / "claude-code",
+    ("claude-code", "project"): lambda: Path.cwd() / ".claude" / "wikiskill-marketplace",
 }
+
+#: The marketplace and plugin names a Claude Code install registers.
+CLAUDE_MARKETPLACE = "wikiskill-local"
+CLAUDE_PLUGIN = "wikiskill"
 
 #: Subdirectory of the harness config directory that holds its plugins.
 _PLUGIN_DIR = {"opencode": "plugin"}
@@ -105,17 +111,26 @@ def install(
                 raise InstallError(f"no built layout at {built_dir}")
         else:
             built = build(
-                harness, collection=collection, source=source, out_dir=Path(tmp) / harness
+                harness,
+                collection=collection,
+                source=source,
+                out_dir=Path(tmp) / harness,
+                # An install is how the logger arrives, whichever tree it builds.
+                hooks=True,
             )
             result.warnings.extend(built.warnings)
             built_dir = built.out_dir
+        prefix = Path(CLAUDE_PLUGIN) if harness == "claude-code" else Path()
         for file in sorted(p for p in built_dir.rglob("*") if p.is_file()):
             # The marker identifies a build directory; it is not part of the layout.
             if file.name == BUILD_MARKER:
                 continue
-            staged[str(file.relative_to(built_dir))] = file
+            staged[str(prefix / file.relative_to(built_dir))] = file
         for relative, file in _logger_files(harness).items():
             staged[relative] = file
+        if harness == "claude-code":
+            staged[".claude-plugin/marketplace.json"] = _marketplace(Path(tmp))
+            result.notes.extend(_claude_notes(destination))
 
         previous = _load_record(harness, scope, destination)
         _sync(staged, destination, previous, result)
@@ -137,6 +152,40 @@ def install(
 
     result.record = _save_record(harness, scope, destination, result)
     return result
+
+
+def _marketplace(tmp: Path) -> Path:
+    """A one-plugin marketplace, so Claude Code can install and update the plugin like any other."""
+    path = tmp / "marketplace.json"
+    path.write_text(
+        json.dumps(
+            {
+                "name": CLAUDE_MARKETPLACE,
+                "owner": {"name": "wikiskill"},
+                "plugins": [
+                    {
+                        "name": CLAUDE_PLUGIN,
+                        "source": f"./{CLAUDE_PLUGIN}",
+                        "description": "wikiskill's skills, commands and session logger",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _claude_notes(destination: Path) -> list[str]:
+    return [
+        f"Claude Code marketplace written to {destination}. To enable the plugin once:",
+        f"  claude plugin marketplace add {destination}",
+        f"  claude plugin install {CLAUDE_PLUGIN}@{CLAUDE_MARKETPLACE}",
+        "After a later install, `claude plugin marketplace update` picks the change up.",
+        f"Or run one session with it: claude --plugin-dir {destination / CLAUDE_PLUGIN}",
+    ]
 
 
 def _logger_files(harness: str) -> dict[str, Path]:
@@ -309,7 +358,4 @@ def _save_record(harness: str, scope: str, target: Path, result: InstallResult) 
 
 def resolved_cli_path() -> str:
     """The absolute path of the running ``wikiskill``, for hooks that must call it explicitly."""
-    found = shutil.which("wikiskill")
-    if found:
-        return found
-    return f"{sys.executable} -m wikiskill"
+    return paths.cli_command()

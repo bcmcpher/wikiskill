@@ -1,0 +1,327 @@
+{
+  "_provenance": "Captured 2026-10-05 from Claude Code 2.1.289 (claude-haiku-4-5) with a throwaway plugin `wscapture` whose hooks appended their stdin. Home paths scrubbed to /home/u. session: a Skill call, then an Agent call that ran in the background (its completion arrives as a <task-notification> UserPromptSubmit). resume: the same session resumed with a real follow-up that re-runs the skill. command: a plugin slash command, which reaches hooks only as UserPromptSubmit.",
+  "version": "2.1.289",
+  "session": [
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "hook_event_name": "SessionStart",
+      "source": "startup"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt": "Run the probe: use the probe-skill skill. Then run the probe agent (subagent probe-agent) and tell me what it reported."
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "hook_event_name": "PreToolUse",
+      "tool_name": "Skill",
+      "tool_input": {
+        "skill": "wscapture:probe-skill"
+      },
+      "tool_use_id": "toolu_01Aac99XacCgEMzQhQosXBUR"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "hook_event_name": "PostToolUse",
+      "tool_name": "Skill",
+      "tool_input": {
+        "skill": "wscapture:probe-skill"
+      },
+      "tool_response": {
+        "success": true,
+        "commandName": "wscapture:probe-skill"
+      },
+      "tool_use_id": "toolu_01Aac99XacCgEMzQhQosXBUR",
+      "duration_ms": 7
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "hook_event_name": "PreToolUse",
+      "tool_name": "Agent",
+      "tool_input": {
+        "description": "Run the probe agent to read README.txt",
+        "prompt": "Read the README.txt file in the working directory and report its first line.",
+        "subagent_type": "wscapture:probe-agent"
+      },
+      "tool_use_id": "toolu_014UEtrH2uXHnmbcM9mjdF4A"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "agent_id": "aa4d3eb256b95648d",
+      "agent_type": "wscapture:probe-agent",
+      "hook_event_name": "SubagentStart"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "hook_event_name": "PostToolUse",
+      "tool_name": "Agent",
+      "tool_input": {
+        "description": "Run the probe agent to read README.txt",
+        "prompt": "Read the README.txt file in the working directory and report its first line.",
+        "subagent_type": "wscapture:probe-agent"
+      },
+      "tool_response": {
+        "isAsync": true,
+        "status": "async_launched",
+        "agentId": "aa4d3eb256b95648d",
+        "description": "Run the probe agent to read README.txt",
+        "resolvedModel": "claude-haiku-4-5-20251001",
+        "prompt": "Read the README.txt file in the working directory and report its first line.",
+        "outputFile": "/tmp/claude-u/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c/tasks/aa4d3eb256b95648d.output",
+        "canReadOutputFile": true
+      },
+      "tool_use_id": "toolu_014UEtrH2uXHnmbcM9mjdF4A",
+      "duration_ms": 5
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "agent_id": "aa4d3eb256b95648d",
+      "agent_type": "wscapture:probe-agent",
+      "hook_event_name": "PreToolUse",
+      "tool_name": "Read",
+      "tool_input": {
+        "file_path": "/tmp/wikiskill-capture/work/README.txt"
+      },
+      "tool_use_id": "toolu_01LUJp8sTYiqb3zysRDHDPAr"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "agent_id": "aa4d3eb256b95648d",
+      "agent_type": "wscapture:probe-agent",
+      "hook_event_name": "PostToolUse",
+      "tool_name": "Read",
+      "tool_input": {
+        "file_path": "/tmp/wikiskill-capture/work/README.txt"
+      },
+      "tool_response": {
+        "type": "text",
+        "file": {
+          "filePath": "/tmp/wikiskill-capture/work/README.txt",
+          "content": "probe readme first line\n",
+          "numLines": 2,
+          "startLine": 1,
+          "totalLines": 2
+        }
+      },
+      "tool_use_id": "toolu_01LUJp8sTYiqb3zysRDHDPAr",
+      "duration_ms": 2
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "PROBED",
+      "background_tasks": [
+        {
+          "id": "aa4d3eb256b95648d",
+          "type": "subagent",
+          "status": "running",
+          "description": "Run the probe agent to read README.txt",
+          "agent_type": "wscapture:probe-agent"
+        }
+      ],
+      "session_crons": []
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "20dc94c2-1aa2-4ea0-8986-fc8482f28afb",
+      "permission_mode": "default",
+      "agent_id": "aa4d3eb256b95648d",
+      "agent_type": "wscapture:probe-agent",
+      "hook_event_name": "SubagentStop",
+      "stop_hook_active": false,
+      "agent_transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c/subagents/agent-aa4d3eb256b95648d.jsonl",
+      "last_assistant_message": "The first line of README.txt is:\n\n**probe readme first line**",
+      "background_tasks": [
+        {
+          "id": "aa4d3eb256b95648d",
+          "type": "subagent",
+          "status": "running",
+          "description": "Run the probe agent to read README.txt",
+          "agent_type": "wscapture:probe-agent"
+        }
+      ],
+      "session_crons": []
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "8b679f3b-17c6-40a1-9778-a6ac3a445f1a",
+      "permission_mode": "default",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt": "<task-notification>\n<task-id>aa4d3eb256b95648d</task-id>\n<tool-use-id>toolu_014UEtrH2uXHnmbcM9mjdF4A</tool-use-id>\n<output-file>/tmp/claude-u/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c/tasks/aa4d3eb256b95648d.output</output-file>\n<status>completed</status>\n<summary>Agent \"Run the probe agent to read README.txt\" finished</summary>\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\n<result>The first line of README.txt is:\n\n**probe readme first line**</result>\n<usage><subagent_tokens>2358</subagent_tokens><tool_uses>1</tool_uses><duration_ms>12866</duration_ms></usage>\n</task-notification>"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "8b679f3b-17c6-40a1-9778-a6ac3a445f1a",
+      "permission_mode": "default",
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "The probe agent has completed. It reported that the first line of README.txt is:\n\n**probe readme first line**",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "8b679f3b-17c6-40a1-9778-a6ac3a445f1a",
+      "hook_event_name": "SessionEnd",
+      "reason": "other"
+    }
+  ],
+  "resume": [
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "hook_event_name": "SessionStart",
+      "source": "resume",
+      "seconds_since_last_response": 17,
+      "context_tokens": 22601,
+      "prompt_cache_likely_expired": false,
+      "estimated_cache_write_usd": 0.0452
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "0738dc95-094e-4912-a4e7-0ebf0abd7629",
+      "permission_mode": "default",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt": "That was wrong. Use the probe-skill skill again."
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "0738dc95-094e-4912-a4e7-0ebf0abd7629",
+      "permission_mode": "default",
+      "hook_event_name": "PreToolUse",
+      "tool_name": "Skill",
+      "tool_input": {
+        "skill": "wscapture:probe-skill"
+      },
+      "tool_use_id": "toolu_01DbKhzbmbF6b5PtqerWHsMx"
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "0738dc95-094e-4912-a4e7-0ebf0abd7629",
+      "permission_mode": "default",
+      "hook_event_name": "PostToolUse",
+      "tool_name": "Skill",
+      "tool_input": {
+        "skill": "wscapture:probe-skill"
+      },
+      "tool_response": {
+        "success": true,
+        "commandName": "wscapture:probe-skill"
+      },
+      "tool_use_id": "toolu_01DbKhzbmbF6b5PtqerWHsMx",
+      "duration_ms": 6
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "0738dc95-094e-4912-a4e7-0ebf0abd7629",
+      "permission_mode": "default",
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "PROBED",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    {
+      "session_id": "64cc5c7d-fd0b-4859-9904-efc7614e034c",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/64cc5c7d-fd0b-4859-9904-efc7614e034c.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "0738dc95-094e-4912-a4e7-0ebf0abd7629",
+      "hook_event_name": "SessionEnd",
+      "reason": "other"
+    }
+  ],
+  "command": [
+    {
+      "session_id": "87764399-cf5e-4222-8dd8-95987f5c25e9",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/87764399-cf5e-4222-8dd8-95987f5c25e9.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "hook_event_name": "SessionStart",
+      "source": "startup"
+    },
+    {
+      "session_id": "87764399-cf5e-4222-8dd8-95987f5c25e9",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/87764399-cf5e-4222-8dd8-95987f5c25e9.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "6f214d37-a011-4293-913c-ed56fa01a5d3",
+      "permission_mode": "default",
+      "hook_event_name": "UserPromptSubmit",
+      "prompt": "/wscapture:probe-cmd hello there"
+    },
+    {
+      "session_id": "87764399-cf5e-4222-8dd8-95987f5c25e9",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/87764399-cf5e-4222-8dd8-95987f5c25e9.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "6f214d37-a011-4293-913c-ed56fa01a5d3",
+      "permission_mode": "default",
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "COMMAND hello there",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    {
+      "session_id": "87764399-cf5e-4222-8dd8-95987f5c25e9",
+      "transcript_path": "/home/u/.claude/projects/-tmp-wikiskill-capture-work/87764399-cf5e-4222-8dd8-95987f5c25e9.jsonl",
+      "cwd": "/tmp/wikiskill-capture/work",
+      "prompt_id": "6f214d37-a011-4293-913c-ed56fa01a5d3",
+      "hook_event_name": "SessionEnd",
+      "reason": "other"
+    }
+  ]
+}
