@@ -249,7 +249,11 @@ def compare(
 
 def _component_under_test(run: LoadedRun) -> str | None:
     """The one component every task expects, when there is one."""
-    expected = {(r.get("expected") or {}).get("primary") for r in run.results} - {None}
+    expected: set[str] = {
+        primary
+        for r in run.results
+        if (primary := (r.get("expected") or {}).get("primary")) is not None
+    }
     hashed = list(run.hashes())
     if len(expected) == 1:
         wanted = next(iter(expected))
