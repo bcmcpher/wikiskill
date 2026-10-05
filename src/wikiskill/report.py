@@ -33,12 +33,15 @@ def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dic
     for score in scores:
         by_model_condition.setdefault((score.model, score.condition), []).append(score)
 
-    rows = [_row(score, results) for score in scores]
+    # A run is one harness, but each row names it, so rows from runs in different harnesses can
+    # stand in one table without losing which was which: task x model x harness x condition.
+    harness = manifest.get("harness") or leaderboard.DEFAULT_HARNESS
+    rows = [{**_row(score, results), "harness": harness} for score in scores]
     return {
         "run_id": manifest.get("run_id"),
         "suite": manifest.get("suite"),
         "collection": manifest.get("collection"),
-        "harness": manifest.get("harness"),
+        "harness": harness,
         "harness_version": manifest.get("harness_version"),
         "wikiskill_version": manifest.get("wikiskill_version"),
         "models": manifest.get("models", []),

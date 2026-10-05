@@ -37,6 +37,7 @@ def write_run(
     skill_hash=SKILL_HASH,
     contexts=None,
     harness=None,
+    harness_version="1.18.34",
 ):
     directory = root / run_id
     directory.mkdir(parents=True)
@@ -46,7 +47,7 @@ def write_run(
         "suite": "toy-routing",
         "suite_hash": suite_hash,
         "collection": "self",
-        "harness_version": "1.18.34",
+        "harness_version": harness_version,
         **({"harness": harness} if harness else {}),
         "models": models,
         "conditions": sorted({r["condition"] for r in results}),
@@ -80,13 +81,63 @@ def test_runs_of_different_suite_content_are_refused(tmp_path):
         leaderboard.pool(loaded(one, two))
 
 
-def test_runs_from_different_harnesses_are_refused(tmp_path):
+def test_one_model_under_two_harnesses_is_two_entrants_and_one_same_model_row(tmp_path):
+    opencode = write_run(
+        tmp_path,
+        "r1",
+        [
+            result("t1", "m", "routed", first="trace"),
+            result("t2", "m", "routed", first="other"),
+            result("t1", "solo", "routed", first="trace"),
+        ],
+    )
+    claude = write_run(
+        tmp_path,
+        "r2",
+        [result("t1", "m", "routed", first="trace"), result("t2", "m", "routed", first="trace")],
+        harness="claude-code",
+        harness_version="2.1.289",
+    )
+
+    board = leaderboard.pool(loaded(opencode, claude))
+
+    assert set(board.cells) == {
+        ("m [opencode]", "routed"),
+        ("m [claude-code]", "routed"),
+        ("solo [opencode]", "routed"),
+    }
+    # Different versions of two harnesses are not a warning; they could not be the same.
+    assert not board.warnings
+    (row,) = board.across_harnesses()
+    assert row["model"] == "m"
+    assert row["condition"] == "routed"
+    assert row["harnesses"]["opencode"]["route@1"]["passed"] == 1
+    assert row["harnesses"]["claude-code"]["route@1"]["passed"] == 2
+    assert board.as_dict()["harnesses"] == ["claude-code", "opencode"]
+
+    text = leaderboard.render(board)
+    assert "## Same model across harnesses" in text
+    assert "| m | routed | claude-code | 2/2" in text
+    assert "| m | routed | opencode | 1/2" in text
+
+
+def test_route_at_one_is_counted_beside_a_verifier_pass(tmp_path):
+    # The two are not the same measure: a unit can pass its verifiers without routing first.
+    run = write_run(tmp_path, "r1", [result("t", "m", "routed", passed=True, first="other")])
+    cell = leaderboard.pool(loaded(run)).cells[("m", "routed")]
+    assert (cell.passed, cell.total) == (1, 1)
+    assert (cell.route.passed, cell.route.total) == (0, 1)
+
+
+def test_one_harness_in_two_versions_still_warns(tmp_path):
     one = write_run(tmp_path, "r1", [result("t", "m", "routed", first="trace")])
     two = write_run(
-        tmp_path, "r2", [result("t", "m", "routed", first="trace")], harness="claude-code"
+        tmp_path, "r2", [result("t", "m", "routed", first="trace")], harness_version="1.19.0"
     )
-    with pytest.raises(leaderboard.LeaderboardError, match="two rows, not one"):
-        leaderboard.pool(loaded(one, two))
+    board = leaderboard.pool(loaded(one, two))
+    assert board.warnings == ["the runs used different opencode versions: 1.18.34, 1.19.0"]
+    assert board.across_harnesses() == []
+    assert "Same model across harnesses" not in leaderboard.render(board)
 
 
 def test_runs_of_different_component_versions_are_refused(tmp_path):
@@ -276,3 +327,22 @@ def test_a_single_runs_report_carries_the_same_pooled_table(tmp_path):
 
     assert report["pooled"]["routed"][0]["passed"] == 1
     assert "## Pooled per model and condition" in render_markdown(report)
+
+
+def test_every_report_row_names_its_harness(tmp_path):
+    older = load_run("", write_run(tmp_path, "r1", [result("t", "m", "routed", first="trace")]))
+    claude = load_run(
+        "",
+        write_run(
+            tmp_path, "r2", [result("t", "m", "routed", first="trace")], harness="claude-code"
+        ),
+    )
+
+    # A run from before the harness field ran in OpenCode, the only harness there was.
+    assert [
+        row["harness"] for row in build_report(list(older.results), older.manifest)["rows"]
+    ] == ["opencode"]
+    report = build_report(list(claude.results), claude.manifest)
+    assert report["harness"] == "claude-code"
+    assert [row["harness"] for row in report["rows"]] == ["claude-code"]
+    assert report["pooled"]["routed"][0]["harness"] == "claude-code"

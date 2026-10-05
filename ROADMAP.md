@@ -37,6 +37,13 @@ Step 3 is **closed**: archived on 2026-10-05 with its three capabilities live. T
 and review and refine ran live on `datalad/datalad-doer`, but DSH deleted that unit upstream before
 its v1-against-v2 comparison, so that comparison moved to step 4's first per-unit pilot.
 
+Step 6 is **built** as of 2026-10-05: every task is ticked and the change validates, but it waits
+to be archived behind step 5. Its `correction-signal` delta modifies a capability that only step 5's
+archive creates, and step 5 still has one live check open. Built: the Claude Code plugin build and
+hooks logger; `wikiskill eval --harness claude-code`, with open models served through an
+Anthropic-compatible endpoint; and the harness axis. A leaderboard pools runs from both harnesses
+as separate entrants and sets the same model's harnesses side by side.
+
 Step 2 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/). The task-suite format and `wikiskill suite check`; the

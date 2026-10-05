@@ -7,8 +7,10 @@ refuses runs whose suite content or component versions differ, rather than avera
 experiments into one number.
 
 Thinking on and off are pooled as two entrants, never one: the same weights reasoning and not
-reasoning are different experiments. Runs that capped a turn's output differently are pooled with a
-warning.
+reasoning are different experiments. So are one model's runs under two harnesses, which differ in
+system prompt, tools and loop; where a model ran under more than one, a same-model table sets its
+harnesses side by side, and that table is where the harness is the thing compared. Runs that capped
+a turn's output differently are pooled with a warning.
 
 A unit counts as passed the way a report counts it: its verifiers' verdict where the task declares
 any, and otherwise whether its first activation was the expected component. A task always uses the
@@ -38,14 +40,31 @@ class LeaderboardError(CompareError):
     """Runs that cannot be pooled."""
 
 
+#: What a run that predates the harness field ran in.
+DEFAULT_HARNESS = "opencode"
+
+
+def harness_of(run: LoadedRun) -> str:
+    return run.manifest.get("harness") or DEFAULT_HARNESS
+
+
 @dataclass
 class Cell:
-    """One model under one condition, pooled over every run that ran it."""
+    """One model under one harness and condition, pooled over every run that ran it.
+
+    `model` is the entrant as the ranking names it; `served` is the model alone, which is what the
+    same-model table matches harnesses on.
+    """
 
     model: str
     condition: str
+    harness: str = DEFAULT_HARNESS
+    served: str = ""
     passed: int = 0
     total: int = 0
+    #: units whose first activation was checked against the expected component, under ROUTED
+    routed: int = 0
+    routed_first: int = 0
     not_run: int = 0
     runs: set[str] = field(default_factory=set)
     contexts: set[int] = field(default_factory=set)
@@ -54,11 +73,18 @@ class Cell:
     def rate(self) -> Rate:
         return Rate(passed=self.passed, total=self.total)
 
+    @property
+    def route(self) -> Rate:
+        return Rate(passed=self.routed_first, total=self.routed)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
+            "served": self.served or self.model,
+            "harness": self.harness,
             "condition": self.condition,
             **self.rate.as_dict(),
+            "route@1": self.route.as_dict(),
             "not_run": self.not_run,
             "runs": sorted(self.runs),
             "context_tokens": sorted(self.contexts),
@@ -101,13 +127,45 @@ class Leaderboard:
             ranked.append((cell, clear))
         return ranked
 
+    @property
+    def harnesses(self) -> list[str]:
+        return sorted({harness_of(run) for run in self.runs})
+
+    def across_harnesses(self) -> list[dict[str, Any]]:
+        """Each model that ran under more than one harness, per condition, harnesses side by side.
+
+        Matched on the served model and its thinking setting, so a row compares one model's weights
+        and settings under two harnesses and nothing else that the runs record.
+        """
+        grouped: dict[tuple[str, str], dict[str, Cell]] = {}
+        for cell in self.cells.values():
+            grouped.setdefault((cell.served, cell.condition), {})[cell.harness] = cell
+        return [
+            {
+                "model": served,
+                "condition": condition,
+                "harnesses": {
+                    harness: {
+                        **cell.rate.as_dict(),
+                        "route@1": cell.route.as_dict(),
+                        "not_run": cell.not_run,
+                    }
+                    for harness, cell in sorted(by_harness.items())
+                },
+            }
+            for (served, condition), by_harness in sorted(grouped.items())
+            if len(by_harness) > 1
+        ]
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "suite": self.suite,
             "suite_hash": self.suite_hash,
+            "harnesses": self.harnesses,
             "runs": [
                 {
                     "run_id": run.run_id,
+                    "harness": harness_of(run),
                     "harness_version": run.manifest.get("harness_version"),
                     "wikiskill_version": run.manifest.get("wikiskill_version"),
                     "models": run.manifest.get("models", []),
@@ -128,6 +186,7 @@ class Leaderboard:
                 {"task_id": task, "model": model, "condition": condition, **rate.as_dict()}
                 for (task, model, condition), rate in sorted(self.matrix.items())
             ],
+            "across_harnesses": self.across_harnesses(),
             "warnings": self.warnings,
         }
 
@@ -145,14 +204,6 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
             raise LeaderboardError(
                 f"{run.run_id} ran suite {run.suite!r}, but {first.run_id} ran {first.suite!r}"
             )
-        if (run.manifest.get("harness") or "opencode") != (
-            first.manifest.get("harness") or "opencode"
-        ):
-            raise LeaderboardError(
-                f"{run.run_id} ran in {run.manifest.get('harness')}, but {first.run_id} ran in "
-                f"{first.manifest.get('harness')}: one model under two harnesses is two rows, "
-                "not one, so pool each harness on its own"
-            )
         if run.suite_hash != first.suite_hash:
             raise LeaderboardError(
                 f"{run.run_id} ran different content of suite {first.suite!r} "
@@ -168,12 +219,15 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
     )
     if not first.suite_hash:
         board.warnings.append("no run recorded a suite_hash, so the suite content is unverified")
-    versions = {run.manifest.get("harness_version") for run in runs}
-    if len(versions) > 1:
-        board.warnings.append(
-            "the runs used different harness versions: "
-            + ", ".join(sorted(str(v) for v in versions))
-        )
+    for harness in board.harnesses:
+        versions = {
+            run.manifest.get("harness_version") for run in runs if harness_of(run) == harness
+        }
+        if len(versions) > 1:
+            board.warnings.append(
+                f"the runs used different {harness} versions: "
+                + ", ".join(sorted(str(v) for v in versions))
+            )
 
     caps = {(run.manifest.get("options") or {}).get("max_output_tokens") for run in runs}
     if len(caps) > 1:
@@ -183,11 +237,14 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
             + " output tokens"
         )
 
+    several = len(board.harnesses) > 1
     for run in runs:
         contexts = _contexts(run)
-        label = _thinking_label(run)
+        served = _thinking_label(run)
+        harness = harness_of(run)
+        label = served + (f" [{harness}]" if several else "")
         for result in run.results:
-            _add(board, run, result, contexts, label)
+            _add(board, run, result, contexts, (served, label, harness))
     return board
 
 
@@ -225,17 +282,30 @@ def _contexts(run: LoadedRun) -> dict[str, int]:
 
 
 def _add(
-    board: Leaderboard, run: LoadedRun, result: dict[str, Any], contexts: dict, label: str
+    board: Leaderboard,
+    run: LoadedRun,
+    result: dict[str, Any],
+    contexts: dict,
+    labels: tuple[str, str, str],
 ) -> None:
+    """Count one unit. `labels` is the thinking suffix, the entrant suffix, and the harness."""
+    thinking, label, harness = labels
     served, condition, task = result["model"], result["condition"], result["task_id"]
     model = served + label
-    cell = board.cells.setdefault((model, condition), Cell(model=model, condition=condition))
+    cell = board.cells.setdefault(
+        (model, condition),
+        Cell(model=model, condition=condition, harness=harness, served=served + thinking),
+    )
     cell.runs.add(run.run_id)
     if served in contexts:
         cell.contexts.add(contexts[served])
     if result.get("outcome") in UNSCORED:
         cell.not_run += 1
         return
+    expected = (result.get("expected") or {}).get("primary")
+    if expected and condition == ROUTED:
+        cell.routed += 1
+        cell.routed_first += 1 if same(first_activation(result), expected) else 0
     verdict, basis = unit_verdict(result)
     if verdict is None:
         return
@@ -325,8 +395,36 @@ def render(board: Leaderboard) -> str:
     if board.warnings:
         lines.append("")
     lines += ["## Ranking", "", *ranking_lines(board.as_dict()["ranking"])]
+    lines += across_harness_lines(board.across_harnesses())
     lines += _matrix_lines(board)
     return "\n".join(lines)
+
+
+def across_harness_lines(rows: list[dict[str, Any]]) -> list[str]:
+    """One model under each harness it ran in, from `as_dict()["across_harnesses"]`."""
+    if not rows:
+        return []
+    lines = [
+        "## Same model across harnesses",
+        "",
+        (
+            "Each row is one model under one condition; route@1 counts ROUTED units whose first "
+            "activation was the expected component. Only the harness differs within a row, so "
+            "this is the table to read for a harness effect; overlapping intervals show none."
+        ),
+        "",
+        "| model | condition | harness | passed (95% CI) | route@1 (95% CI) | not run |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        for harness, entry in row["harnesses"].items():
+            rate = Rate(passed=entry["passed"], total=entry["total"])
+            route = Rate(passed=entry["route@1"]["passed"], total=entry["route@1"]["total"])
+            lines.append(
+                f"| {row['model']} | {row['condition']} | {harness} | {_fmt(rate)} | "
+                f"{_fmt(route)} | {entry['not_run']} |"
+            )
+    return [*lines, ""]
 
 
 def _matrix_lines(board: Leaderboard) -> list[str]:

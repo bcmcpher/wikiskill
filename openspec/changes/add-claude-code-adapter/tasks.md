@@ -100,8 +100,15 @@ rejected `Agent` calls, one background subagent). What the normaliser has to han
 - [x] 4.3 Stream-json normaliser with Skill/Agent detection and subagent linkage; outcome classes shared
   with OpenCode.
 - [x] 4.4 A `PreToolUse` guard hook in the run config mirroring the suite's deny rules.
-- [ ] 4.5 Harness axis in `report.json` and `report.md`; same-model cross-harness table. Until then
-  `wikiskill leaderboard` refuses to pool runs from different harnesses.
+- [x] 4.5 Harness axis in `report.json` and `report.md`; same-model cross-harness table. A run is one
+  harness, so every report row names it (`opencode` for runs from before the field). The cross-harness
+  table lives in `wikiskill leaderboard`, the one place runs combine: runs of one suite in different
+  harnesses now pool as separate entrants (`model [harness]`, like thinking on and off), each cell
+  carries `harness` and a `route@1` rate beside its pass rate, and a "Same model across harnesses"
+  table sets each harness's pass rate and route@1 side by side per model and condition. A
+  harness-version warning now fires only within one harness. Live: pooling the gemma4 toy-routing
+  runs `01M46AZ1DKYBZ64FHQ13F8ZSZ7` (OpenCode) and `01M46DDDH1GZ0RA5G55G7X08P3` (Claude Code) gives
+  ROUTED route@1 2/2 under OpenCode and 1/2 under Claude Code, intervals overlapping.
 
 How 4.1–4.4 were built, and what live runs on 2026-10-05 changed:
 
