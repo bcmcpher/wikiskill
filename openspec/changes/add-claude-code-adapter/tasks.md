@@ -60,6 +60,38 @@ What the capture showed, and what the logger does about it:
 
 ## 4. Eval backend
 
+Stream-json captured 2026-10-05 from Claude Code 2.1.289 against local Ollama 0.34.2 (no API key,
+no cost), with a throwaway plugin of one skill (`word-count`) that delegates to one agent
+(`counter`), a temp `CLAUDE_CONFIG_DIR`, `--setting-sources project --strict-mcp-config
+--permission-mode dontAsk` and `--plugin-dir`. Fixtures in `tests/fixtures/claude-code/`, with all
+but three `thinking_tokens` lines dropped: `stream-skill-2.1.289.jsonl` (gemma4: `Skill`, then a
+text answer that never delegates) and `stream-subagent-2.1.289.jsonl` (qwen3:30b-a3b: `Skill`, two
+rejected `Agent` calls, one background subagent). What the normaliser has to handle:
+
+- The subagent tool is offered as `Task` in `init.tools` but called as `Agent` in `tool_use`.
+  `subagent_type` is plugin-qualified (`capture:counter`); a bare `counter` is refused with
+  `Agent type 'counter' not found`, and a call missing `description` with an
+  `InputValidationError`. Both come back as `tool_result` with `is_error: true`, and neither is an
+  activation.
+- A `Skill` call's result is `Launching skill: capture:word-count`, and `tool_use_result` is
+  `{success, commandName}`.
+- The subagent's own messages carry `parent_tool_use_id` = the `Agent` call's id. Its lifecycle is
+  in `system` events `task_started` (with `subagent_type`, `is_backgrounded`, `spawn_depth`),
+  `task_progress`, `task_updated` and `task_notification` (`status`, `summary`, `usage`).
+- The model ran that subagent in the background unasked. The first turn then ends with a `result`
+  before the subagent finishes; its completion starts a second turn (a second `init`) and a second
+  `result` with `origin.kind: task-notification` and `result_index: 1`, which holds the real
+  answer. A unit is over at the last `result`, not the first.
+- `result.subagent_stats` counts spawned, completed, failed and refused subagents by type.
+- 2625 of 2657 lines were `system/thinking_tokens` progress events: skip them.
+- `total_cost_usd` (0.39 here) and `modelUsage.costUSD` are invented for a model Claude Code does
+  not know (`costBasis: unknown`); it also assumes `contextWindow: 200000` whatever Ollama serves.
+  So `--max-budget-usd` would cut open-model runs on a fictional price: use turn and time limits
+  for them, and record cost only for Anthropic-hosted models.
+- Isolation gap, like OpenCode's `customize-opencode`: an empty `CLAUDE_CONFIG_DIR` still offers 18
+  built-in skills (`deep-research`, `debug`, `simplify`, …), built-in agents (`general-purpose`,
+  `Explore`, `Plan`, …) and three built-in plugins. OFF is not "no skills" until those are denied.
+
 - [ ] 4.1 `src/wikiskill/runner/claude.py`: temp `CLAUDE_CONFIG_DIR`, fixture workdir, isolation flags,
   and a budget cap.
 - [ ] 4.2 Conditions: OFF, ROUTED (`--plugin-dir`), and INJECTED (`--append-system-prompt` with the
@@ -73,8 +105,12 @@ What the capture showed, and what the logger does about it:
 
 - [ ] 5.1 Preflight for Anthropic-compatible endpoints: a Messages request with a tool returns
   `tool_use`, and context is at least 16k.
-- [ ] 5.2 Check whether the installed Ollama serves the Messages API; otherwise document a LiteLLM proxy
-  setup in `docs/design/architecture.md`.
+- [x] 5.2 Check whether the installed Ollama serves the Messages API; otherwise document a LiteLLM proxy
+  setup in `docs/design/architecture.md`. Ollama 0.34.2 does, at `ANTHROPIC_BASE_URL=
+  http://localhost:11434` with any `ANTHROPIC_AUTH_TOKEN`: a direct `/v1/messages` request with a
+  tool returned `thinking` and `tool_use` blocks, and Claude Code 2.1.289 drove gemma4 and
+  qwen3:30b-a3b through `Skill` and `Agent` calls (see 4.). No proxy is needed. Claude Code warns
+  `unrecognized_model` on stderr and carries on.
 
 ## 6. Verify
 
