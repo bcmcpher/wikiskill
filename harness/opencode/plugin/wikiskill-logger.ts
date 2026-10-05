@@ -35,6 +35,7 @@ import {
   type ToolCallInfo,
 } from "./wikiskill/mapper"
 import { watchedComponentFor, watches } from "./wikiskill/match"
+import { Scanner, producedFiles } from "./wikiskill/produced"
 import { envSecrets } from "./wikiskill/redact"
 import { SessionRegistry, type EventFactory } from "./wikiskill/sessions"
 import { ToolCallStates, outcomeOf, type ToolPartInfo } from "./wikiskill/toolstate"
@@ -50,6 +51,7 @@ export const wikiskillLogger = async () => {
   const registry = new SessionRegistry(200, origin)
   const toolStates = new ToolCallStates()
   const envValues = envSecrets(process.env)
+  const scanner = new Scanner()
   let lastPrune = Date.now()
 
   const collections = (): CollectionConfig[] => config.current()
@@ -62,6 +64,18 @@ export const wikiskillLogger = async () => {
   })
 
   const errorLog = (): string => collections()[0]?.error_log ?? ""
+
+  /** Where a session's relative paths point: its own directory, else its root's. */
+  const directoryOf = (sessionId: string): string | null =>
+    registry.peek(sessionId)?.directory ??
+    registry.peek(registry.rootOf(sessionId))?.directory ??
+    null
+
+  /** What a successful call left on disk, hashed now, before anything else can change it. */
+  const withProduced = (call: ToolCallInfo, sessionId: string): ToolCallInfo =>
+    call.error
+      ? call
+      : { ...call, producedFiles: producedFiles(call.tool, call.args, directoryOf(sessionId)) }
 
   const write = (collection: CollectionConfig, event: RawEvent | null): void => {
     if (!event) return
@@ -156,9 +170,10 @@ export const wikiskillLogger = async () => {
       error: outcome.error ?? undefined,
       durationMs: outcome.durationMs ?? undefined,
     }
+    const recorded = withProduced(call, sessionId)
     emit(sessionId, (collection) =>
       mapToolCall(
-        call,
+        recorded,
         registry.identity(sessionId, collection.collection),
         optionsFor(collection),
         now,
@@ -255,6 +270,9 @@ export const wikiskillLogger = async () => {
               emit(info.id, (collection) =>
                 mapSessionStart(info, registry.identity(info.id, collection.collection), now),
               )
+              // Files edited since a component wrote them are found when work resumes. Spawned,
+              // never awaited: the scan is Python's, and its cost is not the session's.
+              if (!info.parentID && origin === "live") scanner.maybeStart(config.cli, now)
             }
             return
           }
@@ -468,9 +486,10 @@ export const wikiskillLogger = async () => {
           )
         }
         if (toolStates.claim(call.callID)) {
+          const recorded = withProduced(call, sessionId)
           emit(sessionId, (collection) =>
             mapToolCall(
-              call,
+              recorded,
               registry.identity(sessionId, collection.collection),
               optionsFor(collection),
               now,

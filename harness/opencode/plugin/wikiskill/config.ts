@@ -2,7 +2,8 @@
  * Reading the resolved logger configuration.
  *
  * Python owns the TOML manifest; `wikiskill collection check --sync` and `wikiskill install`
- * publish this JSON view. The plugin never parses TOML and never shells out to Python.
+ * publish this JSON view. The plugin never parses TOML, and never waits on Python: the one process
+ * it starts, the output-edit scan (`produced.ts`), is detached and unwatched.
  */
 
 import { existsSync, readFileSync, statSync } from "node:fs"
@@ -28,6 +29,13 @@ export function parseRuntimeConfig(text: string): CollectionConfig[] {
     throw new Error("runtime.json has no `collections` array")
   }
   return parsed.collections.map(normalise)
+}
+
+export function parseCli(text: string): string[] | null {
+  const cli = (JSON.parse(text) as RuntimeConfig).cli
+  return Array.isArray(cli) && cli.length > 0 && cli.every((arg) => typeof arg === "string")
+    ? cli
+    : null
 }
 
 function normalise(raw: CollectionConfig): CollectionConfig {
@@ -61,11 +69,17 @@ export class ConfigSource {
   private signature = ""
   private checkedAt = 0
   private loadError: string | null = null
+  private cliArgv: string[] | null = null
 
   constructor(private readonly path: string = runtimeConfigPath()) {}
 
   get error(): string | null {
     return this.loadError
+  }
+
+  /** How to run `wikiskill`, as of the last load. */
+  get cli(): string[] | null {
+    return this.cliArgv
   }
 
   current(now = Date.now()): CollectionConfig[] {
@@ -74,13 +88,16 @@ export class ConfigSource {
     try {
       if (!existsSync(this.path)) {
         this.collections = []
+        this.cliArgv = null
         this.signature = ""
         return this.collections
       }
       const stats = statSync(this.path)
       const signature = `${stats.mtimeMs}:${stats.size}`
       if (signature === this.signature) return this.collections
-      this.collections = parseRuntimeConfig(readFileSync(this.path, "utf8"))
+      const text = readFileSync(this.path, "utf8")
+      this.collections = parseRuntimeConfig(text)
+      this.cliArgv = parseCli(text)
       this.signature = signature
       this.loadError = null
     } catch (error) {

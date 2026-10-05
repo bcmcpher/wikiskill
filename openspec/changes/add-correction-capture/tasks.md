@@ -1,8 +1,8 @@
 ## 0. Minimal working core
 
 Follow-up turns (1.1–1.2) and explicit notes (3.1–3.3) — both are cheap and give the maintainer
-something to read. Deferred: output-edit scanning (2.x) until follow-ups and notes have been used on
-real sessions.
+something to read. Output-edit scanning (2.x) was deferred until follow-ups and notes had been used
+on real sessions, then built ahead of that on 2026-10-05 so the Claude Code adapter could reuse it.
 
 ## 1. Follow-up turns and repeats
 
@@ -13,11 +13,11 @@ real sessions.
 
 ## 2. Output edits
 
-- [ ] 2.1 Plugin: add `produced_files` (path, hash) to write/edit/patch tool-call events.
-- [ ] 2.2 `src/wikiskill/corrections.py` + `wikiskill corrections scan`: compare hashes, exclude changes
+- [x] 2.1 Plugin: add `produced_files` (path, hash) to write/edit/patch tool-call events.
+- [x] 2.2 `src/wikiskill/corrections.py` + `wikiskill corrections scan`: compare hashes, exclude changes
   explained by later logged tool calls, and emit `output_edit` with a capped diff (git diff when
   tracked).
-- [ ] 2.3 Plugin triggers a background scan on `session_start`; scan failures are fail-open.
+- [x] 2.3 Plugin triggers a background scan on `session_start`; scan failures are fail-open.
 
 ## 3. Explicit notes
 
@@ -45,12 +45,35 @@ real sessions.
   for the past day. `wikiskill note` warns when more than one was active in the last hour.
 - `[logging] follow_up_turns` (default 3) sets the window per collection.
 
+Output edits (2.x), also built and unit-tested only:
+
+- `produced_files` (path, hash; null when deleted) is on every successful write, edit, multiedit and
+  patch call in a logged session, attributed or not, so a later write by anyone explains a change.
+  Claude Code records it for Write, Edit, MultiEdit and NotebookEdit.
+- The scan's last known content for a file is the latest of a logged write and an earlier
+  `output_edit`, so each change is recorded once. The edit goes to the most recent component that
+  wrote the file, into that session's log, at confidence `low`.
+- "Explained by a later logged tool call" also covers a non-read-only call (a shell command, most
+  often) whose input names the file: what it did cannot be known, so the change is not the user's.
+- The `before` side of a diff is content a write call logged in full, or git's HEAD or index copy
+  when that matches the recorded hash. An edit with neither is recorded with `diff: null`. Diffs are
+  redacted and cut to 8 KB.
+- Only logs written in the last 30 days are read, and at most 500 files compared. Eval events are
+  ignored. A lock in `raw/.sessions/` stops two scans of one collection overlapping.
+- The plugin learns how to run `wikiskill` from a new `cli` argv in `runtime.json`, and starts
+  `wikiskill corrections scan --quiet` detached when a live root session is created, at most every
+  10 minutes per OpenCode process. The Claude Code hooks do the same at `SessionStart`. `--quiet`
+  prints nothing, exits 0, and writes failures to the logger error log.
+- Open: whether the scan should also run on a timer (design.md) — session start plus on demand for
+  now. Re-publish `runtime.json` (`wikiskill collection check --sync`) so the plugin sees `cli`.
+
 ## 4. Verify
 
-- [ ] 4.1 `uv run pytest tests/test_corrections.py`: fixtures for window closing, repeat detection,
+- [x] 4.1 `uv run pytest tests/test_corrections.py`: fixtures for window closing, repeat detection,
   and edit-explained-by-tool-call exclusion. Window closing and repeat detection are plugin-side and
   tested in `logger.test.ts`; `test_corrections.py` covers the schema, the manifest setting and
-  `wikiskill note`. The edit exclusion waits for 2.2.
+  `wikiskill note`, and the scan: edits found once, explained by a later write or a shell command
+  naming the file, unattributed files ignored, git and logged-content diffs.
 - [x] 4.2 `bun test harness/opencode/plugin`: user-turn attribution cases.
 - [ ] 4.3 Manual check in OpenCode:
   1. Run a watched skill, then reply with a correction, then run `/wikiskill-note`.

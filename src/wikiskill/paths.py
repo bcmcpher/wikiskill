@@ -132,7 +132,12 @@ def cli_command() -> str:
     Hooks run in a non-interactive shell with a minimal PATH, so a bare ``wikiskill`` would not
     resolve there. Without a ``wikiskill`` on PATH, this interpreter runs the module instead.
     """
+    return shlex.join(cli_argv())
+
+
+def cli_argv() -> list[str]:
+    """:func:`cli_command` as an argument list, for a harness that spawns it without a shell."""
     found = shutil.which("wikiskill")
     if found:
-        return shlex.quote(os.path.abspath(found))
-    return f"{shlex.quote(sys.executable)} -m wikiskill"
+        return [os.path.abspath(found)]
+    return [sys.executable, "-m", "wikiskill"]

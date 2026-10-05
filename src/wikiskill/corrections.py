@@ -1,9 +1,14 @@
-"""Correction signals written from the command line: explicit notes.
+"""Correction signals written from the command line: explicit notes and output edits.
 
 The logger records what it can see happen after a component runs (follow-up turns, repeated
 activations). A note is the user saying so outright, which is the one correction signal with
 `explicit` confidence. It is written into the session's own log, beside the activation it is
 about, so a reader of that trajectory finds it without a join.
+
+An output edit is the other signal found outside the session: a file a component wrote, changed
+afterwards by something no logged tool call explains. The loggers record each file a write or edit
+call left on disk, with its hash (`produced_files`); `scan` compares those hashes with the files
+now.
 
 Nothing here classifies anything. A note is stored as the user wrote it; whether it is a
 correction, a complaint or praise is the wiki maintainer's call.
@@ -11,9 +16,14 @@ correction, a complaint or praise is the wiki maintainer's call.
 
 from __future__ import annotations
 
+import contextlib
+import difflib
+import fcntl
 import hashlib
 import json
 import os
+import subprocess
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,6 +31,7 @@ from typing import Any
 
 from . import paths, rawlog
 from .collection import Collection
+from .redact import bound, env_secrets, redact
 
 #: Sessions seen within this window count as active when deciding which one a note belongs to.
 ACTIVE_WITHIN = timedelta(hours=1)
@@ -258,3 +269,280 @@ def write_note(
     }
     written = rawlog.RawLogWriter(path).append(event)
     return Note(event=written, path=path, warnings=warnings)
+
+
+# --------------------------------------------------------------------------- output edits
+
+#: Tools that write files, by harness, and the argument naming the file. A patch names its files in
+#: its text instead (`patch_paths`).
+WRITE_TOOLS: Mapping[str, tuple[str, ...]] = {
+    # OpenCode
+    "write": ("filePath",),
+    "edit": ("filePath",),
+    "multiedit": ("filePath",),
+    # Claude Code
+    "Write": ("file_path",),
+    "Edit": ("file_path",),
+    "MultiEdit": ("file_path",),
+    "NotebookEdit": ("notebook_path",),
+}
+PATCH_TOOLS = frozenset({"patch", "apply_patch"})
+
+#: Tools that cannot change a file, so a later call to one explains nothing.
+READ_ONLY_TOOLS = frozenset(
+    {
+        *("read", "grep", "glob", "list", "webfetch", "websearch", "todoread", "todowrite"),
+        *("skill", "task", "lsp", "codesearch"),
+        *("Read", "Grep", "Glob", "LS", "WebFetch", "WebSearch", "TodoWrite", "Skill", "Agent"),
+        *("Task", "TaskOutput", "ToolSearch"),
+    }
+)
+
+#: Only logs written within this window are scanned, and at most this many files compared.
+SCAN_WITHIN = timedelta(days=30)
+SCAN_LIMIT = 500
+#: An `output_edit` diff is cut to this many bytes.
+DIFF_LIMIT = 8 * 1024
+#: The produced files one tool call may record.
+PRODUCED_LIMIT = 50
+
+_PATCH_HEADER = ("*** Add File: ", "*** Update File: ", "*** Delete File: ", "*** Move to: ")
+
+
+def patch_paths(text: str) -> list[str]:
+    """The files an `apply_patch` envelope adds, updates, deletes or moves to."""
+    found = []
+    for line in text.splitlines():
+        for header in _PATCH_HEADER:
+            if line.startswith(header) and line[len(header) :].strip():
+                found.append(line[len(header) :].strip())
+    return list(dict.fromkeys(found))
+
+
+def produced_files(
+    tool: str, args: Mapping[str, Any], cwd: str | os.PathLike[str] | None
+) -> list[dict[str, Any]]:
+    """The files a successful write, edit or patch call left behind, hashed as they are now.
+
+    The Claude Code hooks call this after the tool ran; the OpenCode logger has its own copy
+    (`wikiskill/produced.ts`). Relative paths are resolved against the session's directory.
+    """
+    if tool in WRITE_TOOLS:
+        names = [str(args[key]) for key in WRITE_TOOLS[tool] if args.get(key)]
+    elif tool in PATCH_TOOLS:
+        text = args.get("patchText") or args.get("patch") or args.get("input") or ""
+        names = patch_paths(str(text))
+    else:
+        return []
+    base = Path(cwd) if cwd else Path.cwd()
+    found = []
+    for name in names[:PRODUCED_LIMIT]:
+        path = Path(name).expanduser()
+        if not path.is_absolute():
+            path = base / path
+        path = Path(os.path.normpath(path))
+        found.append({"path": str(path), "hash": rawlog.file_hash(path)})
+    return found
+
+
+@dataclass
+class _Mark:
+    """One point at which wikiskill knew a file's content: a produce, or an earlier output edit."""
+
+    order: tuple[str, str, int]
+    event: dict[str, Any]
+    log: Path
+    hash: str | None
+
+
+@dataclass
+class _Seen:
+    marks: dict[str, list[_Mark]] = field(default_factory=dict)
+    #: Content a write call logged in full, by its hash: the `before` of a later diff.
+    contents: dict[str, str] = field(default_factory=dict)
+    #: Calls that may have changed a file without saying which: (order, their input as text).
+    touches: list[tuple[tuple[str, str, int], str]] = field(default_factory=list)
+
+
+def _order(event: dict[str, Any], log: Path, line: int) -> tuple[str, str, int]:
+    """Time, then place in the log: events one process writes in a millisecond share a timestamp,
+    and their ids' random tails do not say which came first; the file does."""
+    return str(event.get("ts", "")), str(log), line
+
+
+def _read_logs(raw_dir: Path, now: datetime) -> _Seen:
+    seen = _Seen()
+    cutoff = (now - SCAN_WITHIN).timestamp()
+    for log in rawlog.log_files(raw_dir):
+        try:
+            if log.stat().st_mtime < cutoff:
+                continue
+            events = list(rawlog.read_events(log))
+        except (OSError, rawlog.RawLogError):
+            continue
+        for line, event in enumerate(events):
+            if event.get("origin") != "live":
+                continue
+            _note_event(seen, event, _order(event, log, line), log)
+    return seen
+
+
+def _note_event(seen: _Seen, event: dict[str, Any], order: tuple[str, str, int], log: Path) -> None:
+    payload = event.get("payload") or {}
+    if event.get("type") == "output_edit":
+        mark = _Mark(order, event, log, payload.get("after_hash"))
+        seen.marks.setdefault(str(payload.get("path")), []).append(mark)
+        return
+    if event.get("type") != "tool_call" or not payload.get("ok"):
+        return
+    produced = payload.get("produced_files") or []
+    for entry in produced:
+        seen.marks.setdefault(entry["path"], []).append(_Mark(order, event, log, entry["hash"]))
+    args = payload.get("input") or {}
+    content = args.get("content") if isinstance(args, dict) else None
+    if isinstance(content, str):
+        seen.contents.setdefault(rawlog.content_hash(content.encode("utf-8")), content)
+    if not produced and str(payload.get("tool")) not in READ_ONLY_TOOLS:
+        seen.touches.append((order, json.dumps(args, ensure_ascii=False)))
+
+
+def _git_before(path: Path, before_hash: str) -> str | None:
+    """The file as git has it, at HEAD or in the index, if that is the content last recorded."""
+    for spec in (f"HEAD:./{path.name}", f":./{path.name}"):
+        try:
+            shown = subprocess.run(
+                ["git", "-C", str(path.parent), "show", spec],
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if shown.returncode == 0 and rawlog.content_hash(shown.stdout) == before_hash:
+            return shown.stdout.decode("utf-8", errors="replace")
+    return None
+
+
+def _diff(
+    path: Path, before_hash: str, contents: Mapping[str, str], secrets: list[str] | None
+) -> tuple[str | None, bool, str | None]:
+    """A unified diff from the recorded content to the file now: (diff, truncated, source).
+
+    The scan only has hashes, so the `before` side is whatever content matches one: the text a
+    write call logged, else git's copy. With neither, the edit is still recorded, without a diff.
+    """
+    before, source = contents.get(before_hash), "content"
+    if before is None:
+        before, source = _git_before(path, before_hash), "git"
+    if before is None:
+        return None, False, None
+    try:
+        data = path.read_bytes() if path.exists() else b""
+    except OSError:
+        return None, False, None
+    if b"\0" in data:
+        return None, False, None
+    after = data.decode("utf-8", errors="replace")
+    lines = difflib.unified_diff(
+        before.splitlines(keepends=True),
+        after.splitlines(keepends=True),
+        fromfile=f"a/{path.name}",
+        tofile=f"b/{path.name}",
+    )
+    text = "".join(lines)
+    if secrets is not None:
+        text, _ = redact(text, secrets)
+    limited = bound(text, DIFF_LIMIT)
+    return limited.text, limited.truncated, source
+
+
+def _explained(seen: _Seen, path: str, since: tuple[str, str, int]) -> bool:
+    """A logged call after the last known content that may have changed the file, such as a shell
+    command naming it. Nothing can say what it did, so the change is not the user's to own."""
+    name = Path(path).name
+    return any(order > since and name in text for order, text in seen.touches)
+
+
+@contextlib.contextmanager
+def _scan_lock(raw_dir: Path) -> Iterator[bool]:
+    """Held for a whole scan; a second scan of the same directory finds it held and stops, rather
+    than recording the same edit twice."""
+    lock = raw_dir / ".sessions" / "scan.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with lock.open("a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def scan(
+    raw_dir: Path,
+    *,
+    redact_diffs: bool = True,
+    env: Mapping[str, str] | None = None,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Record an `output_edit` for each produced file that changed since wikiskill last knew it.
+
+    Returns the events written. The last known content is the latest of a logged write and an
+    earlier `output_edit`, so each change is recorded once, however often this runs.
+    """
+    raw_dir = Path(raw_dir)
+    if not raw_dir.is_dir():
+        return []
+    now = now or datetime.now(UTC)
+    secrets = env_secrets(os.environ if env is None else env) if redact_diffs else None
+    written: list[dict[str, Any]] = []
+    with _scan_lock(raw_dir) as held:
+        if not held:
+            return []
+        seen = _read_logs(raw_dir, now)
+        newest = sorted(seen.marks.items(), key=lambda item: max(m.order for m in item[1]))
+        for path, marks in reversed(newest[-SCAN_LIMIT:]):
+            event = _edit_event(seen, Path(path), sorted(marks, key=lambda m: m.order), secrets)
+            if event is not None:
+                written.append(rawlog.RawLogWriter(event.pop("_log")).append(event))
+    return written
+
+
+def _edit_event(
+    seen: _Seen, path: Path, marks: list[_Mark], secrets: list[str] | None
+) -> dict[str, Any] | None:
+    last = marks[-1]
+    owner = next((m for m in reversed(marks) if m.event.get("component")), None)
+    if last.hash is None or owner is None or _explained(seen, str(path), last.order):
+        return None
+    now_hash = rawlog.file_hash(path) if path.exists() else None
+    if now_hash == last.hash:
+        return None
+    diff, truncated, source = _diff(path, last.hash, seen.contents, secrets)
+    payload = owner.event.get("payload") or {}
+    call_id = (
+        payload.get("produced_by_call_id")
+        if owner.event.get("type") == "output_edit"
+        else payload.get("call_id")
+    )
+    return {
+        **{key: owner.event.get(key) for key in _IDENTITY},
+        "origin": "live",
+        "component": owner.event["component"],
+        "type": "output_edit",
+        "confidence": "low",
+        "payload": {
+            "path": str(path),
+            "before_hash": last.hash,
+            "after_hash": now_hash,
+            "diff": diff,
+            "diff_truncated": truncated,
+            "diff_source": source,
+            "produced_by_call_id": call_id,
+        },
+        # Beside the run that produced it, as a note is.
+        "_log": owner.log,
+    }

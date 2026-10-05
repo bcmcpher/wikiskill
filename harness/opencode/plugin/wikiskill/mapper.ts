@@ -13,6 +13,7 @@ import type {
   Confidence,
   ComponentRef,
   Identity,
+  ProducedFile,
   RawEvent,
   RawEventType,
   Redaction,
@@ -195,6 +196,8 @@ export interface ToolCallInfo {
   metadata?: Record<string, unknown>
   error?: string
   durationMs?: number
+  /** Hashed by the caller when the call completed; see `produced.ts`. */
+  producedFiles?: ProducedFile[]
 }
 
 export function mapToolCall(
@@ -237,6 +240,7 @@ export function mapToolCall(
       output_hash: null,
       error: call.error ?? null,
       duration_ms: call.durationMs ?? null,
+      ...(call.producedFiles?.length ? { produced_files: call.producedFiles } : {}),
     },
     merge(redactions),
     now,

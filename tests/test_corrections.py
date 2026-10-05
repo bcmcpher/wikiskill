@@ -320,3 +320,211 @@ def test_the_follow_up_window_defaults_to_three_and_must_be_positive(xdg, plugin
     )
     with pytest.raises(collection_mod.ManifestError, match="follow_up_turns"):
         collection_mod.load("dsh")
+
+
+# --------------------------------------------------------------------------- output edits
+
+
+def produced(path, *, content=None, component=SKILL, call_id="call_w", tool="write", **overrides):
+    """A logged write call that left `path` as it is now."""
+    args = {"filePath": str(path)}
+    if content is not None:
+        args["content"] = content
+    return base(
+        component=component,
+        type="tool_call",
+        payload={
+            "tool": tool,
+            "call_id": call_id,
+            "ok": True,
+            "input": args,
+            "output": "",
+            "output_length": 0,
+            "output_truncated": False,
+            "produced_files": [{"path": str(path), "hash": rawlog.file_hash(path)}],
+        },
+        **overrides,
+    )
+
+
+def called(tool, args, **overrides):
+    return base(
+        type="tool_call",
+        payload={
+            "tool": tool,
+            "ok": True,
+            "input": args,
+            "output": "",
+            "output_length": 0,
+            "output_truncated": False,
+        },
+        **overrides,
+    )
+
+
+@pytest.fixture
+def script(project):
+    path = project / "analysis.py"
+    path.write_text("import pandas\nprint(1)\n", encoding="utf-8")
+    return path
+
+
+def test_a_hand_edit_to_a_produced_file_is_an_output_edit(raw, script):
+    log = log_session(raw, activated(), produced(script, content=script.read_text()))
+    script.write_text("import pandas\nprint(2)\n", encoding="utf-8")
+
+    [edit] = corrections.scan(raw)
+
+    assert edit["type"] == "output_edit"
+    assert edit["confidence"] == "low"
+    assert edit["component"] == SKILL
+    assert edit["session_id"] == ROOT
+    payload = edit["payload"]
+    assert payload["path"] == str(script)
+    assert payload["after_hash"] == rawlog.file_hash(script)
+    assert payload["produced_by_call_id"] == "call_w"
+    assert payload["diff_source"] == "content"
+    assert "-print(1)\n+print(2)" in payload["diff"]
+    assert rawlog.validate_file(log) == []
+    assert list(rawlog.read_events(log))[-1]["event_id"] == edit["event_id"]
+
+
+def test_each_change_is_recorded_once(raw, script):
+    log_session(raw, activated(), produced(script, content=script.read_text()))
+    script.write_text("changed\n", encoding="utf-8")
+    assert len(corrections.scan(raw)) == 1
+    assert corrections.scan(raw) == []
+    script.write_text("changed again\n", encoding="utf-8")
+    [second] = corrections.scan(raw)
+    # Only the newer change; the earlier one's content is not known, so there is no diff.
+    assert second["payload"]["before_hash"] == rawlog.content_hash(b"changed\n")
+    assert second["payload"]["diff"] is None
+    assert second["payload"]["produced_by_call_id"] == "call_w"
+
+
+def test_an_unchanged_file_is_not_an_edit(raw, script):
+    log_session(raw, activated(), produced(script))
+    assert corrections.scan(raw) == []
+
+
+def test_a_later_logged_write_explains_the_change(raw, script):
+    first = produced(script)
+    script.write_text("rewritten by the agent\n", encoding="utf-8")
+    log_session(raw, activated(), first, produced(script, component=None, call_id="call_2"))
+    assert corrections.scan(raw) == []
+
+
+def test_a_later_shell_command_naming_the_file_explains_the_change(raw, script):
+    log_session(
+        raw,
+        activated(),
+        produced(script),
+        called("bash", {"command": f"sed -i s/1/2/ {script.name}"}),
+    )
+    script.write_text("import pandas\nprint(2)\n", encoding="utf-8")
+    assert corrections.scan(raw) == []
+
+
+def test_a_read_naming_the_file_explains_nothing(raw, script):
+    log_session(raw, activated(), produced(script), called("read", {"filePath": str(script)}))
+    script.write_text("edited\n", encoding="utf-8")
+    assert len(corrections.scan(raw)) == 1
+
+
+def test_a_file_no_component_wrote_is_not_watched(raw, script):
+    log_session(raw, produced(script, component=None))
+    script.write_text("edited\n", encoding="utf-8")
+    assert corrections.scan(raw) == []
+
+
+def test_a_deleted_file_is_an_edit_with_no_after_hash(raw, script):
+    log_session(raw, activated(), produced(script, content=script.read_text()))
+    script.unlink()
+    [edit] = corrections.scan(raw)
+    assert edit["payload"]["after_hash"] is None
+    assert "-print(1)" in edit["payload"]["diff"]
+    assert corrections.scan(raw) == []
+
+
+def test_an_evaluation_is_never_scanned(raw, script):
+    run = {
+        "run_id": rawlog.new_event_id(),
+        "suite": "s",
+        "task_id": "t",
+        "condition": "routed",
+        "repeat": 1,
+    }
+    log_session(raw, produced(script, origin="eval", eval=run))
+    script.write_text("edited\n", encoding="utf-8")
+    assert corrections.scan(raw) == []
+
+
+def test_git_supplies_the_before_side_of_an_edit(raw, project):
+    import subprocess
+
+    def git(*args):
+        subprocess.run(["git", "-C", str(project), *args], check=True, capture_output=True)
+
+    path = project / "model.py"
+    path.write_text("fit()\n", encoding="utf-8")
+    git("init", "-q")
+    git("add", "model.py")
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x")
+    # An edit call logs no content, so only git can say what the file held.
+    log_session(raw, activated(), produced(path, tool="edit"))
+    path.write_text("fit(robust=True)\n", encoding="utf-8")
+
+    [edit] = corrections.scan(raw)
+    assert edit["payload"]["diff_source"] == "git"
+    assert "+fit(robust=True)" in edit["payload"]["diff"]
+
+
+def test_a_diff_is_capped_and_redacted(raw, script):
+    log_session(raw, activated(), produced(script, content=script.read_text()))
+    script.write_text(
+        "key = 'sk-ant-api03-AAAABBBBCCCCDDDDEEEE'\n" + "x = 1\n" * 4000, encoding="utf-8"
+    )
+    [edit] = corrections.scan(raw)
+    assert "sk-ant" not in edit["payload"]["diff"]
+    assert edit["payload"]["diff_truncated"] is True
+    assert len(edit["payload"]["diff"].encode()) <= corrections.DIFF_LIMIT
+
+
+def test_a_scan_already_running_leaves_it_alone(raw, script):
+    import fcntl
+
+    log_session(raw, activated(), produced(script))
+    script.write_text("edited\n", encoding="utf-8")
+    lock = raw / ".sessions" / "scan.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with lock.open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        assert corrections.scan(raw) == []
+    assert len(corrections.scan(raw)) == 1
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "expected"),
+    [
+        ("Write", {"file_path": "/abs/a.py"}, ["/abs/a.py"]),
+        ("NotebookEdit", {"notebook_path": "nb.ipynb"}, ["/p/nb.ipynb"]),
+        ("edit", {"filePath": "../x/b.py"}, ["/x/b.py"]),
+        ("apply_patch", {"patchText": "*** Add File: c.py\n+1\n"}, ["/p/c.py"]),
+        ("Bash", {"command": "touch d.py"}, []),
+    ],
+)
+def test_produced_paths_are_absolute(tool, args, expected):
+    found = corrections.produced_files(tool, args, "/p")
+    assert [entry["path"] for entry in found] == expected
+    assert all(entry["hash"] is None for entry in found)
+
+
+def test_the_cli_scans_every_collection(dsh, script, capsys):
+    raw = collection_mod.paths.raw_dir("dsh")
+    log_session(raw, activated(), produced(script))
+    script.write_text("edited\n", encoding="utf-8")
+    assert cli.main(["corrections", "scan", "--quiet"]) == cli.OK
+    assert capsys.readouterr().out == ""
+    script.write_text("edited twice\n", encoding="utf-8")
+    assert cli.main(["corrections", "scan"]) == cli.OK
+    assert "skill:govern/preregister" in capsys.readouterr().out

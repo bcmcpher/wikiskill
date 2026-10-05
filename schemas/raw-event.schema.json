@@ -3,7 +3,7 @@
   "$id": "https://github.com/bcmcpher/wikiskill/schemas/raw-event.schema.json",
   "title": "wikiskill raw event",
   "description": "One line of a harness-neutral raw trace log. Every event carries harness, provider and model identity so the same skill can be compared across both.",
-  "$comment": "Version 1.1. 1.0 was add-trace-logging; 1.1 (add-correction-capture) adds user_turn, output_edit, note and repeat_activation, and the confidence field. Minor versions only add, so schema_version stays the major.",
+  "$comment": "Version 1.1. 1.0 was add-trace-logging; 1.1 (add-correction-capture) adds user_turn, output_edit, note and repeat_activation, the confidence field, and produced_files on tool_call. Minor versions only add, so schema_version stays the major.",
   "type": "object",
   "unevaluatedProperties": false,
   "required": [
@@ -341,7 +341,21 @@
               "output_truncated": { "type": "boolean" },
               "output_hash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
               "error": { "type": ["string", "null"] },
-              "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+              "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
+              "produced_files": {
+                "description": "(1.1) Files a write, edit or patch call left on disk: the absolute path and the hash of its content just after the call, null when the call deleted it. `wikiskill corrections scan` compares them with the files later.",
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "hash"],
+                  "properties": {
+                    "path": { "type": "string", "minLength": 1 },
+                    "hash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+                  }
+                }
+              }
             }
           }
         }

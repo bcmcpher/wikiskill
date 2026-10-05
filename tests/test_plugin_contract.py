@@ -139,3 +139,10 @@ def test_the_plugin_agrees_with_python_on_the_log_path(emitted, tmp_path):
     assert result.returncode == 0, result.stderr
     expected = rawlog.session_log_path("/raw", "2026-09-17T19:44:16.523Z", "ses_root")
     assert result.stdout.strip() == str(expected)
+
+
+def test_produced_files_reach_the_log_as_python_reads_them(emitted):
+    [write] = [
+        e for e in emitted if e["type"] == "tool_call" and e["payload"].get("produced_files")
+    ]
+    assert write["payload"]["produced_files"][1] == {"path": "/home/u/project/old.py", "hash": None}

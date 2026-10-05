@@ -26,6 +26,14 @@ AGENT = "aa4d3eb256b95648d"
 NO_ENV: dict[str, str] = {}
 
 
+@pytest.fixture(autouse=True)
+def scans(monkeypatch):
+    """Scans the hooks would start, recorded instead of spawned."""
+    started: list[bool] = []
+    monkeypatch.setattr(hooks, "start_scan", lambda: started.append(True))
+    return started
+
+
 @pytest.fixture
 def world(tmp_path, xdg):
     """A collection watching the capture plugin's skill, agent and command, and the transcripts."""
@@ -228,6 +236,59 @@ def test_a_logged_session_can_take_a_note(world):
     replay(world, "session")
     cwd = CAPTURE["session"][0]["cwd"]
     assert corrections.active_sessions(world["raw"], cwd)[0][0] == SESSION
+
+
+# --------------------------------------------------------------------------- output edits
+
+
+def _write_call(world, target, content):
+    """A Write after the capture's skill call: the payload shape Claude Code 2.1.289 sends."""
+    skill = next(p for p in payloads(world, "session") if p.get("tool_name") == "Skill")
+    target.write_text(content, encoding="utf-8")
+    return {
+        **{k: skill[k] for k in ("session_id", "transcript_path", "cwd")},
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(target), "content": content},
+        "tool_response": {"type": "create", "filePath": str(target)},
+        "tool_use_id": "toolu_write",
+    }
+
+
+def test_a_write_records_the_file_it_produced(world, tmp_path):
+    skill = next(p for p in payloads(world, "session") if p.get("tool_name") == "Skill")
+    hooks.handle("PostToolUse", skill, env=NO_ENV, configs=[world["config"]])
+    target = tmp_path / "analysis.py"
+    payload = _write_call(world, target, "print(1)\n")
+    hooks.handle("PostToolUse", payload, env=NO_ENV, configs=[world["config"]])
+
+    [write] = [e for e in of(logged(world), "tool_call") if e["payload"]["tool"] == "Write"]
+    assert write["payload"]["produced_files"] == [
+        {"path": str(target), "hash": rawlog.file_hash(target)}
+    ]
+    assert write["component"]["name"] == "wscapture/probe-skill"
+    assert rawlog.schema_errors(write) == []
+
+
+def test_a_failed_write_produced_nothing(world, tmp_path):
+    payload = _write_call(world, tmp_path / "analysis.py", "x")
+    hooks.handle("PostToolUseFailure", payload, env=NO_ENV, configs=[world["config"]])
+    hooks.handle(
+        "PostToolUse", payloads(world, "session")[3], env=NO_ENV, configs=[world["config"]]
+    )
+    failed = [e for e in of(logged(world), "tool_call") if e["payload"]["tool"] == "Write"]
+    assert failed
+    assert "produced_files" not in failed[0]["payload"]
+
+
+def test_a_session_start_starts_one_scan(world, scans):
+    replay(world, "session", "resume")
+    starts = sum(
+        p["hook_event_name"] == "SessionStart" for n in ("session", "resume") for p in CAPTURE[n]
+    )
+    assert starts >= 2
+    # The resume is seconds after the first start: one scan covers both.
+    assert scans == [True]
 
 
 # --------------------------------------------------------------------------- the gate

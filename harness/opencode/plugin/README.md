@@ -14,6 +14,7 @@ skill, subagent or command.
 | `wikiskill/sessions.ts` | session identity, the pre-activation ring buffer, the delegation tree, the follow-up window |
 | `wikiskill/writer.ts` | append-only writes, the logger error log, and the active-session file `wikiskill note` reads |
 | `wikiskill/config.ts` | reads `runtime.json`, published by the Python CLI |
+| `wikiskill/produced.ts` | `produced_files` for write/edit/patch calls, and the detached `wikiskill corrections scan` started when a root session is created |
 | `wikiskill/hash.ts` | the component `source_hash`, cached by path *and* mtime/size |
 | `wikiskill/types.ts` | the raw event shape, mirroring `schemas/raw-event.schema.json` |
 

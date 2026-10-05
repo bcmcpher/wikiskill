@@ -707,3 +707,26 @@ describe("correction signals", () => {
     expect(existsSync(join(rawDir, ".sessions"))).toBe(false)
   })
 })
+
+describe("produced files", () => {
+  test("a write after an activation records the file and its hash", async () => {
+    writeRuntime()
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+    const target = join(home, "analysis.py")
+    writeFileSync(target, "print(1)\n")
+    await hooks["tool.execute.after"](
+      { tool: "write", sessionID: SESSION, callID: "call_write", args: { filePath: target } },
+      { title: "", output: "Wrote file", metadata: {} },
+    )
+
+    const write = logLines().find((e) => e.type === "tool_call" && e.payload.tool === "write")
+    expect(write.payload.produced_files).toEqual([
+      { path: target, hash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/) },
+    ])
+    expect(write.component.kind).toBe("skill")
+    const other = logLines().find((e) => e.type === "tool_call" && e.payload.tool === "skill")
+    expect(other.payload.produced_files).toBeUndefined()
+  })
+})

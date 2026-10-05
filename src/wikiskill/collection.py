@@ -598,6 +598,8 @@ def write_runtime_config(collections: Sequence[Collection]) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "version": 1,
+        # How a logger starts `wikiskill corrections scan` without a shell or a login PATH.
+        "cli": paths.cli_argv(),
         "collections": [collection.runtime_config() for collection in collections],
     }
     target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")

@@ -24,13 +24,14 @@ the OpenCode backend's report format has settled, and open-model preflight (5.x)
 ## 3. Corrections on Claude Code
 
 - [x] 3.1 `user_turn` and `repeat_activation` from `UserPromptSubmit` and `PostToolUse`.
-- [ ] 3.2 `produced_files` on Write/Edit; reuse `wikiskill corrections scan`. Waits for
-  `add-correction-capture` 2.x, which is deferred there.
+- [x] 3.2 `produced_files` on Write/Edit; reuse `wikiskill corrections scan`. Built with
+  `add-correction-capture` 2.x: Write, Edit, MultiEdit and NotebookEdit record it, and
+  `SessionStart` starts the scan detached, at most every 10 minutes per session.
 - [x] 3.3 `/wikiskill-note` built as a Claude Code command.
 
 ## Implementation notes (2026-10-05)
 
-Parts 1–3 are built, except 3.2. The hook shapes come from Claude Code 2.1.289, captured with a
+Parts 1–3 are built (3.2 later, with `add-correction-capture` 2.x). The hook shapes come from Claude Code 2.1.289, captured with a
 throwaway plugin into `tests/fixtures/claude-code/` (about $0.08 of Haiku). A further live check
 (about $0.06) ran the built plugin through `claude --plugin-dir`. Its hooks logged a skill
 activation, a follow-up `user_turn` (high) on resume, and a `wikiskill note` run from the same

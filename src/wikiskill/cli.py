@@ -7,10 +7,12 @@ be read by a person and its exit codes are meaningful: 0 success, 1 a reported f
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
 from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import __version__, adapters, logtools, paths
@@ -368,6 +370,42 @@ def cmd_note(args: argparse.Namespace) -> int:
         for warning in note.warnings:
             print(f"  warning: {warning}", file=sys.stderr)
     return OK
+
+
+def cmd_corrections_scan(args: argparse.Namespace) -> int:
+    """Record edits to files components wrote. `--quiet` is how the loggers run it: in the
+    background, at session start, where nothing may be printed and nothing may fail."""
+    found, problems = [], []
+    for coll in _note_collections(args.collection):
+        try:
+            events = corrections_mod.scan(paths.raw_dir(coll.name), redact_diffs=coll.redact)
+        except (OSError, RawLogError) as exc:
+            problems.append(f"{coll.name}: {exc}")
+            if args.quiet:
+                _log_scan_error(coll, exc)
+            continue
+        found.extend((coll, event) for event in events)
+    if args.quiet:
+        return OK
+    for coll, event in found:
+        component = event["component"]
+        print(
+            f"output_edit  {coll.name}  {component['kind']}:{component['name']}  "
+            f"{event['payload']['path']}"
+        )
+    for problem in problems:
+        print(f"error: {problem}", file=sys.stderr)
+    if not found and not problems:
+        print("no edits to produced files")
+    return FAILED if problems else OK
+
+
+def _log_scan_error(coll: Collection, exc: Exception) -> None:
+    with contextlib.suppress(OSError):
+        log = paths.logger_error_log(coll.name)
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with log.open("a", encoding="utf-8") as handle:
+            handle.write(f"{datetime.now(UTC).isoformat()} corrections scan: {exc}\n")
 
 
 # --------------------------------------------------------------------------- suite
@@ -796,6 +834,21 @@ def _add_note_parser(sub) -> None:
     note.set_defaults(func=cmd_note)
 
 
+def _add_corrections_parser(sub) -> None:
+    corr = sub.add_parser("corrections", help="find correction signals outside a session")
+    corr_sub = corr.add_subparsers(dest="corrections_command", required=True)
+    scan = corr_sub.add_parser(
+        "scan", help="record edits made to files a watched component wrote, since it wrote them"
+    )
+    scan.add_argument(
+        "--collection", default=None, help="only this collection (default: every one)"
+    )
+    scan.add_argument(
+        "--quiet", action="store_true", help="print nothing and always succeed (for the loggers)"
+    )
+    scan.set_defaults(func=cmd_corrections_scan)
+
+
 def _add_compare_parser(sub) -> None:
     cmp = sub.add_parser(
         "compare", help="compare two runs of one suite across versions of a component"
@@ -1013,6 +1066,7 @@ def build_parser() -> argparse.ArgumentParser:
     for add_parser in (
         _add_hook_parser,
         _add_note_parser,
+        _add_corrections_parser,
         _add_compare_parser,
         _add_leaderboard_parser,
         _add_review_parser,

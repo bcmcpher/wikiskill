@@ -26,6 +26,7 @@ import fnmatch
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterator
@@ -521,8 +522,28 @@ def _response_text(response: Any) -> str:
     return json.dumps(response, ensure_ascii=False, sort_keys=True)
 
 
+#: A session starting within this long of the last scan this session started does not start another.
+SCAN_EVERY = 10 * 60
+
+
+def start_scan() -> None:
+    """`wikiskill corrections scan` in its own process group, so it outlives the hook's timeout and
+    nothing it does reaches the session."""
+    subprocess.Popen(
+        [sys.executable, "-m", "wikiskill", "corrections", "scan", "--quiet"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 def on_session_start(log: Logger, payload: dict[str, Any]) -> None:
     prune_states(log.now)
+    # Files edited since a component wrote them are found when work resumes, as on OpenCode.
+    if log.now - float(log.state.get("scanned_at") or 0) >= SCAN_EVERY:
+        log.state["scanned_at"] = log.now
+        start_scan()
     log.emit(
         lambda config: log.event(
             config, "session_start", {"cwd": payload.get("cwd"), "title": None, "agent": None}
@@ -616,6 +637,8 @@ def on_tool(log: Logger, payload: dict[str, Any], *, failed: bool) -> None:
 
     output = _response_text(response)
     error = str(payload.get("error") or "tool call failed") if failed else None
+    # Hashed now, once, while the file is as the call left it.
+    produced = [] if failed else corrections.produced_files(tool, args, log.state.get("cwd"))
 
     def factory(config: dict[str, Any]) -> Event:
         text, truncated, redactions = log.text(config, output)
@@ -638,6 +661,7 @@ def on_tool(log: Logger, payload: dict[str, Any], *, failed: bool) -> None:
                 "output_hash": None,
                 "error": error,
                 "duration_ms": payload.get("duration_ms"),
+                **({"produced_files": produced} if produced else {}),
             },
             agent_id=agent_id,
             redactions=merge(found),

@@ -62,6 +62,21 @@ const emitted: (RawEvent | null)[] = [
   mapToolCall(call(tools.task), root, options, NOW),
   mapToolCall(call(tools.bash_with_secret), child, options, NOW),
   mapToolCall({ tool: "write", args: {}, output: "", error: "ENOENT" }, root, options, NOW),
+  mapToolCall(
+    {
+      tool: "write",
+      callID: "call_write",
+      args: { filePath: "/home/u/project/analysis.py", content: "print(1)\n" },
+      output: "Wrote file successfully.",
+      producedFiles: [
+        { path: "/home/u/project/analysis.py", hash: "sha256:" + "c".repeat(64) },
+        { path: "/home/u/project/old.py", hash: null },
+      ],
+    },
+    root,
+    options,
+    NOW,
+  ),
   mapToolCall({ tool: "bash", args: {}, output: "y".repeat(40_000) }, root, options, NOW),
   mapAssistantTurn(
     { type: "text", text: "done", messageID: "msg_1", time: { start: NOW - 10, end: NOW } },

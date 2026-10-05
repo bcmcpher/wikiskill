@@ -104,5 +104,13 @@ export interface CollectionConfig {
 
 export interface RuntimeConfig {
   version: number
+  /** How to run `wikiskill` without a shell; absent from configurations older than 1.1. */
+  cli?: string[]
   collections: CollectionConfig[]
+}
+
+/** A file a write, edit or patch call left on disk; `hash` is null when the call deleted it. */
+export interface ProducedFile {
+  path: string
+  hash: string | null
 }
