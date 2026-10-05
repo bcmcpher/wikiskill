@@ -238,6 +238,8 @@ def evaluated_run(coll, doer, tmp_path, *, run_id="01RUN", units=6, model="ollam
             "outcome": "completed",
             "passed": False,
             "expected": {"primary": "datalad-doer"},
+            # As a real result carries it: the harness's session, not a live session's ref.
+            "session_id": f"ses_{run_id}_{repeat}",
         }
         for repeat in range(units)
     ]

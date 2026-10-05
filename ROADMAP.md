@@ -37,6 +37,18 @@ Step 3 is **closed**: archived on 2026-10-05 with its three capabilities live. T
 and review and refine ran live on `datalad/datalad-doer`, but DSH deleted that unit upstream before
 its v1-against-v2 comparison, so that comparison moved to step 4's first per-unit pilot.
 
+Step 4 has its first unit through the loop, and the change stays open for its passive-use tasks.
+- `archive/archive-doer` ran on two local open models with OFF as the control. Its instructions
+  lifted the pass rate from 44–50% to 89–100%, with non-overlapping intervals. No reply on either
+  model invented a DOI.
+- The local proposer's patch was tested as a candidate run, replayed and rejected: it restated a
+  readiness-script path that does not resolve outside a DSH checkout, which is the doer's real
+  defect.
+- The pilot fixed two wikiskill bugs. Review let OFF units crowd out the component's own. The
+  proposer's prompt dropped cited eval evidence.
+- The report is [`docs/pilots/dsh.md`](docs/pilots/dsh.md). The routing probe, passive use and Phase
+  2 stay deferred.
+
 Step 7 is **done**: archived on 2026-10-05, built on step 3's wiki rather than beside it. Review
 now samples by signal, with explicit notes first and clean evidence last, each up to a quota. A
 watermark shows each review only what is new. The prompt budget follows the maintainer's context.
@@ -113,7 +125,7 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
 | 2 ✅ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
 | 3 ✅ | `add-minimal-loop` | experience-wiki, refinement-proposal, version-comparison (+ collection-config, harness-packaging, eval-runner) | 1, 2 | The whole loop once, on one unit (`datalad-doer`), with a light gate: a human decision informed by a v1-vs-v2 comparison with intervals. |
-| 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. |
+| 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. First unit (`archive-doer`) done; passive use waits for Milestone C. |
 | 5 ✅ | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 6 ✅ | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
 | 7 ✅ | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
@@ -168,6 +180,18 @@ naming the check that failed (`/count/ not found in the final text`) and classif
 from `route@1`, or from nothing at all, so the two are never compared by accident. What the routing
 report still wants is the data-science-harness suite itself (task 1.3) and the pilot (step 4) — not
 hardware, and no longer scoring. Step 3 comes first: the loop on one unit.
+
+**Milestone A is met** (2026-10-05). `archive/archive-doer` went through the whole loop, every step
+started by hand:
+- evaluated (`01M46QWP6CTEM5DN807VS7GQMW`)
+- reviewed into a pattern
+- patched by the local proposer (`p-002`)
+- re-evaluated as a candidate (`01M46VFM331Y2MXZ8DNPTY5R6J`)
+- replayed against v1, with the rejection recorded in `skill-impact.md`
+
+Both models passed preflight, and the comparison gives pass rates with intervals per model. The
+loop worked, but its patterns and proposals were weak: the local maintainer misread the defect,
+which the report describes.
 
 ### B — Signals in both harnesses (5–6)
 

@@ -1,0 +1,37 @@
+# One unit of data-science-harness: the archive doer and the archive-cli toolbox it consults.
+#
+# The doer's rule is never to fabricate a DOI: with no credentials it reports `result: unminted`.
+# A collection is loaded by name, so copy this to
+# ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/dsh-archive.toml, then:
+#
+#     wikiskill collection check dsh-archive --sync
+#     wikiskill build --collection dsh-archive --harness opencode --out /tmp/dsh-archive
+
+name = "dsh-archive"
+
+sources = [
+  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin", plugins = ["archive", "archive-cli"] },
+]
+
+[watch]
+agents = ["archive/archive-doer"]
+
+# Meta-roles run on their own endpoint, never on a model under test. qwen3:30b-a3b is also under
+# test here, so its reviews and proposals are about runs that include itself; the role reads
+# evidence, and is never scored.
+[roles.maintainer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:30b-a3b"
+context_tokens = 40960
+
+[roles.proposer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:30b-a3b"
+context_tokens = 40960
+
+[aliases.opencode]
+small = "ollama/gemma4:latest"
+large = "ollama/qwen3:30b-a3b"
+haiku = "small"
+sonnet = "large"
+opus = "large"

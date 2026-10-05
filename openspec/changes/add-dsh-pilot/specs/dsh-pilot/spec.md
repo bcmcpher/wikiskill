@@ -19,19 +19,21 @@ data-science-harness repository. Refinements MUST be delivered as patches.
 ### Requirement: Each unit is piloted through the loop
 
 The pilot MUST take each chosen unit — one plugin's skills, or one doer with its toolbox — through
-`add-minimal-loop`'s loop:
+the loop of `add-minimal-loop`, gated by `add-skill-refinement`:
 - a unit collection
 - a capability suite checked by hand
 - a v1 run with OFF as the control
-- a review, a proposal the user applies, and a v2 run with the same suite, models and repeats
-- a comparison with the decision recorded
+- a review, a proposal, and a v2 run of the proposal's candidate (`wikiskill eval --proposal`) with
+  the same suite, models and repeats, so the source is never edited to test it
+- a replay of v2 against v1 and the decision recorded
 
 The report MUST give pass rates with intervals per model and condition.
 
 #### Scenario: A unit completes the loop
 
 - **WHEN** a unit's v2 run finishes
-- **THEN** `wikiskill compare` reports it against v1, and `skill-impact.md` records the decision
+- **THEN** `wikiskill proposal replay` reports it against v1, and `skill-impact.md` records the
+  decision
 
 ### Requirement: The routing probe, when run, uses its declared control
 

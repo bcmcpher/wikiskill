@@ -650,3 +650,31 @@ def test_a_unit_the_harness_broke_under_is_not_evidence(doer_collection):
     with results.open("a") as handle:
         handle.write(json.dumps(broken) + "\n")
     assert "claude produced no session" not in review.digest(doer_collection, DOER).text
+
+
+def test_failures_the_component_took_part_in_come_before_off_failures(doer_collection):
+    results = paths.evals_dir("dsh") / RUN / "results.jsonl"
+    lines = results.read_text().splitlines(keepends=True)
+    off = [
+        json.dumps(
+            {
+                "run_id": RUN,
+                "task_id": f"off-{n}",
+                "model": "opencode/big-pickle",
+                "condition": "off",
+                "repeat": 0,
+                "outcome": "completed",
+                "passed": False,
+                "expected": {"primary": "datalad-doer", "agents": []},
+            }
+        )
+        + "\n"
+        for n in range(review.DEFAULT_SIGNALS)
+    ]
+    # Written first, so log order alone would let them fill the whole quota.
+    results.write_text("".join(off + lines))
+
+    found = review.digest(doer_collection, DOER)
+
+    assert found.evidence["E1"].ref["condition"] == "injected"
+    assert sum(1 for e in found.evidence.values() if e.ref["task_id"] == "save") == 2

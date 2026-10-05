@@ -32,7 +32,7 @@ from typing import Any
 from . import compare, paths, rawlog, wiki
 from .collection import Collection
 from .frontmatter import read as read_frontmatter
-from .runner.base import INFRA_OUTCOMES, new_run_id
+from .runner.base import INFRA_OUTCOMES, OFF, new_run_id
 from .runner.opencode import _default_guard_plugin
 from .runner.preflight import Endpoint, request_json
 
@@ -288,8 +288,12 @@ def cited_digest(
 
 
 def _ref_key(ref: dict[str, Any]) -> tuple[str, ...]:
-    """An evidence ref without its model, which refs written before step 7 do not carry."""
-    if "session_id" in ref:
+    """An evidence ref without its model, which refs written before step 7 do not carry.
+
+    Also keys an eval result, which carries its harness's `session_id` beside its `run_id`; only a
+    live session's ref has no `run_id`.
+    """
+    if "run_id" not in ref:
         return (str(ref["session_id"]),)
     return tuple(str(ref.get(k)) for k in ("run_id", "task_id", "condition", "repeat"))
 
@@ -306,9 +310,14 @@ def _unprocessed(
 
 
 def _choose(candidates: list[Candidate], signals: int, clean: int) -> tuple[list[Candidate], int]:
-    """Strongest signal first, newest first within a rank, each kind up to its quota."""
+    """Strongest signal first, newest first within a rank, each kind up to its quota.
+
+    Within a rank, evidence the component took part in comes before OFF units, which ran without
+    it: an OFF failure says what the task needs, never what the component's text did, so OFF units
+    alone filling the quota leaves the maintainer nothing to review.
+    """
     ordered = sorted(candidates, key=lambda c: c.newest, reverse=True)
-    ordered.sort(key=lambda c: c.rank)
+    ordered.sort(key=lambda c: (c.rank, c.evidence.ref.get("condition") == OFF))
     with_signal = [c for c in ordered if c.rank != CLEAN][:signals]
     without = [c for c in ordered if c.rank == CLEAN][:clean]
     chosen = with_signal + without
