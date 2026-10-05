@@ -33,6 +33,10 @@ Step 1 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/).
 
+Step 3 is **closed**: archived on 2026-10-05 with its three capabilities live. The loop is built
+and review and refine ran live on `datalad/datalad-doer`, but DSH deleted that unit upstream before
+its v1-against-v2 comparison, so that comparison moved to step 4's first per-unit pilot.
+
 Step 2 is **done**: implemented, archived under
 [`openspec/changes/archive/`](openspec/changes/archive/), and its three capabilities are live in
 [`openspec/specs/`](openspec/specs/). The task-suite format and `wikiskill suite check`; the
@@ -62,7 +66,7 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 |---|---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
 | 2 ✅ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
-| 3 | `add-minimal-loop` | experience-wiki, refinement-proposal, version-comparison (+ collection-config, harness-packaging, eval-runner) | 1, 2 | The whole loop once, on one unit (`datalad-doer`), with a light gate: a human decision informed by a v1-vs-v2 comparison with intervals. |
+| 3 ✅ | `add-minimal-loop` | experience-wiki, refinement-proposal, version-comparison (+ collection-config, harness-packaging, eval-runner) | 1, 2 | The whole loop once, on one unit (`datalad-doer`), with a light gate: a human decision informed by a v1-vs-v2 comparison with intervals. |
 | 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. |
 | 5 | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 6 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
@@ -77,8 +81,8 @@ those capabilities before they are applied (`add-minimal-loop` task 7.1).
 
 ### A — Foundation, measurement and a first loop (1–4)
 
-- **Milestone A:** OpenCode logs validate against the raw schema. One unit, `datalad/datalad-doer`,
-  has been through the whole loop once, with every step started by the user:
+- **Milestone A:** OpenCode logs validate against the raw schema. One unit (first `datalad/datalad-doer`,
+  now step 4's first pilot unit after that one was retired upstream) has been through the whole loop once, with every step started by the user:
   1. evaluated
   2. reviewed into wiki patterns
   3. patched

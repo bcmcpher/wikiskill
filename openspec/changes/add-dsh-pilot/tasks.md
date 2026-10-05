@@ -1,7 +1,9 @@
 ## 0. Minimal working core
 
-One more unit through the whole loop, after `datalad/datalad-doer` (done in `add-minimal-loop`), and
-a DSH pilot report covering both units (1.x, 2.x, 4.1).
+One unit through the whole loop, and a DSH pilot report (1.x, 2.x, 4.1). `add-minimal-loop` built
+the loop and ran review and refine live on `datalad/datalad-doer`, but that unit was deleted upstream
+before its v1/v2 comparison, so its 6.0c, 6.1, 6.2 and 8.4 move here: the first unit's 2.3–2.4 run
+is Milestone A's v1/v2 comparison.
 
 Deferred:
 - the routing probe over the whole collection (3.x), which is optional until per-unit pilots show

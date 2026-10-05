@@ -16,7 +16,8 @@ per model, and starts passive logging in real use.
   - tasks that only the unit's own instructions can pass, so OFF does not reach a ceiling
   - a v1 run, a review, a proposal, a v2 run, and a `wikiskill compare` with the decision recorded
 
-  `datalad/datalad-doer` is the first unit, done in `add-minimal-loop`.
+  `datalad/datalad-doer` ran review and refine in `add-minimal-loop`, but was deleted upstream before
+  its v1/v2 comparison; the first unit chosen here completes that comparison.
 - A DSH pilot report in the protocol's own terms: the named control, per-model reporting, and unrun
   probes stated.
 - **The routing probe, optional.** `bench/tasks/routing-lifecycle.yaml` through explicit eval under

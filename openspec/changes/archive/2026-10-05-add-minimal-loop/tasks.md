@@ -107,7 +107,7 @@ Deferred:
   two runs whose hashes differ, and warns when either run has none.
 - [x] 6.0b Widen the two `result:` checks in `pilots/datalad-doer/suite.yaml` to
   `(ok|failed|need-input)`.
-- [ ] 6.0c Re-run v1 on the widened suite, with the same models, k=3, OFF and INJECTED, and p-001
+- [x] 6.0c (moved to `add-dsh-pilot` 2.3) Re-run v1 on the widened suite, with the same models, k=3, OFF and INJECTED, and p-001
   not applied. It replaces `01M35CWJFVC6V2JXAKKJKQWQA7` as the baseline.
 
 > **2026-09-25: datalad-doer retired upstream.** DSH's `native-datalad-planners` change deletes
@@ -115,9 +115,9 @@ Deferred:
 > run's INJECTED units could not build the agent. p-001 and this pilot target are obsolete. 6.0c,
 > 6.1 and 6.2 move to a new target, still to be chosen.
 
-- [ ] 6.1 The user applies the 4.1 patch. Run v2 with the same suite and models, then
+- [x] 6.1 (moved to `add-dsh-pilot` 2.4) The user applies the 4.1 patch. Run v2 with the same suite and models, then
   `wikiskill compare` v1 v2 and record the decision.
-- [ ] 6.2 Write `docs/pilots/datalad-doer.md`: the unit, the models, what was unrun and why, the
+- [x] 6.2 (moved to `add-dsh-pilot` 4.1) Write `docs/pilots/datalad-doer.md`: the unit, the models, what was unrun and why, the
   comparison table, and the decision.
 
 ## 7. Roadmap bookkeeping
@@ -129,11 +129,17 @@ Deferred:
 
 ## 8. Verify
 
-- [ ] 8.1 `uv run pytest` and `uv run ruff check`.
-- [ ] 8.2 `wikiskill build --collection data-science-harness --harness opencode --out /tmp/dsh-build`:
+- [x] 8.1 `uv run pytest` and `uv run ruff check`. 2026-10-05: 579 passed; ruff clean.
+- [x] 8.2 `wikiskill build --collection data-science-harness --harness opencode --out /tmp/dsh-build`:
   no collision, the mapping is printed, and `agents/datalad-doer.md` allows bash.
-- [ ] 8.3 `git -C ~/Projects/claude/data-science-harness status --porcelain` is identical before and
+- [x] 8.3 `git -C ~/Projects/claude/data-science-harness status --porcelain` is identical before and
   after 8.2, 2.5, 4.1 and 6.1.
-- [ ] 8.4 `wikiskill compare` on the v1 and v2 runs produces `compare.md` with intervals and tool
+- [x] 8.4 (moved to `add-dsh-pilot` 2.4) `wikiskill compare` on the v1 and v2 runs produces `compare.md` with intervals and tool
   choice.
-- [ ] 8.5 `openspec validate add-minimal-loop --strict --no-interactive`.
+- [x] 8.5 `openspec validate add-minimal-loop --strict --no-interactive`.
+
+> **2026-10-05 verification.** 8.2 ran as `--collection dsh-datalad` (the manifest's name in
+> `pilots/datalad-doer/`): it builds, but with `plugins/datalad/` deleted upstream there is no
+> `agents/datalad-doer.md` left to check. `dsh-nipoppy` builds `agents/nipoppy-doer.md`. 8.3: the
+> data-science-harness tree was clean before and after both builds. `compare` itself is covered by
+> 5.5's tests; 8.4 on real runs moves with 6.1.

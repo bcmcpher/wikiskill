@@ -10,10 +10,11 @@ records carries harness, provider and model identity.
 
 **Status:** roadmap steps 1 and 2 (`add-trace-logging`, `add-explicit-eval`) are done and archived:
 trace logging, task suites, the OpenCode eval backend with isolation and preflight, the OFF, ROUTED
-and INJECTED conditions, verifiers, and reports. Step 3, `add-minimal-loop`, is built and waiting on
-its live v1-against-v2 runs of one unit. `add-brainhack-readiness` adds what a workshop needs:
+and INJECTED conditions, verifiers, and reports. Step 3, `add-minimal-loop`, is archived: the
+review, refine and compare loop is built, and its live v1-against-v2 run moved to step 4's pilots. `add-brainhack-readiness` adds what a workshop needs:
 preflight that survives slow local models, `wikiskill leaderboard` to pool runs across machines, and
-the quickstart below. Steps 4–9 are designed and not yet built. See [`ROADMAP.md`](ROADMAP.md).
+the quickstart below. Correction capture (step 5) and Claude Code
+logging (step 6) are built and await live checks; steps 4 and 7–9 are designed and not yet built. See [`ROADMAP.md`](ROADMAP.md).
 
 **New here?** [The quickstart](docs/quickstart.md) goes from a clean machine to a finished,
 poolable run on a local model; [bring your own collection](docs/bring-your-own-collection.md) then
