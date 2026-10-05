@@ -33,7 +33,8 @@ sources MUST NOT write to the source directories.
 
 The manifest MUST let each meta-role — judge, maintainer, proposer — name its own OpenAI-compatible
 endpoint and model, independently of the models under test, and MUST reject a judge model that is
-also a model under test.
+also a model under test. A role MAY state its model's context in tokens, which work sent to that role
+is sized by.
 
 #### Scenario: Roles on different endpoints
 
@@ -44,6 +45,12 @@ also a model under test.
 
 - **WHEN** an evaluation's target model list includes the configured judge model
 - **THEN** the configuration is rejected with a message naming the model
+
+#### Scenario: Role context
+
+- **WHEN** `[roles.maintainer]` sets `context_tokens = 32768`
+- **THEN** the collection loads with that context on the maintainer role, and a context that is not
+  a positive integer is rejected
 
 ### Requirement: Model aliases are resolved per harness
 

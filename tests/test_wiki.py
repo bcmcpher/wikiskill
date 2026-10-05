@@ -52,6 +52,13 @@ def good_output(**changes):
     return output
 
 
+def git_log(root):
+    done = subprocess.run(
+        ["git", "-C", str(root), "log", "--format=%s"], capture_output=True, text=True, check=True
+    )
+    return done.stdout.splitlines()
+
+
 # --------------------------------------------------------------------------- validation
 
 
@@ -244,7 +251,7 @@ def test_the_digest_respects_its_budget(doer_collection):
     found = review.digest(doer_collection, DOER, budget=len(full.text) - 50)
     assert len(found.evidence) < len(full.evidence)
     assert found.omitted == len(full.evidence) - len(found.evidence)
-    assert "did not fit" in found.text
+    assert "wait for a later review" in found.text
 
 
 def test_reviewing_something_the_collection_lacks_is_refused(doer_collection):
@@ -289,13 +296,21 @@ def test_a_bad_reply_is_returned_with_its_problems_then_applied(doer_collection)
     assert "holds no JSON object" in seen[1][-1]["content"], "the problems go back to the model"
 
 
-def test_a_reply_that_never_validates_writes_nothing(doer_collection):
+def test_a_reply_that_never_validates_writes_only_a_log_entry(doer_collection):
     outcome = review.review(
         doer_collection, DOER, ask=lambda _m: "{}", maintainer="fake", retries=2
     )
     assert outcome.applied is None
     assert outcome.attempts == 3
-    assert not paths.wiki_dir("dsh").exists()
+    root = paths.wiki_dir("dsh")
+    assert not list((root / "patterns").glob("*.md"))
+    assert not (root / wiki.WATERMARK).exists(), "the evidence is still unreviewed"
+    log = (root / "log.md").read_text()
+    assert f"review of `{DOER}` by fake failed" in log
+    assert "after 3 attempt(s)" in log
+    assert git_log(root) == [f"review {DOER}: failed after 3 attempt(s)"]
+    # The failed review did not use the evidence up.
+    assert review.digest(doer_collection, DOER).evidence
 
 
 def test_cli_review_dry_run_and_reply_file(doer_collection, tmp_path, capsys):
@@ -308,9 +323,13 @@ def test_cli_review_dry_run_and_reply_file(doer_collection, tmp_path, capsys):
     assert main(["review", DOER, "--collection", "dsh", "--reply-file", str(reply)]) == 0
     assert "created  invents-commit-message" in capsys.readouterr().out
 
+    assert main(["review", DOER, "--collection", "dsh", "--reply-file", str(reply)]) == 0
+    assert "nothing new to review" in capsys.readouterr().out
+
     reply.write_text("{}")
-    assert main(["review", DOER, "--collection", "dsh", "--reply-file", str(reply)]) == 1
-    assert "nothing written" in capsys.readouterr().out
+    argv = ["review", DOER, "--collection", "dsh", "--reply-file", str(reply), "--resample"]
+    assert main(argv) == 1
+    assert "no pattern written" in capsys.readouterr().out
 
 
 # --------------------------------------------------------------------------- harness-served roles
@@ -382,3 +401,252 @@ def test_a_harness_role_that_says_nothing_is_an_error(tmp_path):
 def test_no_role_runs_through_the_harness_without_the_guard(tmp_path):
     with pytest.raises(review.ReviewError, match="guard plugin is missing"):
         review.harness_asker("opencode/big-pickle", guard=tmp_path / "absent.ts")
+
+
+# --------------------------------------------------------------------------- step 7: sampling
+
+
+def live_session(session, *signals, day="2026-10-05", model="gemma4", harness="opencode"):
+    """A logged live session of the doer, with correction signals appended in order."""
+    base = {
+        "schema_version": 1,
+        "origin": "live",
+        "harness": harness,
+        "provider": "ollama",
+        "model": model,
+        "session_id": session,
+        "root_session_id": session,
+    }
+    component = {"kind": "agent", "name": DOER, "source_hash": "h1"}
+    events = [
+        {
+            **base,
+            "event_id": f"{session}-0",
+            "type": "component_activated",
+            "component": component,
+            "payload": {},
+        },
+    ]
+    for number, (kind, payload) in enumerate(signals, start=1):
+        events.append(
+            {
+                **base,
+                "event_id": f"{session}-{number}",
+                "type": kind,
+                "component": component,
+                "payload": payload,
+            }
+        )
+    directory = paths.raw_dir("dsh") / day
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / f"{session}.jsonl").open("a", encoding="utf-8") as handle:
+        for event in events:
+            handle.write(json.dumps(event) + "\n")
+
+
+def test_a_noted_session_comes_before_clean_ones_and_clean_ones_are_capped(doer_collection):
+    for number in range(5):
+        live_session(f"clean{number}")
+    live_session("noted", ("note", {"text": "it guessed the -m message again"}))
+    live_session("followed", ("user_turn", {"text": "no, ask me first"}))
+
+    found = review.digest(doer_collection, DOER)
+
+    assert found.evidence["S1"].ref == {"session_id": "noted"}
+    assert found.evidence["S1"].source_hash == "h1", "the version the session activated"
+    assert "user note: it guessed the -m message again" in found.text
+    assert found.evidence["S2"].ref == {"session_id": "followed"}
+    assert "user said next" in found.text
+    # The eval failures rank between the note and the follow-up.
+    assert found.text.index("[S1]") < found.text.index("[E1] task=save") < found.text.index("[S2]")
+    clean = [e for e in found.evidence.values() if e.ref.get("session_id", "").startswith("clean")]
+    passes = [e for e in found.evidence.values() if e.ref.get("task_id") == "log"]
+    assert len(clean) + len(passes) == review.DEFAULT_CLEAN
+    assert found.omitted == 3, "the clean evidence past the quota waits"
+
+
+@pytest.mark.parametrize(
+    ("context", "budget"), [(None, 15_000), (131_072, 15_000), (32_768, 7_500), (4_096, 4_000)]
+)
+def test_the_budget_follows_the_maintainers_context(xdg, plugin_source, context, budget):
+    extra = f"context_tokens = {context}\n" if context else ""
+    write_manifest(
+        xdg,
+        "small",
+        f'name = "small"\nsources = [{{ path = "{plugin_source}", layout = "claude-plugin" }}]\n'
+        '[watch]\nagents = ["datalad/datalad-doer"]\n'
+        f'[roles.maintainer]\nmodel = "qwen3:1.7b"\n{extra}',
+    )
+    assert review.budget_for(collection_mod.load("small")) == budget
+
+
+def asked_never(_messages):
+    raise AssertionError("no model is asked when there is nothing to review")
+
+
+def test_a_second_review_with_nothing_new_asks_nothing_and_commits_nothing(doer_collection):
+    found = review.digest(doer_collection, DOER)
+    review.review(doer_collection, DOER, ask=lambda _m: reply_for(found), maintainer="m")
+    root = paths.wiki_dir("dsh")
+    commits = git_log(root)
+    marked = json.loads((root / wiki.WATERMARK).read_text())[DOER]
+    assert sorted(marked["eval"]) == sorted(found.shown["eval"])
+
+    with pytest.raises(review.NothingToReview, match="--resample"):
+        review.review(doer_collection, DOER, ask=asked_never, maintainer="m")
+    assert git_log(root) == commits
+    assert review.digest(doer_collection, DOER, resample=True).evidence
+
+
+def test_a_reviewed_session_that_gains_a_note_is_sampled_again_first(doer_collection):
+    live_session("s1")
+    found = review.digest(doer_collection, DOER)
+    review.review(doer_collection, DOER, ask=lambda _m: reply_for(found), maintainer="m")
+    with pytest.raises(review.NothingToReview):
+        review.digest(doer_collection, DOER)
+
+    path = paths.raw_dir("dsh") / "2026-10-05" / "s1.jsonl"
+    late = json.loads(path.read_text().splitlines()[0])
+    late.update(event_id="s1-9", type="note", payload={"text": "wrong remote"})
+    with path.open("a") as handle:
+        handle.write(json.dumps(late) + "\n")
+
+    again = review.digest(doer_collection, DOER)
+    assert list(again.evidence) == ["S1"]
+    assert "user note: wrong remote" in again.text
+
+
+# --------------------------------------------------------------------------- step 7: contract
+
+
+def test_universal_needs_two_models_or_two_harnesses():
+    one = {"E1": EVIDENCE["E1"]}
+    claim = good_output(
+        create=[{**good_output()["create"][0], "evidence": ["E1"], "universal": True}]
+    )
+    problems = wiki.validate(claim, component=DOER, evidence=one, existing=[])
+    assert len(problems) == 1
+    assert "`universal` needs evidence from at least two models" in problems[0]
+    assert "opencode/big-pickle under opencode" in problems[0]
+
+    both = good_output(create=[{**good_output()["create"][0], "universal": True}])
+    assert wiki.validate(both, component=DOER, evidence=EVIDENCE, existing=[]) == []
+
+    # An update counts the evidence the pattern already has.
+    update = {
+        "create": [],
+        "update": [
+            {"slug": "p-one", "evidence": ["E1"], "observation": "Again.", "universal": True}
+        ],
+        "index": {"p-one": "s"},
+        "log": "l",
+    }
+    known = {"p-one": {"models": ["ollama/qwen3:1.7b"], "harnesses": ["opencode"]}}
+    assert wiki.validate(update, component=DOER, evidence=one, existing=known) == []
+
+
+def test_a_superseded_pattern_leaves_the_index_but_keeps_its_page(xdg):
+    wiki.apply("dsh", good_output(), component=DOER, evidence=EVIDENCE, maintainer="m")
+    retire = {
+        "create": [],
+        "update": [
+            {
+                "slug": "invents-commit-message",
+                "evidence": ["E2"],
+                "observation": "Fixed in h2.",
+                "status": "superseded",
+            }
+        ],
+        "index": {"invents-commit-message": "still listed"},
+        "log": "Retired.",
+    }
+    existing = {s: d.meta for s, d in wiki.patterns("dsh", DOER).items()}
+    problems = wiki.validate(retire, component=DOER, evidence=EVIDENCE, existing=existing)
+    assert problems == [
+        "index: summarises patterns that do not exist or are superseded: invents-commit-message"
+    ]
+
+    retire["index"] = {}
+    assert wiki.validate(retire, component=DOER, evidence=EVIDENCE, existing=existing) == []
+    applied = wiki.apply("dsh", retire, component=DOER, evidence=EVIDENCE, maintainer="m")
+
+    root = paths.wiki_dir("dsh")
+    assert applied.superseded == ["invents-commit-message"]
+    assert "invents-commit-message" not in (root / "index.md").read_text()
+    page = read_frontmatter(root / "patterns" / "invents-commit-message.md")
+    assert page.meta["status"] == "superseded"
+    assert "Fixed in h2. Superseded." in page.body
+    # A superseded pattern needs no index line, and the maintainer no longer sees it.
+    existing = {s: d.meta for s, d in wiki.patterns("dsh", DOER).items()}
+    empty = {"create": [], "update": [], "index": {}, "log": "Nothing new."}
+    assert wiki.validate(empty, component=DOER, evidence=EVIDENCE, existing=existing) == []
+
+
+def test_a_components_first_pattern_creates_its_page_and_each_review_adds_history(xdg):
+    wiki.apply("dsh", good_output(), component=DOER, evidence=EVIDENCE, maintainer="m1")
+    page = paths.wiki_dir("dsh") / "components" / "datalad-datalad-doer.md"
+    assert page == wiki.component_page("dsh", DOER)
+    text = page.read_text()
+    assert f"# `{DOER}`" in text
+    assert "| [invents-commit-message](../patterns/invents-commit-message.md) | active |" in text
+    assert "review by m1: created invents-commit-message" in text
+
+    update = {
+        "create": [],
+        "update": [{"slug": "invents-commit-message", "evidence": ["E1"], "observation": "x"}],
+        "index": {"invents-commit-message": "s"},
+        "log": "l",
+    }
+    wiki.apply("dsh", update, component=DOER, evidence=EVIDENCE, maintainer="m2")
+    text = page.read_text()
+    assert text.count("| [invents-commit-message]") == 1, "the table is regenerated"
+    assert "review by m1" in text and "review by m2: created none; updated invents-commit" in text
+
+
+# --------------------------------------------------------------------------- step 7: samples
+
+
+def test_a_persisted_sample_is_applied_against_its_own_evidence(doer_collection, tmp_path, capsys):
+    argv = ["sample", DOER, "--collection", "dsh"]
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    sample_id = out.split()[1]
+    directory = review.samples_dir("dsh") / sample_id
+    assert (directory / "prompt.md").read_text().startswith(f"# Component under review: {DOER}")
+    assert "You maintain an experience wiki" in (directory / "instructions.md").read_text()
+
+    found = review.load_sample(doer_collection, sample_id)
+    reply = tmp_path / "reply.json"
+    reply.write_text(reply_for(found))
+    argv = ["review", DOER, "--collection", "dsh", "--sample", sample_id]
+    assert main([*argv, "--reply-file", str(reply)]) == 0
+    assert "created  invents-commit-message" in capsys.readouterr().out
+    marked = wiki.processed("dsh", DOER)[0]
+    assert marked == set(found.shown["eval"])
+
+    # The same sample again is stale: the pattern list it showed has changed.
+    with pytest.raises(review.ReviewError, match="is stale"):
+        review.load_sample(doer_collection, sample_id)
+
+
+def test_a_sample_needs_a_reply_and_the_right_component(doer_collection, capsys):
+    assert main(["review", DOER, "--collection", "dsh", "--sample", "x"]) == 2
+    assert "--sample needs --reply-file" in capsys.readouterr().err
+
+
+def test_a_unit_the_harness_broke_under_is_not_evidence(doer_collection):
+    results = paths.evals_dir("dsh") / RUN / "results.jsonl"
+    broken = {
+        "run_id": RUN,
+        "task_id": "save",
+        "model": "opencode/big-pickle",
+        "condition": "routed",
+        "repeat": 0,
+        "outcome": "infra_error",
+        "passed": None,
+        "reason": "claude produced no session",
+        "expected": {"primary": "datalad-doer", "agents": []},
+    }
+    with results.open("a") as handle:
+        handle.write(json.dumps(broken) + "\n")
+    assert "claude produced no session" not in review.digest(doer_collection, DOER).text

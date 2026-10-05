@@ -480,3 +480,17 @@ def test_mirroring_a_plugin_leaves_its_source_untouched(tmp_path):
     build_collection("opencode", collection, tmp_path / "dist")
 
     assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
+
+
+def test_the_review_command_leaves_writing_the_wiki_to_wikiskill(tmp_path):
+    """The maintainer answers, and wikiskill checks the answer against its sample before writing."""
+    result = build("opencode", out_dir=tmp_path / "dist")
+
+    (command,) = [p for p in result.files if p.name == "wikiskill-review.md"]
+    text = " ".join(command.read_text(encoding="utf-8").lower().split())
+
+    assert "do not write wiki files yourself" in text
+    assert "wikiskill sample" in text
+    assert "wikiskill-maintainer" in text
+    assert "--sample <id> --reply-file" in text
+    assert "at most twice" in text

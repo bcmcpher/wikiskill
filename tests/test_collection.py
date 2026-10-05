@@ -134,6 +134,25 @@ def test_roles_keep_their_own_endpoints(xdg, plugin_source):
     assert coll.roles["judge"].model != coll.roles["maintainer"].model
 
 
+def test_a_role_may_state_its_context(xdg, plugin_source):
+    body = ROLES_BODY.format(source=plugin_source, judge="mixtral-8x7b")
+    write_manifest(
+        xdg,
+        "dsh",
+        body.replace('model = "qwen3:30b-a3b"', 'model = "qwen3:30b-a3b"\ncontext_tokens = 32768'),
+    )
+    assert collection_mod.load("dsh").roles["maintainer"].context_tokens == 32768
+    assert collection_mod.load("dsh").roles["judge"].context_tokens is None
+
+    write_manifest(
+        xdg,
+        "dsh",
+        body.replace('model = "qwen3:30b-a3b"', 'model = "qwen3:30b-a3b"\ncontext_tokens = 0'),
+    )
+    with pytest.raises(ManifestError, match="context_tokens` must be a positive integer"):
+        collection_mod.load("dsh")
+
+
 def test_judge_equal_to_a_target_is_rejected_by_name(xdg, plugin_source):
     """A judge grading its own output is not a measurement."""
     write_manifest(xdg, "dsh", ROLES_BODY.format(source=plugin_source, judge="qwen3-32b"))

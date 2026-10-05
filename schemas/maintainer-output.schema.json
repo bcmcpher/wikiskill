@@ -18,7 +18,7 @@
       "items": { "$ref": "#/$defs/update" }
     },
     "index": {
-      "description": "A one-line summary for every pattern of this component after the change: existing and created alike.",
+      "description": "A one-line summary for every active pattern of this component after the change: existing and created alike, without any this reply supersedes.",
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }
     },
@@ -30,6 +30,10 @@
   },
   "$defs": {
     "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,60}$" },
+    "universal": {
+      "description": "Claim the pattern holds beyond the models and harnesses it was seen on. Accepted only when its evidence spans at least two models or two harnesses.",
+      "type": "boolean"
+    },
     "evidence": {
       "type": "array",
       "items": { "type": "string", "pattern": "^[ES][0-9]+$" },
@@ -53,14 +57,17 @@
             "instruction_conflict",
             "instruction_ignored",
             "tool_misuse",
+            "routing_miss",
             "environment",
             "model_limit",
+            "user_preference",
             "success"
           ]
         },
         "evidence": { "allOf": [{ "$ref": "#/$defs/evidence" }, { "minItems": 1 }] },
         "observation": { "type": "string", "minLength": 1 },
-        "suggestion": { "type": "string" }
+        "suggestion": { "type": "string" },
+        "universal": { "$ref": "#/$defs/universal" }
       }
     },
     "update": {
@@ -70,7 +77,12 @@
       "properties": {
         "slug": { "$ref": "#/$defs/slug" },
         "evidence": { "allOf": [{ "$ref": "#/$defs/evidence" }, { "minItems": 1 }] },
-        "observation": { "type": "string", "minLength": 1 }
+        "observation": { "type": "string", "minLength": 1 },
+        "universal": { "$ref": "#/$defs/universal" },
+        "status": {
+          "description": "`superseded` retires the pattern from the index; its page and history stay.",
+          "enum": ["active", "superseded"]
+        }
       }
     }
   }

@@ -37,6 +37,13 @@ Step 3 is **closed**: archived on 2026-10-05 with its three capabilities live. T
 and review and refine ran live on `datalad/datalad-doer`, but DSH deleted that unit upstream before
 its v1-against-v2 comparison, so that comparison moved to step 4's first per-unit pilot.
 
+Step 7 is **done**: archived on 2026-10-05, built on step 3's wiki rather than beside it. Review
+now samples by signal, with explicit notes first and clean evidence last, each up to a quota. A
+watermark shows each review only what is new. The prompt budget follows the maintainer's context.
+`/wikiskill-review` runs the maintainer subagent in the harness against a persisted sample, and
+wikiskill validates and applies its answer. Its live check ran on a local maintainer, which turned
+a logged correction into a pattern.
+
 Steps 5 and 6 are **done**: both archived on 2026-10-05 with their capabilities live.
 - Step 5 captures corrections. Its last check ran live in OpenCode: a watched skill, a correction
   reply and `/wikiskill-note` logged `user_turn` (high) and `note` (explicit).
@@ -80,12 +87,12 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. |
 | 5 ✅ | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 6 ✅ | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
-| 7 | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
+| 7 ✅ | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
 | 8 | `add-skill-refinement` | refinement-proposal, refinement-gate | 3, 7 | Extends step 3's proposals with gate states and cross-model replay. |
 | 9 | `add-collection-graph` | collection-graph | 1, 2, 8 | Needs confusion and co-usage data; widens the existing gate. |
 
-Steps 7 and 8 extend capabilities that step 3 introduces. Their delta specs must be rebased onto
-those capabilities before they are applied (`add-minimal-loop` task 7.1).
+Step 8 extends capabilities that step 3 introduces. Its delta specs must be rebased onto those
+capabilities before it is applied (`add-minimal-loop` task 7.1), as step 7's were.
 
 ## Phases and milestones
 

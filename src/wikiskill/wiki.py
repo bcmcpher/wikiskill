@@ -6,7 +6,11 @@ scope — which models, which harnesses, which version of the component — is c
 evidence it cites, never taken from the model's word for it.
 
 The wiki is a git repository per collection. Nothing is ever rolled back: a rejected proposal adds a
-`skill-impact.md` entry and leaves the patterns as they were.
+`skill-impact.md` entry and leaves the patterns as they were, and a review whose output never
+validated adds a `log.md` entry and nothing else.
+
+`.watermark.json` records, per component, the evidence a successful review was shown, so the next
+review samples only what is new. It is written in the same commit as the patterns it produced.
 """
 
 from __future__ import annotations
@@ -26,7 +30,10 @@ from .frontmatter import Document
 from .frontmatter import read as read_frontmatter
 
 INDEX, LOG, IMPACT = "index.md", "log.md", "skill-impact.md"
-PATTERNS = "patterns"
+PATTERNS, COMPONENTS = "patterns", "components"
+WATERMARK = ".watermark.json"
+SUPERSEDED = "superseded"
+HISTORY = "## History"
 
 
 class WikiError(Exception):
@@ -49,6 +56,7 @@ class Evidence:
 class Applied:
     created: list[str] = field(default_factory=list)
     updated: list[str] = field(default_factory=list)
+    superseded: list[str] = field(default_factory=list)
     committed: bool = False
     warnings: list[str] = field(default_factory=list)
 
@@ -101,13 +109,14 @@ def validate(
     *,
     component: str,
     evidence: Mapping[str, Evidence],
-    existing: Iterable[str],
+    existing: Iterable[str] | Mapping[str, Mapping[str, Any]],
     taken: Iterable[str] = (),
 ) -> list[str]:
     """Every reason the maintainer's output cannot be applied, each one actionable.
 
-    ``existing`` is this component's patterns; ``taken`` is every slug in the wiki, since a slug is
-    a file name and two components cannot share one.
+    ``existing`` is this component's patterns, by slug, or by slug to their frontmatter: the
+    frontmatter says which are superseded and what scope a pattern already has. ``taken`` is every
+    slug in the wiki, since a slug is a file name and two components cannot share one.
     """
     validator = Draft202012Validator(load_schema())
     problems = [
@@ -117,7 +126,10 @@ def validate(
     if problems:
         return problems
 
-    existing = set(existing)
+    metas: dict[str, Mapping[str, Any]] = (
+        dict(existing) if isinstance(existing, Mapping) else {slug: {} for slug in existing}
+    )
+    existing = set(metas)
     taken = set(taken) | existing
     created: set[str] = set()
     for index, entry in enumerate(output["create"]):
@@ -130,6 +142,8 @@ def validate(
             problems.append(f"create/{index}: pattern {slug!r} is created twice")
         created.add(slug)
         problems.extend(_unknown_evidence(f"create/{index}", entry["evidence"], evidence))
+        problems.extend(_unearned_universal(f"create/{index}", entry, evidence, {}))
+    retired, revived = set(), set()
     for index, entry in enumerate(output["update"]):
         if entry["slug"] not in existing:
             problems.append(
@@ -137,16 +151,47 @@ def validate(
                 f"ones are: {', '.join(sorted(existing)) or 'none'}"
             )
         problems.extend(_unknown_evidence(f"update/{index}", entry["evidence"], evidence))
+        problems.extend(
+            _unearned_universal(f"update/{index}", entry, evidence, metas.get(entry["slug"]) or {})
+        )
+        if entry.get("status") == SUPERSEDED:
+            retired.add(entry["slug"])
+        elif entry.get("status") == "active":
+            revived.add(entry["slug"])
 
-    expected = existing | created
+    active = {slug for slug, meta in metas.items() if meta.get("status") != SUPERSEDED}
+    expected = (active | created | revived) - retired
     listed = set(output["index"])
     if listed != expected:
         missing, extra = sorted(expected - listed), sorted(listed - expected)
         if missing:
             problems.append(f"index: missing a summary for {', '.join(missing)}")
         if extra:
-            problems.append(f"index: summarises patterns that do not exist: {', '.join(extra)}")
+            problems.append(
+                "index: summarises patterns that do not exist or are superseded: "
+                + ", ".join(extra)
+            )
     return problems
+
+
+def _unearned_universal(
+    where: str, entry: Mapping[str, Any], known: Mapping[str, Evidence], meta: Mapping[str, Any]
+) -> list[str]:
+    """A `universal` claim the evidence does not support: one model under one harness."""
+    if not entry.get("universal"):
+        return []
+    cited = [known[e] for e in entry["evidence"] if e in known]
+    models = {e.model for e in cited} | set(meta.get("models") or [])
+    harnesses = {e.harness for e in cited} | set(meta.get("harnesses") or [])
+    if len(models) > 1 or len(harnesses) > 1:
+        return []
+    return [
+        (
+            f"{where}: `universal` needs evidence from at least two models or two harnesses, but "
+            f"{entry['slug']!r} has only {', '.join(sorted(models)) or 'no model'} under "
+            f"{', '.join(sorted(harnesses)) or 'no harness'}; drop the claim"
+        )
+    ]
 
 
 def _unknown_evidence(where: str, cited: Iterable[str], known: Mapping[str, Any]) -> list[str]:
@@ -179,8 +224,13 @@ def apply(
     evidence: Mapping[str, Evidence],
     maintainer: str,
     runs: Iterable[str] = (),
+    shown: Mapping[str, Any] | None = None,
 ) -> Applied:
-    """Write validated output into the wiki and commit it. Call `validate` first."""
+    """Write validated output into the wiki and commit it. Call `validate` first.
+
+    ``shown`` is the evidence the maintainer saw, as watermark keys; it is marked processed in the
+    same commit.
+    """
     root = ensure(collection)
     applied = Applied()
     now = rawlog.now_ts()
@@ -194,6 +244,8 @@ def apply(
             "cause": entry["cause"],
             "trigger": entry["trigger"],
             **_scope(cited),
+            "universal": bool(entry.get("universal")),
+            "status": "active",
             "evidence": [e.ref for e in cited],
             "created": now,
             "updated": now,
@@ -220,13 +272,27 @@ def apply(
         for key in ("models", "harnesses", "source_hashes"):
             meta[key] = sorted(set(previous[key]) | set(merged[key]))
         meta["updated"] = now
+        if "universal" in entry:
+            meta["universal"] = entry["universal"]
+        if "status" in entry:
+            meta["status"] = entry["status"]
+        if entry.get("status") == SUPERSEDED:
+            applied.superseded.append(entry["slug"])
         refs_text = ", ".join(_ref_label(e.ref) for e in cited)
-        note = f"- {now}: {entry['observation'].strip()} ({refs_text})"
+        marker = " Superseded." if entry.get("status") == SUPERSEDED else ""
+        note = f"- {now}: {entry['observation'].strip()}{marker} ({refs_text})"
         body = document.body.rstrip() + f"\n\n{note}\n"
         path.write_text(Document(meta=meta, body=body).render(), encoding="utf-8")
         applied.updated.append(entry["slug"])
 
     _write_index(root, output["index"], collection)
+    changes = (
+        f"created {', '.join(applied.created) or 'none'}; "
+        f"updated {', '.join(applied.updated) or 'none'}"
+    )
+    _write_component(root, collection, component, f"- {now}: review by {maintainer}: {changes}")
+    if shown:
+        _advance(root, component, shown)
     runs_text = ", ".join(f"`{r}`" for r in runs) or "none"
     with (root / LOG).open("a", encoding="utf-8") as log:
         log.write(
@@ -234,6 +300,7 @@ def apply(
             f"- runs: {runs_text}\n"
             f"- created: {', '.join(applied.created) or 'none'}\n"
             f"- updated: {', '.join(applied.updated) or 'none'}\n"
+            f"- superseded: {', '.join(applied.superseded) or 'none'}\n"
         )
     applied.committed = commit(
         root,
@@ -241,6 +308,96 @@ def apply(
         applied.warnings,
     )
     return applied
+
+
+def record_failure(
+    collection: str, component: str, *, maintainer: str, attempts: int, problems: Iterable[str]
+) -> bool:
+    """Log a review whose output never validated, and commit that alone. Returns whether it did."""
+    root = ensure(collection)
+    listed = "\n".join(f"- {problem}" for problem in problems) or "- no problem recorded"
+    with (root / LOG).open("a", encoding="utf-8") as log:
+        log.write(
+            f"\n## {rawlog.now_ts()}: review of `{component}` by {maintainer} failed\n\n"
+            f"Nothing was applied after {attempts} attempt(s). The last problems:\n\n{listed}\n"
+        )
+    return commit(root, f"review {component}: failed after {attempts} attempt(s)")
+
+
+# --------------------------------------------------------------------------- watermark
+
+
+def watermark(collection: str) -> dict[str, dict[str, Any]]:
+    """Per component, the evidence reviews have been shown: eval unit keys and live sessions."""
+    path = wiki_root(collection) / WATERMARK
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise WikiError(f"{path} is unreadable: {exc}") from exc
+    return data if isinstance(data, dict) else {}
+
+
+def processed(collection: str, component: str) -> tuple[set[str], dict[str, str]]:
+    """The eval units, and each live session's last shown event, already reviewed."""
+    entry = watermark(collection).get(component) or {}
+    return set(entry.get("eval") or []), dict(entry.get("sessions") or {})
+
+
+def _advance(root: Path, component: str, shown: Mapping[str, Any]) -> None:
+    path = root / WATERMARK
+    data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    entry = data.setdefault(component, {"eval": [], "sessions": {}})
+    entry["eval"] = sorted(set(entry.get("eval") or []) | set(shown.get("eval") or []))
+    entry["sessions"] = {**(entry.get("sessions") or {}), **(shown.get("sessions") or {})}
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- component pages
+
+
+def component_page(collection: str, component: str) -> Path:
+    return wiki_root(collection) / COMPONENTS / f"{component.replace('/', '-')}.md"
+
+
+def _write_component(root: Path, collection: str, component: str, history_line: str) -> None:
+    """Regenerate a component's pattern table and append to its history.
+
+    Created with the component's first pattern; a component with none has no page.
+    """
+    own = patterns(collection, component)
+    path = component_page(collection, component)
+    if not own and not path.exists():
+        return
+    history = ""
+    if path.exists():
+        _, _, history = path.read_text(encoding="utf-8").partition(HISTORY + "\n")
+    rows = [
+        f"| [{slug}](../{PATTERNS}/{slug}.md) | {meta.get('status', 'active')} | "
+        f"{meta.get('cause')} | {', '.join(meta.get('models') or [])} | "
+        f"{', '.join(meta.get('harnesses') or [])} | "
+        f"{', '.join(_short(h) for h in meta.get('source_hashes') or [])} |"
+        for slug, meta in ((slug, document.meta) for slug, document in sorted(own.items()))
+    ]
+    text = (
+        f"# `{component}`\n\n"
+        "What the wiki has learned about this component. The table is regenerated on every review; "
+        "the history is appended.\n\n"
+        "| pattern | status | cause | models | harnesses | observed on |\n"
+        "|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n\n"
+        f"{HISTORY}\n{history.rstrip()}\n{history_line}\n"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _universal(meta: Mapping[str, Any]) -> str:
+    return " (universal)" if meta.get("universal") else ""
+
+
+def _short(digest: str) -> str:
+    return digest.removeprefix("sha256:")[:12]
 
 
 def _scope(cited: Iterable[Evidence]) -> dict[str, list[str]]:
@@ -267,6 +424,8 @@ def _write_index(root: Path, summaries: Mapping[str, str], collection: str) -> N
     rows = []
     for slug, document in sorted(patterns(collection).items()):
         meta = document.meta
+        if meta.get("status") == SUPERSEDED:
+            continue
         summary = summaries.get(slug) or meta.get("summary") or meta.get("title", "")
         if slug in summaries:
             meta = {**meta, "summary": summaries[slug]}
@@ -274,7 +433,7 @@ def _write_index(root: Path, summaries: Mapping[str, str], collection: str) -> N
             path.write_text(Document(meta=meta, body=document.body).render(), encoding="utf-8")
         rows.append(
             f"| [{slug}]({PATTERNS}/{slug}.md) | `{meta.get('component')}` | {meta.get('cause')} "
-            f"| {', '.join(meta.get('models') or [])} | {summary} |"
+            f"| {', '.join(meta.get('models') or [])}{_universal(meta)} | {summary} |"
         )
     text = (
         "# Wiki index\n\n| pattern | component | cause | models | summary |\n"

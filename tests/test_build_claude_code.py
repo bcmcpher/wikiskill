@@ -114,6 +114,8 @@ def test_wikiskills_own_tree_gets_hooks_and_a_collection_build_does_not(tmp_path
     own = build("claude-code", out_dir=tmp_path / "own")
     assert (own.out_dir / "hooks" / "hooks.json").is_file()
     assert (own.out_dir / "commands" / "wikiskill-note.md").is_file()
+    assert (own.out_dir / "commands" / "wikiskill-review.md").is_file()
+    assert (own.out_dir / "agents" / "wikiskill-maintainer.md").is_file()
 
     collection = Collection(
         name="dsh",

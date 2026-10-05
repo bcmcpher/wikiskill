@@ -1,11 +1,4 @@
-# experience-wiki Specification
-
-## Purpose
-Defines the experience wiki: a user-triggered review of one component that turns a signal-led,
-incremental sample of its eval results and logged sessions into validated pattern pages, kept in a
-persistent per-collection wiki, from inside the harness or from the command line.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Review of one component writes validated patterns
 
@@ -53,6 +46,8 @@ proposal is rejected.
 
 - **WHEN** a proposal built on a pattern is rejected
 - **THEN** the pattern pages and log are unchanged apart from the appended `skill-impact.md` entry
+
+## ADDED Requirements
 
 ### Requirement: Sampling prioritises correction and failure signals within a budget
 

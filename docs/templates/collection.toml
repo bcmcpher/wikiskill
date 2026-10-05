@@ -33,6 +33,7 @@ commands = []
 # [roles.maintainer]
 # base_url = "http://localhost:11434/v1"
 # model = "qwen3:30b-a3b"
+# context_tokens = 32768       # optional; a review's digest shrinks to fit a context under 64k
 
 # Model names a component pins (`model: haiku`) and what each becomes per harness. An alias left
 # unmapped is not an error: the component runs on its caller's model.

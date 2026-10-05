@@ -106,6 +106,8 @@ class Role:
     model: str
     base_url: str | None = None
     api_key_env: str | None = None
+    #: The model's context window, when known; what is sent to the role is sized by it.
+    context_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -456,11 +458,23 @@ def _parse_roles(value: Any, problems: list[str]) -> dict[str, Role]:
         if api_key_env is not None and not isinstance(api_key_env, str):
             problems.append(f"`roles.{role_name}.api_key_env` must be a string")
             api_key_env = None
-        extra = set(entry) - {"model", "base_url", "api_key_env"}
+        context_tokens = entry.get("context_tokens")
+        if context_tokens is not None and (
+            isinstance(context_tokens, bool)
+            or not isinstance(context_tokens, int)
+            or context_tokens < 1
+        ):
+            problems.append(f"`roles.{role_name}.context_tokens` must be a positive integer")
+            context_tokens = None
+        extra = set(entry) - {"model", "base_url", "api_key_env", "context_tokens"}
         if extra:
             problems.append(f"`roles.{role_name}` has unknown keys: {', '.join(sorted(extra))}")
         roles[role_name] = Role(
-            name=role_name, model=model, base_url=base_url, api_key_env=api_key_env
+            name=role_name,
+            model=model,
+            base_url=base_url,
+            api_key_env=api_key_env,
+            context_tokens=context_tokens,
         )
     return roles
 

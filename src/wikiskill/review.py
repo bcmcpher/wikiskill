@@ -1,11 +1,20 @@
 """Review one component: turn what it did in evaluations and in use into wiki patterns.
 
 Started only by the user, for one component at a time. The maintainer is shown a compact digest
-of the evidence, failures first, under short ids: E1, E2 for eval units, and S1, S2 for live
-sessions. It also sees the component's own text and the patterns it already has. Its reply is
-validated before anything is written, re-prompted with the problems a bounded number of times, and
-dropped if it still fails. The whole prompt is capped by characters, because the maintainer is often
-a small local model with a small context.
+of the evidence under short ids: E1, E2 for eval units, and S1, S2 for live sessions. It also sees
+the component's own text and the patterns it already has. Its reply is validated before anything is
+written, re-prompted with the problems a bounded number of times, and logged as a failure if it
+still fails.
+
+Evidence is sampled, not dumped. Each piece is ranked by its strongest signal, a user's explicit
+note first and a clean pass last. Signals and clean evidence each have a quota. Only evidence no
+earlier review was shown is eligible, so a review looks at what is new. The whole prompt is capped
+by characters, scaled to the maintainer's context when the collection states it, because the
+maintainer is often a small local model.
+
+A sample can be persisted (`wikiskill sample`) and answered elsewhere, such as by the maintainer
+subagent inside the harness. The reply is then validated against exactly the evidence that sample
+showed.
 """
 
 from __future__ import annotations
@@ -16,17 +25,24 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from . import compare, paths, rawlog, wiki
 from .collection import Collection
 from .frontmatter import read as read_frontmatter
+from .runner.base import INFRA_OUTCOMES, new_run_id
 from .runner.opencode import _default_guard_plugin
 from .runner.preflight import Endpoint, request_json
 
-DEFAULT_BUDGET = 12_000
+DEFAULT_BUDGET = 15_000
+#: Below this context, in tokens, the budget shrinks in proportion; never below `MIN_BUDGET`.
+FULL_CONTEXT = 65_536
+MIN_BUDGET = 4_000
+#: How many pieces of evidence with a signal, and how many clean ones, a sample holds at most.
+DEFAULT_SIGNALS = 5
+DEFAULT_CLEAN = 3
 DEFAULT_RETRIES = 2
 COMPONENT_TEXT_LIMIT = 3_000
 PASSES_PER_TASK = 1
@@ -38,15 +54,47 @@ class ReviewError(Exception):
     """A review could not be carried out."""
 
 
+class NothingToReview(ReviewError):
+    """Every piece of evidence for the component has been reviewed already."""
+
+
+#: Eval outcomes that say nothing about the component: the unit never ran, or the harness or the
+#: endpoint broke under it.
+UNINFORMATIVE = (*INFRA_OUTCOMES, "api_error")
+
+#: Signal ranks, strongest first. A piece of evidence takes the strongest it carries.
+NOTE, OUTPUT_EDIT, REPEAT, FAILURE, FOLLOW_UP, UNSCORED, CLEAN = range(7)
+
+
 @dataclass
 class Digest:
-    """What the maintainer is shown, and what each id it may cite stands for."""
+    """What the maintainer is shown, and what each id it may cite stands for.
+
+    ``shown`` is the same evidence as watermark keys; ``patterns_seen`` is each existing pattern's
+    last update when the digest was made, so a persisted sample can tell when it has gone stale.
+    """
 
     component: str
     text: str
     evidence: dict[str, wiki.Evidence] = field(default_factory=dict)
     runs: list[str] = field(default_factory=list)
     omitted: int = 0
+    shown: dict[str, Any] = field(default_factory=lambda: {"eval": [], "sessions": {}})
+    patterns_seen: dict[str, str] = field(default_factory=dict)
+    budget: int = DEFAULT_BUDGET
+
+
+@dataclass
+class Candidate:
+    rank: int
+    #: Sorts newest first within a rank: a run id or an event id, both time-ordered.
+    newest: str
+    text: str
+    evidence: wiki.Evidence
+    #: An eval unit key, or a live session id.
+    key: str
+    #: For a live session, the id of its last event.
+    mark: str = ""
 
 
 @dataclass
@@ -112,7 +160,7 @@ def _live_sessions(raw_root: Path, component: str) -> dict[str, list[dict[str, A
         ):
             continue
         root_id = events[0].get("root_session_id") or file.stem
-        found[root_id] = events
+        found.setdefault(root_id, []).extend(events)
     return found
 
 
@@ -132,7 +180,13 @@ def _summarise(events: Sequence[dict[str, Any]], limit: int = 600) -> tuple[str,
     return "; ".join(calls)[:limit], final.strip()[:limit]
 
 
-Candidate = tuple[int, str, wiki.Evidence]
+def budget_for(collection: Collection, role_name: str = "maintainer") -> int:
+    """The prompt budget in characters: the default, shrunk for a role with a small context."""
+    role = collection.roles.get(role_name)
+    context = role.context_tokens if role else None
+    if not context or context >= FULL_CONTEXT:
+        return DEFAULT_BUDGET
+    return max(MIN_BUDGET, DEFAULT_BUDGET * context // FULL_CONTEXT)
 
 
 def digest(
@@ -140,30 +194,83 @@ def digest(
     component: str,
     *,
     runs: Sequence[compare.LoadedRun] | None = None,
-    budget: int = DEFAULT_BUDGET,
+    budget: int | None = None,
     raw_root: Path | None = None,
+    signals: int = DEFAULT_SIGNALS,
+    clean: int = DEFAULT_CLEAN,
+    resample: bool = False,
 ) -> Digest:
-    """The maintainer's whole input for one component, within ``budget`` characters."""
+    """The maintainer's whole input for one component, within ``budget`` characters.
+
+    Raises `NothingToReview` when every piece of evidence has been reviewed before, and
+    `ReviewError` when there never was any.
+    """
     matches = [c for c in collection.discover() if c.name == component]
     if not matches:
         raise ReviewError(f"{component!r} is not a component of collection {collection.name!r}")
     source_text = matches[0].path.read_text(encoding="utf-8")[:COMPONENT_TEXT_LIMIT]
+    budget = budget if budget is not None else budget_for(collection)
 
     runs = list(runs) if runs is not None else component_runs(collection.name, component)
     root = raw_root or paths.raw_dir(collection.name)
     events = _unit_events(root, {run.run_id for run in runs})
     candidates = _eval_candidates(component, runs, events) + _live_candidates(component, root)
-
-    header = _header(component, source_text, wiki.patterns(collection.name, component))
-    result = Digest(component=component, text="", runs=[run.run_id for run in runs])
-    blocks = _fit(candidates, result, budget - len(header))
-    if not result.evidence:
+    if not candidates:
         raise ReviewError(
             f"nothing to review for {component}: no eval run or live session recorded it"
         )
-    omitted = f"\n({result.omitted} more pieces of evidence did not fit)" if result.omitted else ""
+    if not resample:
+        candidates = _unprocessed(candidates, *wiki.processed(collection.name, component))
+        if not candidates:
+            raise NothingToReview(
+                f"nothing new to review for {component}: every eval unit and live session that "
+                "recorded it has been reviewed (--resample reviews them again)"
+            )
+
+    existing = wiki.patterns(collection.name, component)
+    header = _header(component, source_text, existing)
+    result = Digest(
+        component=component,
+        text="",
+        runs=[run.run_id for run in runs],
+        patterns_seen={slug: str(doc.meta.get("updated") or "") for slug, doc in existing.items()},
+        budget=budget,
+    )
+    chosen, held = _choose(candidates, signals, clean)
+    blocks = _fit(chosen, result, budget - len(header))
+    result.omitted += held
+    if not result.evidence:
+        raise ReviewError(
+            f"no evidence for {component} fits a budget of {budget} characters; raise --budget"
+        )
+    omitted = (
+        f"\n({result.omitted} more pieces of evidence wait for a later review)"
+        if result.omitted
+        else ""
+    )
     result.text = header + "\n\n".join(blocks) + omitted + "\n"
     return result
+
+
+def _unprocessed(
+    candidates: list[Candidate], units: set[str], sessions: dict[str, str]
+) -> list[Candidate]:
+    """What no earlier review was shown. A live session is new again once it has gained events."""
+    return [
+        c
+        for c in candidates
+        if (c.mark and sessions.get(c.key) != c.mark) or (not c.mark and c.key not in units)
+    ]
+
+
+def _choose(candidates: list[Candidate], signals: int, clean: int) -> tuple[list[Candidate], int]:
+    """Strongest signal first, newest first within a rank, each kind up to its quota."""
+    ordered = sorted(candidates, key=lambda c: c.newest, reverse=True)
+    ordered.sort(key=lambda c: c.rank)
+    with_signal = [c for c in ordered if c.rank != CLEAN][:signals]
+    without = [c for c in ordered if c.rank == CLEAN][:clean]
+    chosen = with_signal + without
+    return chosen, len(candidates) - len(chosen)
 
 
 def _eval_candidates(
@@ -181,7 +288,7 @@ def _eval_candidates(
             expected = (result.get("expected") or {}).get("primary")
             if (expected and _bare(expected) != _bare(component)) or result.get(
                 "outcome"
-            ) == "skipped":
+            ) in UNINFORMATIVE:
                 continue
             passed = result.get("passed")
             if passed:
@@ -203,7 +310,6 @@ def _eval_candidates(
                 "repeat": result["repeat"],
                 "model": result["model"],
             }
-            priority = 0 if passed is False else (1 if passed is None else 2)
             evidence = wiki.Evidence(
                 id="",
                 component=component,
@@ -212,8 +318,26 @@ def _eval_candidates(
                 source_hash=source_hash,
                 ref=ref,
             )
-            found.append((priority, _describe(result, events.get(key, [])), evidence))
+            found.append(
+                Candidate(
+                    rank=_eval_rank(result),
+                    newest=run.run_id,
+                    text=_describe(result, events.get(key, [])),
+                    evidence=evidence,
+                    key=_unit_key(ref),
+                )
+            )
     return found
+
+
+def _eval_rank(result: dict[str, Any]) -> int:
+    if result.get("passed") is False or result.get("outcome") not in (None, "completed"):
+        return FAILURE
+    return UNSCORED if result.get("passed") is None else CLEAN
+
+
+def _unit_key(ref: dict[str, Any]) -> str:
+    return "/".join(str(ref[k]) for k in ("run_id", "task_id", "model", "condition", "repeat"))
 
 
 def _describe(result: dict[str, Any], events: Sequence[dict[str, Any]]) -> str:
@@ -239,6 +363,11 @@ def _describe(result: dict[str, Any], events: Sequence[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+#: How many follow-up turns a live digest quotes, and how much of each signal's text.
+FOLLOW_UPS_SHOWN = 2
+SIGNAL_TEXT_LIMIT = 300
+
+
 def _live_candidates(component: str, root: Path) -> list[Candidate]:
     found: list[Candidate] = []
     for session_id, session_events in sorted(_live_sessions(root, component).items()):
@@ -250,23 +379,96 @@ def _live_candidates(component: str, root: Path) -> list[Candidate]:
             component=component,
             model=model or "unknown",
             harness=first.get("harness") or "unknown",
-            source_hash=(first.get("component") or {}).get("source_hash"),
+            source_hash=_live_source_hash(session_events, component),
             ref={"session_id": session_id},
         )
-        text = f"live session model={model}\n  tools: {tools}\n  final reply: {final}"
-        found.append((1, text, evidence))
+        rank, signal_lines = _signals(session_events, component)
+        lines = [f"live session model={model}", *signal_lines]
+        if tools:
+            lines.append(f"  tools: {tools}")
+        if final:
+            lines.append(f"  final reply: {final}")
+        last = max((str(e.get("event_id") or "") for e in session_events), default="")
+        found.append(
+            Candidate(
+                rank=rank,
+                newest=last,
+                text="\n".join(lines),
+                evidence=evidence,
+                key=session_id,
+                mark=last or session_id,
+            )
+        )
     return found
 
 
+def _live_source_hash(events: Sequence[dict[str, Any]], component: str) -> str | None:
+    """The version of the component the session ran: the hash on its activation."""
+    for event in events:
+        ref = event.get("component") or {}
+        if _bare(ref.get("name", "")) == _bare(component) and ref.get("source_hash"):
+            return ref["source_hash"]
+    return None
+
+
+def _signals(events: Sequence[dict[str, Any]], component: str) -> tuple[int, list[str]]:
+    """A live session's strongest signal for this component, and a line for each it carries.
+
+    A signal attributed to another component is not this one's; a note attributed to none is kept,
+    since the session did activate this component.
+    """
+    rank, lines, follow_ups, failures = CLEAN, [], 0, 0
+    for event in events:
+        kind, payload = event.get("type"), event.get("payload") or {}
+        if kind == "tool_call" and payload.get("ok") is False:
+            failures += 1
+            rank = min(rank, FAILURE)
+            continue
+        named = (event.get("component") or {}).get("name")
+        if named and _bare(named) != _bare(component):
+            continue
+        if kind == "note":
+            rank = min(rank, NOTE)
+            lines.append(f"  user note: {_clip(payload.get('text'))}")
+        elif kind == "output_edit":
+            rank = min(rank, OUTPUT_EDIT)
+            lines.append(
+                f"  user edited {payload.get('path')} after it was written: "
+                f"{_clip(payload.get('diff'))}"
+            )
+        elif kind == "repeat_activation":
+            rank = min(rank, REPEAT)
+            lines.append(f"  run again after {payload.get('turns_since_previous')} user turn(s)")
+        elif kind == "user_turn":
+            rank = min(rank, FOLLOW_UP)
+            follow_ups += 1
+            if follow_ups <= FOLLOW_UPS_SHOWN:
+                lines.append(
+                    f"  user said next ({event.get('confidence')} confidence): "
+                    f"{_clip(payload.get('text'))}"
+                )
+    if follow_ups > FOLLOW_UPS_SHOWN:
+        lines.append(f"  ({follow_ups - FOLLOW_UPS_SHOWN} more follow-up turns)")
+    if failures:
+        lines.append(f"  failed tool calls: {failures}")
+    return rank, lines
+
+
+def _clip(text: Any) -> str:
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= SIGNAL_TEXT_LIMIT else text[:SIGNAL_TEXT_LIMIT] + "…"
+
+
 def _fit(candidates: list[Candidate], result: Digest, budget: int) -> list[str]:
-    """Number the evidence, failures first, and keep what fits; the rest is counted as omitted."""
+    """Number the evidence in the order given and keep what fits; the rest is counted as omitted."""
     blocks: list[str] = []
     used = 0
     counters = {"E": 0, "S": 0}
-    for _, text, item in sorted(candidates, key=lambda c: c[0]):
+    for candidate in candidates:
+        item = candidate.evidence
         prefix = "S" if "session_id" in item.ref else "E"
         label = f"{prefix}{counters[prefix] + 1}"
-        block = f"[{label}] {text}"
+        block = f"[{label}] {candidate.text}"
         if used + len(block) + 2 > budget:
             result.omitted += 1
             continue
@@ -281,6 +483,10 @@ def _fit(candidates: list[Candidate], result: Digest, budget: int) -> list[str]:
             source_hash=item.source_hash,
             ref=item.ref,
         )
+        if candidate.mark:
+            result.shown["sessions"][candidate.key] = candidate.mark
+        else:
+            result.shown["eval"].append(candidate.key)
     return blocks
 
 
@@ -295,8 +501,11 @@ def _header(component: str, source_text: str, existing: dict[str, Any]) -> str:
         "## Patterns it already has",
         "",
     ]
-    if existing:
-        for slug, document in sorted(existing.items()):
+    active = {
+        slug: doc for slug, doc in existing.items() if doc.meta.get("status") != wiki.SUPERSEDED
+    }
+    if active:
+        for slug, document in sorted(active.items()):
             meta = document.meta
             lines.append(
                 f"- {slug}: {meta.get('summary') or meta.get('title')} "
@@ -304,8 +513,74 @@ def _header(component: str, source_text: str, existing: dict[str, Any]) -> str:
             )
     else:
         lines.append("- none yet")
-    lines += ["", "## Evidence, failures first", "", ""]
+    lines += ["", "## Evidence, strongest signal first", "", ""]
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- persisted samples
+
+
+def samples_dir(collection: str) -> Path:
+    return paths.collection_data(collection) / "samples"
+
+
+def save_sample(collection: Collection, found: Digest) -> tuple[str, Path]:
+    """Persist a digest so a reply written elsewhere is checked against exactly this evidence."""
+    sample_id = new_run_id()
+    directory = samples_dir(collection.name) / sample_id
+    directory.mkdir(parents=True)
+    (directory / "prompt.md").write_text(found.text, encoding="utf-8")
+    (directory / "instructions.md").write_text(maintainer_prompt() + "\n", encoding="utf-8")
+    evidence = {label: asdict(item) for label, item in found.evidence.items()}
+    (directory / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", "utf-8")
+    meta = {
+        "sample_id": sample_id,
+        "collection": collection.name,
+        "component": found.component,
+        "runs": found.runs,
+        "budget": found.budget,
+        "omitted": found.omitted,
+        "shown": found.shown,
+        "patterns_seen": found.patterns_seen,
+        "taken": rawlog.now_ts(),
+    }
+    (directory / "sample.json").write_text(json.dumps(meta, indent=2) + "\n", "utf-8")
+    return sample_id, directory
+
+
+def load_sample(collection: Collection, sample: str) -> Digest:
+    """A persisted digest, by id or directory; refused once the component's patterns moved on."""
+    directory = Path(sample) if Path(sample).is_dir() else samples_dir(collection.name) / sample
+    try:
+        meta = json.loads((directory / "sample.json").read_text(encoding="utf-8"))
+        evidence = json.loads((directory / "evidence.json").read_text(encoding="utf-8"))
+        text = (directory / "prompt.md").read_text(encoding="utf-8")
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ReviewError(f"no readable sample at {directory}: {exc}") from exc
+    if meta.get("collection") != collection.name:
+        raise ReviewError(
+            f"sample {directory.name} was taken from collection {meta.get('collection')!r}"
+        )
+    component = meta["component"]
+    now = {
+        slug: str(doc.meta.get("updated") or "")
+        for slug, doc in wiki.patterns(collection.name, component).items()
+    }
+    if now != meta.get("patterns_seen", {}):
+        raise ReviewError(
+            f"sample {directory.name} is stale: {component}'s patterns changed after it was "
+            "taken, so the maintainer saw a list that no longer holds. Take a new sample."
+        )
+    return Digest(
+        component=component,
+        text=text,
+        evidence={label: wiki.Evidence(**item) for label, item in evidence.items()},
+        runs=list(meta.get("runs") or []),
+        omitted=int(meta.get("omitted") or 0),
+        shown=meta.get("shown") or {"eval": [], "sessions": {}},
+        patterns_seen=meta.get("patterns_seen") or {},
+        budget=int(meta.get("budget") or DEFAULT_BUDGET),
+    )
 
 
 # --------------------------------------------------------------------------- the maintainer
@@ -540,13 +815,30 @@ def review(
     ask: Ask,
     maintainer: str,
     runs: Sequence[compare.LoadedRun] | None = None,
-    budget: int = DEFAULT_BUDGET,
+    budget: int | None = None,
     retries: int = DEFAULT_RETRIES,
     raw_root: Path | None = None,
+    signals: int = DEFAULT_SIGNALS,
+    clean: int = DEFAULT_CLEAN,
+    resample: bool = False,
+    sample: Digest | None = None,
 ) -> Outcome:
-    """Show the maintainer the evidence, validate its reply, and apply it or nothing."""
-    found = digest(collection, component, runs=runs, budget=budget, raw_root=raw_root)
-    existing = set(wiki.patterns(collection.name, component))
+    """Show the maintainer the evidence, validate its reply, and apply it or log the failure.
+
+    ``sample`` is a digest taken earlier, for a reply written against it; otherwise one is taken
+    now. Raises `NothingToReview`, before any model is asked, when nothing new is there.
+    """
+    found = sample or digest(
+        collection,
+        component,
+        runs=runs,
+        budget=budget,
+        raw_root=raw_root,
+        signals=signals,
+        clean=clean,
+        resample=resample,
+    )
+    existing = {slug: doc.meta for slug, doc in wiki.patterns(collection.name, component).items()}
     taken = set(wiki.patterns(collection.name))
     messages = [
         {"role": "system", "content": maintainer_prompt()},
@@ -575,6 +867,7 @@ def review(
                 evidence=found.evidence,
                 maintainer=maintainer,
                 runs=found.runs,
+                shown=found.shown,
             )
             return Outcome(applied=applied, attempts=attempt, output=output)
         messages += [
@@ -587,4 +880,11 @@ def review(
                 ),
             },
         ]
+    wiki.record_failure(
+        collection.name,
+        component,
+        maintainer=maintainer,
+        attempts=retries + 1,
+        problems=problems,
+    )
     return Outcome(applied=None, attempts=retries + 1, problems=problems, output=output)
