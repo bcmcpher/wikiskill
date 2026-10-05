@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""Parse the JSON and YAML files named on the command line; report the ones that do not parse.
+
+    bin/check-data FILE...
+
+The pre-commit hook passes the staged `.json`, `.yaml` and `.yml` files. A suite, a schema or a
+recorded fixture that no longer parses fails here, at commit time, rather than in a test or a run.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import yaml
+
+
+def problem(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8")
+        if path.suffix == ".json":
+            json.loads(text)
+        else:
+            # A file may hold several documents (`---`); each has to parse.
+            for _ in yaml.safe_load_all(text):
+                pass
+    except (OSError, UnicodeDecodeError, ValueError, yaml.YAMLError) as exc:
+        return f"{path}: {exc}"
+    return None
+
+
+def main(argv: list[str]) -> int:
+    problems = [p for p in (problem(Path(arg)) for arg in argv) if p]
+    for line in problems:
+        print(line, file=sys.stderr)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

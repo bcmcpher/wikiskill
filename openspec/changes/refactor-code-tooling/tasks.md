@@ -57,10 +57,72 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
   - The whole suite: 15.78 s and 17.66 s before; 11.16 s and 11.55 s after.
 
   The 4.7 s left is the tests' deliberate timeouts.
-- [ ] 1.5 (Optional, needs the user's approval) Add `.pre-commit-config.yaml` with ruff check and
+- [x] 1.4a Fix: from the main checkout, `bin/check` failed `ruff format --check`. Ruff walked
+  `.claude/worktrees/*`, which holds other agents' checkouts of older commits; there it found 138
+  files and 3 that needed reformatting. `[tool.ruff] extend-exclude = [".claude"]` fixes it.
+  Neither of the other two tools wanders there: pytest collects only `testpaths = ["tests"]`, which
+  is 702 tests with 0 under `.claude`, and pyright reads only `include = ["src"]`, which is 37
+  files.
+
+  Checked in the main checkout, read-only, using its existing `.venv`:
+  - with the exclude, `ruff check --show-files` lists 0 files under `.claude`;
+  - `ruff format --check` gives "197 files already formatted".
+
+  The literal `bin/check` from the main checkout can only run once this merges. Until then, the
+  main checkout's `pyproject.toml` lacks the exclude.
+
+  Reproduced in a fresh clone with a fake `.claude/worktrees/stale/src/bad.py` (unformatted, with
+  an unused import). `bin/check` exited 0, and ruff with `--isolated` still flagged the file, which
+  shows the exclude is what skips it.
+- [x] 1.5 (Optional, needs the user's approval) Add `.pre-commit-config.yaml` with ruff check and
   format.
-- [ ] 1.6 (Optional, outward-facing, needs the user's approval) Add a GitHub Actions workflow
+
+  Approved and done 2026-10-05. `pre-commit>=4.0` is in the dev group; 4.6.2 is locked. Three
+  `repo: local` hooks run through `uv run --frozen`, so they use the locked tools and fetch no hook
+  repository:
+  - `ruff check --force-exclude` on staged Python;
+  - `ruff format --check --force-exclude` on staged Python;
+  - `bin/check-data`, which parses staged JSON and YAML, multi-document YAML included.
+
+  Tests and bun stay out of the hooks and in `bin/check`.
+
+  `uv run pre-commit run --all-files` passed all three. `bin/check-data` rejected a broken YAML
+  file and a JSON file with a trailing comma, and accepted a two-document YAML file.
+
+  The README documents `uv run pre-commit install`. The hook is not installed anywhere. Worktrees
+  share the main checkout's `.git/hooks`, which the README says, and that directory holds only
+  git's samples.
+- [x] 1.6 (Optional, outward-facing, needs the user's approval) Add a GitHub Actions workflow
   running `bin/check` on Python 3.11 and 3.12, with bun.
+
+  Approved and done 2026-10-05. `.github/workflows/check.yml`:
+  - runs on `pull_request` and on `push` to `main`, on `ubuntu-latest`, with
+    `permissions: contents: read` and a 20-minute timeout;
+  - cancels a superseded run on the same ref;
+  - runs a matrix of Python 3.11 and 3.12;
+  - pins `actions/checkout@v7` and `oven-sh/setup-bun@v2` with bun 1.4.2;
+  - pins `astral-sh/setup-uv@v10.2.0` exactly, because setup-uv publishes no floating major tag
+    from v8 on (checked with `gh api .../matching-refs/tags/v`). Its uv cache is keyed on
+    `uv.lock`;
+  - runs `uv sync --locked`, then `bin/check`.
+
+  `uvx --from actionlint-py actionlint` exited 0. The inputs the workflow uses were checked against
+  the pinned versions' `action.yml`.
+
+  What the runner lacks:
+  - **Ollama, OpenCode, Claude Code.** No test needs them. A run with
+    `env -i PATH=<venv>:<bun>:/usr/bin:/bin` (no HOME, so no global git config, and none of those
+    tools) passed all 702.
+  - **A git identity.** That same run first failed 5 tests (`test_graph`'s build, `test_refine`'s
+    patch, and three `test_wiki` tests), because the wiki, the graph and `apply --branch` commit, and
+    git had no identity. An autouse `git_identity` fixture in `tests/conftest.py` now sets
+    `GIT_AUTHOR_*`/`GIT_COMMITTER_*` for every test, so the tests no longer depend on the machine.
+    It is not a CI-only workaround.
+  - **The data-science-harness checkout.** Two tests skip themselves when it is absent: one in
+    `test_adapter_dsh`, one in `test_graph`.
+
+  The fresh-clone runs (`uv sync --locked --python 3.11` and `3.12`, then `bin/check`) both exited
+  0, with 702 passed, 178 and 19 bun tests passed, and both type checks passed.
 
 ## 2. Errors and the hook fast path (D3, D4; S; `cli.main` only)
 

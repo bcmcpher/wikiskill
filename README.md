@@ -118,6 +118,21 @@ bin/check        # everything a commit should pass
 It also runs pyright, but only to report errors: they do not fail the check. A package without
 `node_modules` gets a `bun install --frozen-lockfile` first.
 
+**Commit-time checks** are opt-in:
+
+```bash
+uv run pre-commit install    # once per clone; writes .git/hooks/pre-commit
+```
+
+At each commit, the hook checks the staged files:
+- `ruff check` and `ruff format --check` on staged Python;
+- a parse of staged JSON and YAML.
+
+It leaves out tests and bun, which stay in `bin/check`. Git worktrees share their main checkout's
+`.git/hooks`, so installing from any of them installs for all.
+
+**CI** (`.github/workflows/check.yml`) runs `bin/check` on pull requests and on pushes to `main`.
+
 The OpenCode logger targets the plugin API at **1.18.31 or newer**. Its mapper tests run against
 payloads **captured from a real OpenCode session**, and read the version out of the fixture rather
 than asserting a release, so upgrading the harness does not break them. See

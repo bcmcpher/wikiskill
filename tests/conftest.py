@@ -15,6 +15,18 @@ RAW_FIXTURES = FIXTURES / "raw"
 SOURCE_FIXTURE = FIXTURES / "source"
 
 
+@pytest.fixture(autouse=True)
+def git_identity(monkeypatch):
+    """A git identity for every test, so commits work on a machine with none configured, such as CI.
+
+    The wiki, the graph and `proposal apply --branch` commit, and git refuses a commit it cannot sign.
+    The environment beats any configured identity, so a developer's own never reaches a test repo.
+    """
+    for role in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{role}_NAME", "wikiskill tests")
+        monkeypatch.setenv(f"GIT_{role}_EMAIL", "tests@wikiskill.invalid")
+
+
 @pytest.fixture
 def xdg(tmp_path, monkeypatch):
     """Redirect every XDG base directory into ``tmp_path``."""

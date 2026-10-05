@@ -21,6 +21,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.14",
     "pyright[nodejs]>=1.1.411",
+    "pre-commit>=4.0",
 ]
 
 [build-system]
@@ -56,6 +57,9 @@ include = ["src"]
 
 [tool.ruff]
 line-length = 100
+# Claude Code keeps agents' git worktrees under .claude/worktrees/: whole other checkouts, often of
+# older commits, that are not this tree's files to lint.
+extend-exclude = [".claude"]
 src = ["src", "tests"]
 
 [tool.ruff.lint]

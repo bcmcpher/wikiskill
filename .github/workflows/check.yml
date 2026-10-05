@@ -1,0 +1,47 @@
+# Runs bin/check, the same command a developer runs, on every pull request and every push to main.
+#
+# The runner has no Ollama, OpenCode or Claude Code, and needs none: every test drives a recorded
+# fixture, a stand-in executable or a local test server. The tests that read a data-science-harness
+# checkout skip themselves when it is absent, as it is here.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+
+      # setup-uv publishes no floating major tag (v8 onwards), so the full version is pinned.
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      # --locked: fail if uv.lock does not match pyproject.toml, rather than quietly re-resolving.
+      - name: uv sync
+        run: uv sync --locked
+
+      - name: bin/check
+        run: bin/check

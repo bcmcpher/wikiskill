@@ -1,0 +1,28 @@
+# Fast checks at commit time: ruff and a parse of staged JSON and YAML. The full run, tests and the
+# OpenCode packages included, is `bin/check`.
+#
+# Install into this clone's .git/hooks, once:  uv run pre-commit install
+#
+# Every hook is `repo: local` and runs through `uv run --frozen`, so it uses the locked tool
+# versions from the dev group and fetches no hook repository from the network.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format --check
+        entry: uv run --frozen ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: check-data
+        name: JSON and YAML parse
+        entry: uv run --frozen python bin/check-data
+        language: system
+        types_or: [json, yaml]
+        require_serial: true
