@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import paths
+from . import names, paths
 from .errors import WikiskillError
 
 LAYOUTS = ("opencode", "claude-plugin")
@@ -230,7 +230,7 @@ def discover(source: Source) -> list[Component]:
                 if main is None:
                     continue
                 base = entry.name if kind == "skill" else entry.stem
-                name = f"{plugin}/{base}" if plugin else base
+                name = names.qualify(plugin, base)
                 found.append(Component(kind=kind, name=name, path=main, source=source))
     return found
 
@@ -364,7 +364,7 @@ def judge_target_conflicts(collection: Collection) -> list[str]:
 def _model_forms(model: str) -> set[str]:
     """A model string and its bare name, lowercased, for provider-insensitive comparison."""
     lowered = model.strip().lower()
-    return {lowered, lowered.rsplit("/", 1)[-1]} - {""}
+    return {lowered, names.bare(lowered)} - {""}
 
 
 # --------------------------------------------------------------------------- parse helpers
