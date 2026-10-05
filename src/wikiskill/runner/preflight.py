@@ -85,6 +85,7 @@ def request_json(
     payload: dict[str, Any] | None = None,
     api_key: str | None = None,
     timeout: int = DEFAULT_TIMEOUT_S,
+    extra_headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
     """GET or POST JSON. Returns ``(status, body)``; body is the raw text when it is not JSON."""
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
@@ -93,6 +94,7 @@ def request_json(
         headers["Content-Type"] = "application/json"
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+    headers.update(extra_headers or {})
     request = urllib.request.Request(url, data=data, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -323,6 +325,122 @@ def check(
                 f"{model} is served with a {context}-token context ({source}), below the "
                 f"{min_context} tokens OpenCode's system prompt and tool schemas need. Restart the "
                 f"server with OLLAMA_CONTEXT_LENGTH={min_context} (or larger) and try again."
+            )
+
+    return PreflightResult(model=model, ok=not problems, problems=tuple(problems), details=details)
+
+
+#: The same probe as `PROBE_TOOL`, in the Messages API's shape.
+MESSAGES_PROBE_TOOL = {
+    "name": PROBE_TOOL["function"]["name"],
+    "description": PROBE_TOOL["function"]["description"],
+    "input_schema": PROBE_TOOL["function"]["parameters"],
+}
+
+
+def messages_check(
+    endpoint: Endpoint,
+    model: str,
+    *,
+    min_context: int = MIN_CONTEXT_TOKENS,
+    timeout: int = DEFAULT_TIMEOUT_S,
+    probe_timeout: int = PROBE_TIMEOUT_S,
+) -> PreflightResult:
+    """Preflight for Claude Code on an Anthropic-compatible endpoint: a tool call, then context.
+
+    Claude Code speaks the Messages API, so that is what is probed: a `tool_use` block in answer to
+    a request with one tool. Ollama serves the Messages API itself at its native root, which is why
+    the endpoint's `/v1` suffix, if given, is dropped. Its context is checked as for OpenCode.
+    """
+    details: dict[str, Any] = {"base_url": endpoint.native_root, "model": model, "api": "messages"}
+    headers = {"anthropic-version": "2023-06-01"}
+    if endpoint.api_key:
+        headers["x-api-key"] = endpoint.api_key
+    try:
+        status, reply = request_json(
+            f"{endpoint.native_root}/v1/messages",
+            payload={
+                "model": model,
+                "max_tokens": 1024,
+                "messages": PROBE_MESSAGES,
+                "tools": [MESSAGES_PROBE_TOOL],
+            },
+            api_key=endpoint.api_key,
+            timeout=probe_timeout,
+            extra_headers=headers,
+        )
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        reason = getattr(exc, "reason", exc)
+        return PreflightResult(
+            model=model,
+            ok=False,
+            problems=(
+                (
+                    f"{endpoint.native_root} did not answer a Messages API request for {model} "
+                    f"within {probe_timeout}s ({reason}). Start the server, or raise "
+                    "--probe-timeout for a large model on a slow machine."
+                ),
+            ),
+            details=details,
+        )
+
+    details["tool_probe_status"] = status
+    problems: list[str] = []
+    if status == 404:
+        message = (
+            str((reply.get("error") or {}).get("message") or "") if isinstance(reply, dict) else ""
+        )
+        return PreflightResult(
+            model=model,
+            ok=False,
+            problems=(
+                (
+                    f"{endpoint.native_root} does not serve {model!r} through the Messages API"
+                    + (f" ({message})" if message else "")
+                    + f". Pull it first (for Ollama, `ollama pull {model}`), or check that the "
+                    "endpoint is Anthropic-compatible."
+                ),
+            ),
+            details=details,
+        )
+    if status != 200:
+        message = ""
+        if isinstance(reply, dict):
+            message = str((reply.get("error") or {}).get("message") or "")
+        problems.append(
+            f"{model} refused a Messages API tool-call probe with HTTP {status}"
+            + (f": {message}" if message else "")
+            + ". Claude Code can only drive a model that answers the Messages API with tool calls."
+        )
+    else:
+        blocks = reply.get("content") if isinstance(reply, dict) else None
+        kinds = [block.get("type") for block in blocks or [] if isinstance(block, dict)]
+        details["probe_blocks"] = kinds
+        if "tool_use" not in kinds:
+            problems.append(
+                f"{model} answered the Messages API tool-call probe without a tool_use block. "
+                "Skills are driven by tool calls, so this model would score zero for reasons that "
+                "have nothing to do with the skills under test."
+            )
+
+    if min_context > 0:
+        if endpoint.is_ollama:
+            context, source = ollama_context(endpoint, model, timeout=timeout)
+        else:
+            context, source = None, "unknown"
+        details["context_tokens"] = context
+        details["context_source"] = source
+        if context is None:
+            problems.append(
+                f"could not establish the context window served for {model} at "
+                f"{endpoint.native_root}. Re-run with --min-context 0 to accept it unchecked, once "
+                f"you know it is at least {min_context} tokens."
+            )
+        elif context < min_context:
+            problems.append(
+                f"{model} is served with a {context}-token context ({source}), below the "
+                f"{min_context} tokens Claude Code's system prompt and tool schemas need. Restart "
+                f"the server with OLLAMA_CONTEXT_LENGTH={min_context} (or larger) and try again."
             )
 
     return PreflightResult(model=model, ok=not problems, problems=tuple(problems), details=details)

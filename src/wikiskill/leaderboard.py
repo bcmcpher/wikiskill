@@ -145,6 +145,14 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
             raise LeaderboardError(
                 f"{run.run_id} ran suite {run.suite!r}, but {first.run_id} ran {first.suite!r}"
             )
+        if (run.manifest.get("harness") or "opencode") != (
+            first.manifest.get("harness") or "opencode"
+        ):
+            raise LeaderboardError(
+                f"{run.run_id} ran in {run.manifest.get('harness')}, but {first.run_id} ran in "
+                f"{first.manifest.get('harness')}: one model under two harnesses is two rows, "
+                "not one, so pool each harness on its own"
+            )
         if run.suite_hash != first.suite_hash:
             raise LeaderboardError(
                 f"{run.run_id} ran different content of suite {first.suite!r} "

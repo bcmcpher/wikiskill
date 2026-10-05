@@ -25,13 +25,14 @@ TOOL_CALL = {
 
 
 class FakeOllama:
-    """Serves `/v1/models`, `/v1/chat/completions`, `/api/show` and `/api/ps`, per-path behaviour."""
+    """Serves `/v1/models`, `/v1/chat/completions`, `/v1/messages`, `/api/show` and `/api/ps`."""
 
     def __init__(self) -> None:
         self.delay: dict[str, float] = {}
         self.drop: set[str] = set()
         self.show: dict = {"model_info": {"llama.context_length": 131072}}
         self.ps: dict = {"models": []}
+        self.messages: dict = {"content": [{"type": "tool_use", "name": "report_colour"}]}
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -56,6 +57,9 @@ class FakeOllama:
 
             def do_POST(self) -> None:
                 self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                if self.path == "/v1/messages":
+                    self._answer(fake.messages)
+                    return
                 self._answer(fake.show if self.path == "/api/show" else TOOL_CALL)
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -171,3 +175,34 @@ def test_a_model_that_cannot_think_is_told_how_to_run_instead():
     assert "cannot think" in problem
     assert "--thinking default or off" in problem
     assert "tool-calling" not in problem, "it can call tools; the thinking is what it refused"
+
+
+# --------------------------------------------------------------------------- Messages API
+
+
+def test_a_model_that_answers_the_messages_api_with_a_tool_passes(server):
+    result = preflight.messages_check(server.endpoint, "tiny:1b")
+    assert result.ok, result.problems
+    assert result.details["api"] == "messages"
+    assert result.details["probe_blocks"] == ["tool_use"]
+    assert result.details["base_url"].endswith("/ollama"), "Claude Code is given the native root"
+
+
+def test_text_instead_of_tool_use_fails_the_messages_probe(server):
+    server.messages = {"content": [{"type": "text", "text": "The colour is blue."}]}
+    result = preflight.messages_check(server.endpoint, "tiny:1b")
+    assert not result.ok
+    assert "without a tool_use block" in result.reason
+
+
+def test_a_small_context_fails_the_messages_probe_too(server, monkeypatch):
+    monkeypatch.setenv("OLLAMA_CONTEXT_LENGTH", "4096")
+    result = preflight.messages_check(server.endpoint, "tiny:1b")
+    assert not result.ok
+    assert "4096-token context" in result.reason
+
+
+def test_a_dropped_messages_probe_is_a_failed_preflight(server):
+    server.drop.add("/v1/messages")
+    result = preflight.messages_check(server.endpoint, "tiny:1b", probe_timeout=2)
+    assert not result.ok

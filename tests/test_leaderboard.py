@@ -29,7 +29,14 @@ def result(task, model, condition, *, passed=None, first=None, expected="trace",
 
 
 def write_run(
-    root, run_id, results, *, suite_hash=SUITE_HASH, skill_hash=SKILL_HASH, contexts=None
+    root,
+    run_id,
+    results,
+    *,
+    suite_hash=SUITE_HASH,
+    skill_hash=SKILL_HASH,
+    contexts=None,
+    harness=None,
 ):
     directory = root / run_id
     directory.mkdir(parents=True)
@@ -40,6 +47,7 @@ def write_run(
         "suite_hash": suite_hash,
         "collection": "self",
         "harness_version": "1.18.34",
+        **({"harness": harness} if harness else {}),
         "models": models,
         "conditions": sorted({r["condition"] for r in results}),
         "tasks": sorted({r["task_id"] for r in results}),
@@ -69,6 +77,15 @@ def test_runs_of_different_suite_content_are_refused(tmp_path):
         tmp_path, "r2", [result("t", "m", "routed", first="trace")], suite_hash="sha256:other"
     )
     with pytest.raises(leaderboard.LeaderboardError, match="different content of suite"):
+        leaderboard.pool(loaded(one, two))
+
+
+def test_runs_from_different_harnesses_are_refused(tmp_path):
+    one = write_run(tmp_path, "r1", [result("t", "m", "routed", first="trace")])
+    two = write_run(
+        tmp_path, "r2", [result("t", "m", "routed", first="trace")], harness="claude-code"
+    )
+    with pytest.raises(leaderboard.LeaderboardError, match="two rows, not one"):
         leaderboard.pool(loaded(one, two))
 
 

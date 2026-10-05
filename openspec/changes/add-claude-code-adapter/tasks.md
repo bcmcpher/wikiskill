@@ -92,19 +92,51 @@ rejected `Agent` calls, one background subagent). What the normaliser has to han
   built-in skills (`deep-research`, `debug`, `simplify`, …), built-in agents (`general-purpose`,
   `Explore`, `Plan`, …) and three built-in plugins. OFF is not "no skills" until those are denied.
 
-- [ ] 4.1 `src/wikiskill/runner/claude.py`: temp `CLAUDE_CONFIG_DIR`, fixture workdir, isolation flags,
-  and a budget cap.
-- [ ] 4.2 Conditions: OFF, ROUTED (`--plugin-dir`), and INJECTED (`--append-system-prompt` with the
-  `Skill` tool disallowed).
-- [ ] 4.3 Stream-json normaliser with Skill/Agent detection and subagent linkage; outcome classes shared
+- [x] 4.1 `src/wikiskill/runner/claude.py`: temp `CLAUDE_CONFIG_DIR`, fixture workdir, isolation flags,
+  and a budget cap. No cost cap: `--max-budget-usd` would act on the price Claude Code invents for
+  an open model, so the unit's `timeout_s` and the guard's step budget bound it, as for OpenCode.
+- [x] 4.2 Conditions: OFF, ROUTED (`--plugin-dir`), and INJECTED (`--append-system-prompt` with the
+  `Skill` tool disallowed). An injected agent runs as the session's agent, `--agent <collection>:<name>`.
+- [x] 4.3 Stream-json normaliser with Skill/Agent detection and subagent linkage; outcome classes shared
   with OpenCode.
-- [ ] 4.4 A `PreToolUse` guard hook in the run config mirroring the suite's deny rules.
-- [ ] 4.5 Harness axis in `report.json` and `report.md`; same-model cross-harness table.
+- [x] 4.4 A `PreToolUse` guard hook in the run config mirroring the suite's deny rules.
+- [ ] 4.5 Harness axis in `report.json` and `report.md`; same-model cross-harness table. Until then
+  `wikiskill leaderboard` refuses to pool runs from different harnesses.
+
+How 4.1–4.4 were built, and what live runs on 2026-10-05 changed:
+
+- `wikiskill eval --harness claude-code`, with `--claude` for the executable and `--base-url` for an
+  Anthropic-compatible endpoint (Ollama's native root; a trailing `/v1` is dropped).
+- Isolation is a `settings.json` in the unit's own `CLAUDE_CONFIG_DIR`, read with `--setting-sources
+  user`: `disableBundledSkills`, `skillOverrides` off for `design` and `doctor`, the three
+  `cc-plugin-*@builtin` plugins off in `enabledPlugins`, an allow list of tools (`-p` cannot ask),
+  `WebFetch`/`WebSearch` denied, and the guard hook. With those, OFF was offered no skill and no
+  plugin, and ROUTED only the collection's. Every unit checks its own `init`: anything else offered
+  makes it `infra_error`. Inherited `CLAUDE_CODE_*` and `ANTHROPIC_*` variables are dropped, and an
+  open-model run never carries `ANTHROPIC_API_KEY`. Every model Claude Code would choose itself
+  (`ANTHROPIC_DEFAULT_*_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL`) is the one under test.
+- `skillOverrides` does not reach a plugin's skill in 2.1.289: under INJECTED the skill stayed
+  offered and the model loaded it. A permission rule, `Skill(<collection>:<name>)` in `deny`, refuses
+  the call (`Skill execution blocked by permission rules`, recorded `blocked`), and an injected
+  skill that is loaded anyway makes the unit `infra_error`.
+- `--add-dir` and `--plugin-dir` are variadic and swallowed the prompt; the prompt now follows `--`.
+- Subagents run in the background when the model asks; `--foreground-agents` sets
+  `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`, recorded in `run.json`.
+- Stream messages report usage as of their first block, so `output_tokens` is always 0 there.
+  `step_usage` comes from each `result` (one per turn), and a unit's tokens from the last result's
+  cumulative `modelUsage`, subagents included. Cost is never recorded.
+- `system/permission_denied` events carry `message` as a string.
+- The guard is `wikiskill guard`, a port of `guard.ts`: same patterns, same refusal wording, the
+  step count kept in a locked file because each call is a new process. Checked live: `wc -w` under
+  a `wc *` deny came back `blocked by the wikiskill evaluation guard: ...`.
+- `--agent <collection>:<name>` resolves a plugin agent; an unknown one is refused before any
+  session starts, which the runner reports as `infra_error`.
 
 ## 5. Open models in Claude Code
 
-- [ ] 5.1 Preflight for Anthropic-compatible endpoints: a Messages request with a tool returns
-  `tool_use`, and context is at least 16k.
+- [x] 5.1 Preflight for Anthropic-compatible endpoints: a Messages request with a tool returns
+  `tool_use`, and context is at least 16k. `preflight.messages_check`; an Anthropic-hosted model
+  instead needs `ANTHROPIC_API_KEY`, since the unit's config directory holds no login.
 - [x] 5.2 Check whether the installed Ollama serves the Messages API; otherwise document a LiteLLM proxy
   setup in `docs/design/architecture.md`. Ollama 0.34.2 does, at `ANTHROPIC_BASE_URL=
   http://localhost:11434` with any `ANTHROPIC_AUTH_TOKEN`: a direct `/v1/messages` request with a
@@ -116,12 +148,18 @@ rejected `Agent` calls, one background subagent). What the normaliser has to han
 
 - [x] 6.1 `uv run pytest tests/test_hooks.py`: recorded hook payloads map to schema-valid events,
   identical to OpenCode fixtures except for harness, model, and session fields.
-- [ ] 6.2 `uv run pytest tests/test_runner_claude.py`: normaliser over recorded stream-json, including a
-  subagent.
+- [x] 6.2 `uv run pytest tests/test_runner_claude.py`: normaliser over recorded stream-json, including a
+  subagent. Also drives `execute` through a stand-in `claude` that replays a capture, so the
+  command line, environment and working directory the harness sees are tested, not only the
+  parser; and `tests/test_guard.py` runs `wikiskill guard` as the hook does.
 - [x] 6.3 Manual check:
   1. Start `claude --plugin-dir dist/claude-code`.
   2. Trigger a watched skill.
   3. `wikiskill log tail` shows `component_activated` with `harness: claude-code`.
-- [ ] 6.4 Cross-harness smoke test: a 3-task suite on one open model under both backends, or the
-  preflight failure recorded per harness.
+- [x] 6.4 Cross-harness smoke test: a 3-task suite on one open model under both backends, or the
+  preflight failure recorded per harness. toy-routing on gemma4 (GB10, Ollama 0.34.2), 2026-10-05:
+  OpenCode 1.18.34 OFF/ROUTED `01M46AZ1DKYBZ64FHQ13F8ZSZ7`; Claude Code 2.1.289 OFF/ROUTED/INJECTED
+  `01M46DDDH1GZ0RA5G55G7X08P3` (8 completed, 0 infrastructure errors, 0 schema errors) and INJECTED
+  again after the deny fix, `01M46DV04VWFRM58C9T6STSPX0` (the denied skill recorded `blocked`).
+  One repeat each, so this shows the path works, not how the harnesses compare.
 - [x] 6.5 `openspec validate add-claude-code-adapter --strict --no-interactive`.

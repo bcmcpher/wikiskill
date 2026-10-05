@@ -19,6 +19,7 @@ from . import __version__, adapters, logtools, paths
 from . import collection as collection_mod
 from . import compare as compare_mod
 from . import corrections as corrections_mod
+from . import guard as guard_mod
 from . import hooks as hooks_mod
 from . import install as install_mod
 from . import leaderboard as leaderboard_mod
@@ -41,6 +42,7 @@ from .frontmatter import read as read_frontmatter
 from .install import SCOPES, InstallError
 from .rawlog import RawLogError
 from .runner import base as runner_base
+from .runner import claude as claude_backend
 from .runner import opencode as opencode_backend
 from .runner import preflight as preflight_mod
 from .runner import run as run_mod
@@ -48,6 +50,7 @@ from .runner.base import RunnerError
 from .suite import SuiteError
 
 OK, FAILED, MISUSE = 0, 1, 2
+DEFAULT_MAX_OUTPUT_TOKENS = opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS
 
 
 # --------------------------------------------------------------------------- helpers
@@ -326,6 +329,11 @@ def cmd_hook(args: argparse.Namespace) -> int:
     return hooks_mod.run(args.event or "", sys.stdin.read())
 
 
+def cmd_guard(_args: argparse.Namespace) -> int:
+    """An evaluation's `PreToolUse` hook: prints a deny decision for a refused call."""
+    return guard_mod.main()
+
+
 # --------------------------------------------------------------------------- note
 
 
@@ -473,6 +481,20 @@ def _eval_misuse(args: argparse.Namespace, conditions: list[str]) -> str | None:
     unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
     if unknown:
         return f"unknown condition(s): {', '.join(unknown)}"
+    if args.harness == "claude-code":
+        ignored = [
+            flag
+            for flag, given in (
+                ("--thinking", args.thinking != "default"),
+                ("--max-output-tokens", args.max_output_tokens != DEFAULT_MAX_OUTPUT_TOKENS),
+                ("--no-seed-cache", args.no_seed_cache),
+            )
+            if given
+        ]
+        if ignored:
+            return f"{', '.join(ignored)} only apply to --harness opencode"
+    elif args.foreground_agents:
+        return "--foreground-agents only applies to --harness claude-code"
     if args.thinking != "default" and not args.base_url:
         return (
             "--thinking needs --base-url: a model the harness serves itself keeps the harness's "
@@ -524,21 +546,12 @@ def cmd_eval(args: argparse.Namespace) -> int:
         if args.base_url
         else None
     )
-    backend = opencode_backend.OpenCodeBackend(
-        collection=coll,
-        endpoint=endpoint,
-        layout=layout,
-        suite_root=loaded.root,
-        executable=args.opencode,
-        min_context=args.min_context,
-        probe_timeout=args.probe_timeout,
-        output_limit_bytes=coll.output_limit_bytes if coll else 16 * 1024,
-        max_output_tokens=args.max_output_tokens,
-        thinking=args.thinking,
-        seed_cache=not args.no_seed_cache,
-    )
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
 
-    print(f"run {run_id}  suite {loaded.name}  {len(models)} model(s)  {', '.join(conditions)}")
+    print(
+        f"run {run_id}  suite {loaded.name}  {args.harness}  {len(models)} model(s)  "
+        f"{', '.join(conditions)}"
+    )
     print(f"  results  {layout.root}")
 
     if args.preflight_only:
@@ -573,16 +586,46 @@ def cmd_eval(args: argparse.Namespace) -> int:
     return OK if scored_any else FAILED
 
 
+def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):
+    """The backend for `--harness`, configured from the command line."""
+    limit = coll.output_limit_bytes if coll else 16 * 1024
+    if args.harness == "claude-code":
+        return claude_backend.ClaudeCodeBackend(
+            collection=coll,
+            endpoint=endpoint,
+            layout=layout,
+            suite_root=root,
+            executable=args.claude,
+            min_context=args.min_context,
+            probe_timeout=args.probe_timeout,
+            output_limit_bytes=limit,
+            foreground_agents=args.foreground_agents,
+        )
+    return opencode_backend.OpenCodeBackend(
+        collection=coll,
+        endpoint=endpoint,
+        layout=layout,
+        suite_root=root,
+        executable=args.opencode,
+        min_context=args.min_context,
+        probe_timeout=args.probe_timeout,
+        output_limit_bytes=limit,
+        max_output_tokens=args.max_output_tokens,
+        thinking=args.thinking,
+        seed_cache=not args.no_seed_cache,
+    )
+
+
 def _eval_models(args: argparse.Namespace, coll: Collection | None) -> list[str]:
     """Concrete `provider/model` strings, resolving manifest aliases where one is given."""
     requested = list(args.models or [])
     if not requested and coll is not None:
-        requested = list(coll.targets.get("opencode", ()))
+        requested = list(coll.targets.get(args.harness, ()))
     resolved = []
     for name in requested:
         concrete = name if "/" in name else None
         if concrete is None and coll is not None:
-            concrete = coll.resolve_alias("opencode", name)
+            concrete = coll.resolve_alias(args.harness, name)
         if concrete is None:
             print(
                 f"warning: {name!r} is not a provider/model and the manifest maps no alias for it",
@@ -810,6 +853,11 @@ def _add_hook_parser(sub) -> None:
     )
     hook.add_argument("event", nargs="?", default="", help="e.g. PostToolUse")
     hook.set_defaults(func=cmd_hook)
+    guard = sub.add_parser(
+        "guard",
+        help="(evaluation, Claude Code) refuse a tool call a task denies; reads a PreToolUse event",
+    )
+    guard.set_defaults(func=cmd_guard)
 
 
 def _add_note_parser(sub) -> None:
@@ -887,6 +935,12 @@ def _add_eval_parser(sub) -> None:
     ev = sub.add_parser("eval", help="run a task suite in fresh isolated headless sessions")
     ev.add_argument("--suite", required=True, help="task suite file")
     ev.add_argument(
+        "--harness",
+        choices=HARNESSES,
+        default="opencode",
+        help="the harness each unit runs in (default opencode)",
+    )
+    ev.add_argument(
         "--collection", default=None, help="collection under test (required for ROUTED)"
     )
     ev.add_argument(
@@ -916,9 +970,9 @@ def _add_eval_parser(sub) -> None:
         default=None,
         metavar="URL",
         help=(
-            "OpenAI-compatible endpoint serving the models under test, e.g. "
-            "http://localhost:11434/v1 for Ollama. Omit it when the harness serves the model "
-            "itself, and preflight probes through the harness instead"
+            "endpoint serving the models under test: OpenAI-compatible for OpenCode, e.g. "
+            "http://localhost:11434/v1 for Ollama, or Anthropic-compatible for Claude Code, e.g. "
+            "http://localhost:11434. Omit it when the harness serves the model itself"
         ),
     )
     ev.add_argument("--api-key-env", default=None, help="environment variable holding its API key")
@@ -941,7 +995,7 @@ def _add_eval_parser(sub) -> None:
     ev.add_argument(
         "--max-output-tokens",
         type=int,
-        default=opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS,
+        default=DEFAULT_MAX_OUTPUT_TOKENS,
         metavar="N",
         help=(
             "tokens one model turn may generate, thinking included, against --base-url (default "
@@ -981,6 +1035,15 @@ def _add_eval_parser(sub) -> None:
         help="check each model and stop, without running the suite",
     )
     ev.add_argument("--opencode", default="opencode", help="path to the opencode executable")
+    ev.add_argument("--claude", default="claude", help="path to the claude executable")
+    ev.add_argument(
+        "--foreground-agents",
+        action="store_true",
+        help=(
+            "(claude-code) run every subagent in the foreground, even when the model asks for the "
+            "background. Recorded in run.json"
+        ),
+    )
     ev.set_defaults(func=cmd_eval)
 
 
