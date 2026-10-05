@@ -29,7 +29,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from . import paths, rawlog
+from . import names, paths, rawlog
 from .collection import Collection
 from .redact import bound, env_secrets, redact
 
@@ -174,11 +174,6 @@ def session_log(raw_dir: Path, session_id: str) -> tuple[Path, list[dict[str, An
     raise NoteError(f"no events for session {session_id!r} under {raw_dir}")
 
 
-def _matches(name: str, wanted: str) -> bool:
-    """`preregister` names `govern/preregister`; a full name must match exactly."""
-    return name == wanted or ("/" not in wanted and name.rsplit("/", 1)[-1] == wanted)
-
-
 def _parse_component(text: str) -> tuple[str | None, str]:
     kind, sep, name = text.partition(":")
     if sep and kind in ("skill", "agent", "command"):
@@ -196,7 +191,7 @@ def _resolve_component(
         if (
             event.get("type") == "component_activated"
             and isinstance(component, dict)
-            and _matches(str(component.get("name", "")), name)
+            and names.matches(str(component.get("name", "")), name)
             and (kind is None or component.get("kind") == kind)
         ):
             return dict(component)
@@ -205,7 +200,7 @@ def _resolve_component(
     candidates = [
         c
         for c in collection.watched()
-        if _matches(c.name, name) and (kind is None or c.kind == kind)
+        if names.matches(c.name, name) and (kind is None or c.kind == kind)
     ]
     if not candidates:
         raise NoteError(
@@ -213,8 +208,8 @@ def _resolve_component(
             "Use `wikiskill collection show` to list them."
         )
     if len(candidates) > 1:
-        names = ", ".join(f"{c.kind}:{c.name}" for c in candidates)
-        raise NoteError(f"{wanted!r} names more than one component ({names}); be specific")
+        listed = ", ".join(f"{c.kind}:{c.name}" for c in candidates)
+        raise NoteError(f"{wanted!r} names more than one component ({listed}); be specific")
     found = candidates[0]
     return {"kind": found.kind, "name": found.name, "source_hash": rawlog.file_hash(found.path)}
 
@@ -328,15 +323,15 @@ def produced_files(
     (`wikiskill/produced.ts`). Relative paths are resolved against the session's directory.
     """
     if tool in WRITE_TOOLS:
-        names = [str(args[key]) for key in WRITE_TOOLS[tool] if args.get(key)]
+        written = [str(args[key]) for key in WRITE_TOOLS[tool] if args.get(key)]
     elif tool in PATCH_TOOLS:
         text = args.get("patchText") or args.get("patch") or args.get("input") or ""
-        names = patch_paths(str(text))
+        written = patch_paths(str(text))
     else:
         return []
     base = Path(cwd) if cwd else Path.cwd()
     found = []
-    for name in names[:PRODUCED_LIMIT]:
+    for name in written[:PRODUCED_LIMIT]:
         path = Path(name).expanduser()
         if not path.is_absolute():
             path = base / path
