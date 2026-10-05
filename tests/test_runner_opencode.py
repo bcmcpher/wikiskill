@@ -266,6 +266,23 @@ def test_a_harvested_seed_reaches_the_next_unit(seeded):
     assert (root / "config" / "opencode" / "package.json").is_file()
 
 
+def test_a_unit_prepared_twice_keeps_its_seeded_symlinks(seeded):
+    # The isolation proof prepares the first unit of a condition, and then the unit runs.
+    backend, _ = seeded
+    first = backend.layout.unit_dir(unit(condition="off"))
+    fetched(first)
+    bin_dir = first / "config" / "opencode" / "node_modules" / ".bin"
+    bin_dir.mkdir()
+    (bin_dir / "yaml").symlink_to("../yaml/bin.mjs")
+    backend._harvest_seed(first)
+
+    again = unit(condition="off", repeat=1)
+    backend.prepare(again)
+    workdir = backend.prepare(again)
+    link = workdir.parent / "config" / "opencode" / "node_modules" / ".bin" / "yaml"
+    assert os.readlink(link) == "../yaml/bin.mjs"
+
+
 def test_a_seed_never_carries_what_wikiskill_installed(seeded):
     backend, seed = seeded
     root = backend.layout.unit_dir(unit())

@@ -76,7 +76,7 @@ carries these.
 
 ## 4. Before the event (about 20 GB10s for participants)
 
-- [ ] 4.1 Seed each unit's OpenCode cache from one shared per-machine copy. Every unit now installs
+- [x] 4.1 Seed each unit's OpenCode cache from one shared per-machine copy. Every unit now installs
       OpenCode's npm packages (63 MB, into `config/opencode/node_modules`) and downloads ripgrep and
       `models.json` into its own fresh cache: about 2.3 GB for one toy-routing run, or ~45 GB across
       20 machines on event Wi-Fi, and a registry hiccup fails units. First confirm OpenCode skips
@@ -84,8 +84,18 @@ carries these.
       **Implemented 2026-10-05, not yet run against a live OpenCode.** The first unit (or
       preflight probe) that exits cleanly copies `cache/opencode/` and OpenCode's `node_modules`,
       `package.json` and lockfile into `~/.cache/wikiskill/opencode-seed/<version>/`; later units
-      start from a copy. `--no-seed-cache` turns it off, and `run.json` records which. Still to
-      confirm on a GB10: a seeded unit fetches nothing, and its results match an unseeded one
+      start from a copy. `--no-seed-cache` turns it off, and `run.json` records which.
+      **Run on the GB10 2026-10-05** (OpenCode 1.18.34, gemma4, toy-routing OFF and ROUTED). The
+      first seeding run (`01M46AN0XEH2YEH99HMKZJXYT0`) failed one unit, the first ROUTED one, with
+      `[Errno 17] File exists` on `node_modules/.bin` symlinks: the isolation proof prepares that
+      unit and its `opencode debug` calls install packages, then the unit prepares again and the
+      seed was copied over them. `_apply_seed` now leaves any path the root already has; regression
+      test in `test_runner_opencode.py`. After the fix, seeded (`01M46AZ1DKYBZ64FHQ13F8ZSZ7`) and
+      unseeded (`01M46B3PZ5XQWJJX068SFX3GWS`) pool in one leaderboard: ROUTED routes 2/2 each,
+      control 1/2 and 0/2 against 1/2 on 2026-10-01. A seeded unit leaves 3647 of 3648 seeded files
+      untouched (72 MB seed); the one it rewrites is `cache/opencode/models.json`, 5.3 MB and
+      byte-identical, which OpenCode re-downloads every run. `OPENCODE_DISABLE_MODELS_FETCH` would
+      stop that, at the cost of running on the seed's catalog; not set yet
 - [ ] 4.2 Pre-stage models on every machine: pull once and copy Ollama's model store, or pull well
       ahead (qwen3:30b-a3b took two hours here)
 - [ ] 4.3 Pin one OpenCode and one Ollama version on every machine. OpenCode updates itself in

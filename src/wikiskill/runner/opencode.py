@@ -425,13 +425,20 @@ class OpenCodeBackend(Backend):
         return paths.cache_home() / "opencode-seed" / version.replace("/", "-")
 
     def _apply_seed(self, root: Path) -> None:
-        """Copy the seed into a fresh root. Copies, not links: OpenCode may rewrite files."""
+        """Copy the seed into a fresh root. Copies, not links: OpenCode may rewrite files.
+
+        A path the root already has is left alone. The isolation proof prepares a unit before it
+        runs, and its `opencode debug` calls can install packages there themselves; copying over
+        that fails on `node_modules/.bin` symlinks, and would mix two installs if it did not.
+        """
         seed = self._seed_dir()
         if seed is None or not seed.is_dir():
             return
         for relative in SEED_PATHS:
             source = seed / relative
             target = root / relative
+            if os.path.lexists(target):
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
             if source.is_dir():
                 shutil.copytree(source, target, symlinks=True, dirs_exist_ok=True)
