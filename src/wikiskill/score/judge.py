@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .. import names
 from ..errors import WikiskillError
 from ..rubric import Dimension, Rubric
 from ..runner.preflight import Endpoint, request_json
@@ -101,9 +102,10 @@ class Judgement:
 
 def refuse_self_judging(judge_model: str, models: Sequence[str]) -> None:
     """Refuse a judge that is also a model under test, whatever named it."""
-    bare = judge_model.rsplit("/", 1)[-1].strip().lower()
+    # Last segment, stripped and case-folded: `ollama/Qwen3` and `qwen3` are one model here.
+    bare = names.bare(judge_model).strip().lower()
     for model in models:
-        if model.rsplit("/", 1)[-1].strip().lower() == bare:
+        if names.bare(model).strip().lower() == bare:
             raise JudgeError(
                 f"the judge model {judge_model!r} is also under test (as {model!r}); a model "
                 "grading its own output is not a measurement"
@@ -240,7 +242,7 @@ def ask_once(
 ) -> Opinion:
     """One judge's opinion. A judge that cannot answer is recorded, not raised over."""
     payload = {
-        "model": model.rsplit("/", 1)[-1],
+        "model": names.bare(model),  # the last segment, as the endpoint serves it
         "messages": prompt_for(rubric, final_text=final_text, workdir=workdir),
         "temperature": 0,
         "stream": False,
