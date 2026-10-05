@@ -217,8 +217,17 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
   `graph.py:191-195` and `gate.py:447`.
 - [ ] 7.2 Remove `run.load_results`, `gate.PROPOSED`, the unused `root` parameters (`wiki.py:374`,
   `runner/claude.py:240`) and the commented-out code at `runner/claude.py:155`.
-- [ ] 7.3 Add `tests/fixtures/parity/redact.json` and `guard.json`, read by the pytest and bun
+- [x] 7.3 Add `tests/fixtures/parity/redact.json` and `guard.json`, read by the pytest and bun
   suites, plus a test that the Python and TypeScript redaction pattern sources are identical.
+  Done 2026-10-05. `tests/fixtures/parity/redact.json` (38 cases) and `guard.json` (56) are read by
+  `tests/test_parity.py` and by `harness/opencode/{plugin,guard}/test/parity.test.ts`; a
+  pattern-table test compares `redact.py` with `redact.ts`. Five known divergences are recorded,
+  each with both sides' current output: `\b` after a non-ASCII letter (Python leaves the secret
+  unredacted), an env value the marker contains (TypeScript re-replaces up to 101 times), `bound()`
+  length outside the BMP, and step budgets `"1e2"`/`"0x10"` (TypeScript reads a number). The
+  per-side tests are kept; removing them needs the user's approval. `bin/check`: pytest 840, bun
+  216 and 75.
+
 
 ## 8. CLI package (D9; L; last, optional)
 
