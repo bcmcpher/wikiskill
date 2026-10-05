@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import paths, rawlog
+from . import names, paths, rawlog
 from .errors import WikiskillError
 from .score.route import UNSCORED
 
@@ -250,14 +250,14 @@ def compare(
 def _component_under_test(run: LoadedRun) -> str | None:
     """The one component every task expects, when there is one."""
     expected = {(r.get("expected") or {}).get("primary") for r in run.results} - {None}
-    names = list(run.hashes())
+    hashed = list(run.hashes())
     if len(expected) == 1:
-        bare = next(iter(expected))
-        for name in names:
-            if name == bare or name.rsplit("/", 1)[-1] == bare:
+        wanted = next(iter(expected))
+        for name in hashed:
+            if names.matches(name, wanted):
                 return name
-        return bare
-    return names[0] if len(names) == 1 else None
+        return wanted
+    return hashed[0] if len(hashed) == 1 else None
 
 
 def _is_timeout(result: dict[str, Any]) -> bool:
@@ -361,7 +361,7 @@ def _tool_choice(
 
 def _event_model(model: str) -> str:
     """Raw events carry the model without its provider; results carry `provider/model`."""
-    return model.split("/", 1)[1] if "/" in model else model
+    return names.model_id(model)
 
 
 # --------------------------------------------------------------------------- output
