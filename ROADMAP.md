@@ -175,6 +175,20 @@ hardware, and no longer scoring. Step 3 comes first: the loop on one unit.
   sessions. A three-task suite runs on one open model under both harnesses.
 - The pilot gains its Claude Code arm here.
 
+**Milestone B met (2026-10-05)**, apart from the pilot's Claude Code arm, which has no task in
+`add-dsh-pilot` and moves there. Live sessions logged every signal in both harnesses:
+
+- **OpenCode 1.18.34 on gemma4:**
+  - Follow-ups and notes: `add-correction-capture` 4.3.
+  - Output edits: session `ses_ef2a08120ffeeLv1O4tb29AHBZ` loaded `wikiskill-trace` and wrote a
+    file. After a hand edit, `wikiskill corrections scan` logged one `output_edit` (`low`, with a
+    diff). A second scan found nothing new.
+- **Claude Code 2.1.289:**
+  - Follow-ups and notes: `add-claude-code-adapter` implementation notes.
+  - Output edits: the same check on gemma4 via Ollama's Messages API, session
+    `abcc5e37-4bf4-4078-b7c9-9cd07a5786ee`.
+- **Both harnesses:** toy-routing ran on gemma4 under each (`add-claude-code-adapter` 6.4).
+
 ### C — Learning loop at depth (7–8)
 
 - **Milestone C:** `/wikiskill-review` produces validated, scoped patterns from sampled real logs. Then

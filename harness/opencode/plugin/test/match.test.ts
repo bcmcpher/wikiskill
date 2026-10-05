@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { globToRegExp, matchesAny, watchedComponentFor, watches } from "../wikiskill/match"
+import { globToRegExp, matchesAny, watchedComponentFor, watchedSourcePath, watches } from "../wikiskill/match"
 
 import { WATCHED_SKILL_PATH, collection } from "./helpers"
 
@@ -84,5 +84,26 @@ describe("false activations", () => {
     )
     // Same tail characters, different directory.
     expect(watchedComponentFor(config, "/other/notpreregister/SKILL.md")).toBeNull()
+  })
+})
+
+describe("watched source paths", () => {
+  const config = collection({
+    watched: [
+      { kind: "skill", name: "govern/preregister", path: "/src/govern/skills/preregister/SKILL.md" },
+      { kind: "skill", name: "a/release", path: "/src/a/skills/release/SKILL.md" },
+      { kind: "skill", name: "b/release", path: "/src/b/skills/release/SKILL.md" },
+    ],
+  })
+
+  test("an exact or unambiguous bare name finds the source file", () => {
+    expect(watchedSourcePath(config, "skill", "govern/preregister")).toBe("/src/govern/skills/preregister/SKILL.md")
+    expect(watchedSourcePath(config, "skill", "preregister")).toBe("/src/govern/skills/preregister/SKILL.md")
+  })
+
+  test("an ambiguous bare name, another kind, or an unknown plugin finds nothing", () => {
+    expect(watchedSourcePath(config, "skill", "release")).toBeNull()
+    expect(watchedSourcePath(config, "command", "preregister")).toBeNull()
+    expect(watchedSourcePath(config, "skill", "other/preregister")).toBeNull()
   })
 })

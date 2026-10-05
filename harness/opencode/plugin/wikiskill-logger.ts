@@ -34,7 +34,7 @@ import {
   type TextPartInfo,
   type ToolCallInfo,
 } from "./wikiskill/mapper"
-import { watchedComponentFor, watches } from "./wikiskill/match"
+import { watchedComponentFor, watchedSourcePath, watches } from "./wikiskill/match"
 import { Scanner, producedFiles } from "./wikiskill/produced"
 import { envSecrets } from "./wikiskill/redact"
 import { SessionRegistry, type EventFactory } from "./wikiskill/sessions"
@@ -193,13 +193,17 @@ export const wikiskillLogger = async () => {
     inputSummary: string | null,
     now: number,
   ): void => {
-    const hash = sourceHash(hint.sourcePath)
-    const component: ComponentRef = { kind: hint.kind, name: hint.name, source_hash: hash }
     const watching = collections().filter((collection) => watches(collection, hint.kind, hint.name))
+    // The version is the watched source file's, as evaluations record it; the loaded copy is only
+    // a fallback for a component the manifest did not resolve.
+    const hashFor = (collection: CollectionConfig): string | null =>
+      sourceHash(watchedSourcePath(collection, hint.kind, hint.name) ?? hint.sourcePath)
+    const hash = watching.length > 0 ? hashFor(watching[0]) : sourceHash(hint.sourcePath)
+    const component: ComponentRef = { kind: hint.kind, name: hint.name, source_hash: hash }
     for (const collection of watching) {
       for (const event of registry.activate(sessionId, collection)) write(collection, event)
       const identity = registry.identity(sessionId, collection.collection)
-      write(collection, mapActivation(hint, hash, identity, inputSummary, now))
+      write(collection, mapActivation(hint, hashFor(collection), identity, inputSummary, now))
     }
     // The previous window's turns decide whether this is a repeat, so it is read as it is replaced.
     const limit = Math.max(0, ...watching.map((collection) => collection.follow_up_turns))

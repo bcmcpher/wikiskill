@@ -117,6 +117,10 @@ def test_wikiskills_own_tree_gets_hooks_and_a_collection_build_does_not(tmp_path
     assert (own.out_dir / "commands" / "wikiskill-review.md").is_file()
     assert (own.out_dir / "commands" / "wikiskill-refine.md").is_file()
     assert (own.out_dir / "agents" / "wikiskill-maintainer.md").is_file()
+    # The skill of the same name shadows nothing: Claude Code would load the command in its place.
+    assert (own.out_dir / "skills" / "wikiskill-trace" / "SKILL.md").is_file()
+    assert not (own.out_dir / "commands" / "wikiskill-trace.md").exists()
+    assert any("'wikiskill-trace' not built" in w for w in own.warnings)
 
     collection = Collection(
         name="dsh",

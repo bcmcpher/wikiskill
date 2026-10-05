@@ -72,6 +72,26 @@ export function watchedComponentFor(
 }
 
 /**
+ * The source file of a watched component, by name, for its version hash.
+ *
+ * The installed copy is not the source: the build rewrites frontmatter, so hashing what OpenCode
+ * loaded would give a version no evaluation run or wiki entry ever names. An exact name wins; a
+ * bare name matches a plugin-qualified one only when exactly one watched component carries it.
+ */
+export function watchedSourcePath(
+  config: CollectionConfig,
+  kind: ComponentKind,
+  name: string,
+): string | null {
+  const ofKind = config.watched.filter((component) => component.kind === kind)
+  const exact = ofKind.find((component) => component.name === name)
+  if (exact) return exact.path
+  if (name.includes("/")) return null
+  const bare = ofKind.filter((component) => component.name.split("/").pop() === name)
+  return bare.length === 1 ? bare[0].path : null
+}
+
+/**
  * Whether two paths name the same file, allowing one to be a relative form of the other.
  *
  * A suffix has to begin at a directory boundary and carry a directory of its own: models do read

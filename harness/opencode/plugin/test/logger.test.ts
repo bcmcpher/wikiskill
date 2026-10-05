@@ -8,6 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -137,8 +138,24 @@ describe("the watch-list gate", () => {
     expect(activation.payload.trigger).toBe("skill_tool")
   })
 
+  test("the version is the watched source file's, not the installed copy's", async () => {
+    // The build rewrites frontmatter, so the copy OpenCode loads hashes differently from the source.
+    const sourceDir = join(home, "source", "preregister")
+    mkdirSync(sourceDir, { recursive: true })
+    const sourcePath = join(sourceDir, "SKILL.md")
+    writeFileSync(sourcePath, "---\nname: preregister\ndescription: >\n  d\n---\n\nbody\n")
+    writeRuntime({ watched: [{ kind: "skill", name: "govern/preregister", path: sourcePath }] })
+    const hooks = await wikiskillLogger()
+    await session(hooks)
+    await hooks["tool.execute.after"](...realSkillCall())
+
+    const expected = "sha256:" + createHash("sha256").update(readFileSync(sourcePath)).digest("hex")
+    const activation = logLines().find((e) => e.type === "component_activated")
+    expect(activation.component.source_hash).toBe(expected)
+  })
+
   test("a component whose file cannot be read is still an activation", async () => {
-    writeRuntime()
+    writeRuntime({ watched: [] })
     const hooks = await wikiskillLogger()
     await session(hooks)
     // The fixture's metadata.dir points somewhere that does not exist on this machine.

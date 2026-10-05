@@ -158,11 +158,22 @@ def build(
     if harness == "claude-code":
         _plugin_files(target, result, plugin_name, hooks if hooks is not None else source is None)
 
+    skills_dir = src / "skills"
+    skill_names = {e.name for e in skills_dir.iterdir()} if skills_dir.is_dir() else set()
     for kind, directory in (("skill", "skills"), ("agent", "agents"), ("command", "commands")):
         source_kind_dir = src / directory
         if not source_kind_dir.is_dir():
             continue
         for entry in sorted(source_kind_dir.iterdir()):
+            if harness == "claude-code" and kind == "command" and entry.stem in skill_names:
+                # Claude Code names a plugin's commands and skills alike, and the command shadowed
+                # the skill: `Skill(<plugin>:<name>)` loaded the command's text. The skill is
+                # invocable as `/<plugin>:<name>` itself, so the command is the one to drop.
+                result.warnings.append(
+                    f"command {entry.stem!r} not built for claude-code: a skill has the same name, "
+                    "and Claude Code would load the command in its place"
+                )
+                continue
             common = {
                 "result": result,
                 "collection": collection,

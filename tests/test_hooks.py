@@ -185,9 +185,22 @@ def test_usage_is_counted_once_per_message(world):
 def test_a_finished_turn_ends_the_session_once(world):
     replay(world, "session")
     root_ends = [e for e in of(logged(world), "session_end") if e["session_id"] == SESSION]
-    # One idle end for the first turn, one for the turn the task notification started, and the end
-    # Claude Code reported when the process exited.
-    assert [e["payload"]["reason"] for e in root_ends] == ["idle", "idle", "other"]
+    # One idle end for the first turn and one for the turn the task notification started. The
+    # process exit that follows the last turn's Stop ends nothing new, so it is not logged again.
+    assert [e["payload"]["reason"] for e in root_ends] == ["idle", "idle"]
+
+
+def test_a_session_that_exits_mid_turn_still_ends(world):
+    captured = payloads(world, "session")
+    last_stop = max(i for i, p in enumerate(captured) if p["hook_event_name"] == "Stop")
+    clock = time.time()
+    for payload in captured[:last_stop] + captured[last_stop + 1 :]:
+        clock += 1
+        hooks.handle(
+            payload["hook_event_name"], payload, env=NO_ENV, configs=[world["config"]], now=clock
+        )
+    root_ends = [e for e in of(logged(world), "session_end") if e["session_id"] == SESSION]
+    assert [e["payload"]["reason"] for e in root_ends] == ["idle", "other"]
 
 
 # --------------------------------------------------------------------------- corrections

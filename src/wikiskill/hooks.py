@@ -732,6 +732,10 @@ def on_stop(log: Logger, payload: dict[str, Any]) -> None:
 
 
 def on_session_end(log: Logger, payload: dict[str, Any]) -> None:
+    # A session that exits after its last turn already ended at that turn's Stop.
+    if log.state.get("idle"):
+        return
+    log.state["idle"] = True
     reason = str(payload.get("reason") or "ended")
     log.emit(
         lambda config: log.event(config, "session_end", {"reason": reason, "duration_ms": None})

@@ -490,6 +490,16 @@ def test_a_diff_is_capped_and_redacted(raw, script):
     assert len(edit["payload"]["diff"].encode()) <= corrections.DIFF_LIMIT
 
 
+def test_a_last_line_without_a_newline_does_not_run_into_the_next(raw, script):
+    script.write_text("one\ntwo", encoding="utf-8")
+    log_session(raw, activated(), produced(script, content=script.read_text()))
+    script.write_text("one\nTWO", encoding="utf-8")
+    [edit] = corrections.scan(raw)
+    assert edit["payload"]["diff"].endswith(
+        "-two\n\\ No newline at end of file\n+TWO\n\\ No newline at end of file\n"
+    )
+
+
 def test_a_scan_already_running_leaves_it_alone(raw, script):
     import fcntl
 

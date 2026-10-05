@@ -449,7 +449,10 @@ def _diff(
         fromfile=f"a/{path.name}",
         tofile=f"b/{path.name}",
     )
-    text = "".join(lines)
+    # A last line without a newline would run into the next one; mark it as git does.
+    text = "".join(
+        line if line.endswith("\n") else line + "\n\\ No newline at end of file\n" for line in lines
+    )
     if secrets is not None:
         text, _ = redact(text, secrets)
     limited = bound(text, DIFF_LIMIT)
