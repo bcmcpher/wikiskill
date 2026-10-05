@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import __version__, paths
+from . import __version__, names, paths
 from .collection import Collection, Source
 from .errors import WikiskillError
 from .frontmatter import Document, repaired_warning
@@ -256,7 +256,7 @@ def build_collection(
                         staged, (installed_at or out_dir).resolve() / PLUGINS_DIR / plugin
                     )
                 for kind_dir, flat in _flat_names(staged):
-                    qualified = f"{plugin}/{flat}" if plugin else flat
+                    qualified = names.qualify(plugin, flat)
                     previous = owners.get((kind_dir, flat))
                     if previous is not None:
                         raise BuildError(
