@@ -1,0 +1,439 @@
+{
+  "$comment": "Evaluation-guard cases both guards must agree on, read by tests/test_parity.py and harness/opencode/guard/test/parity.test.ts. Same `expected` / `known_divergence` convention as redact.json. A `raw` of null is an unset environment variable. `messages` are the refusal texts the runners classify a unit by.",
+  "matches": [
+    {
+      "subject": "git push origin main",
+      "pattern": "git push*",
+      "expected": true
+    },
+    {
+      "subject": "git pushd",
+      "pattern": "git push*",
+      "expected": true
+    },
+    {
+      "subject": "git status",
+      "pattern": "git push*",
+      "expected": false
+    },
+    {
+      "subject": "rm -rf /",
+      "pattern": "rm -rf /*",
+      "expected": true
+    },
+    {
+      "subject": "rm -rf /tmp/x",
+      "pattern": "rm -rf /*",
+      "expected": true
+    },
+    {
+      "subject": "rm -rf ./x",
+      "pattern": "rm -rf /*",
+      "expected": false
+    },
+    {
+      "subject": "a.b",
+      "pattern": "a?b",
+      "expected": true
+    },
+    {
+      "subject": "aXb",
+      "pattern": "a.b",
+      "expected": false
+    },
+    {
+      "subject": "line\nnext",
+      "pattern": "line*",
+      "expected": true
+    },
+    {
+      "subject": "git push",
+      "pattern": "git push",
+      "expected": true
+    },
+    {
+      "subject": "git pushx",
+      "pattern": "git push",
+      "expected": false
+    },
+    {
+      "subject": "xgit push",
+      "pattern": "git push*",
+      "expected": false
+    },
+    {
+      "subject": "rm -rf /",
+      "pattern": "rm -r? /",
+      "expected": true
+    },
+    {
+      "subject": "rm -rf /",
+      "pattern": "rm -rf /",
+      "expected": true
+    },
+    {
+      "subject": "rm -rX /",
+      "pattern": "rm -rf /",
+      "expected": false
+    },
+    {
+      "subject": "a.b",
+      "pattern": "a.b",
+      "expected": true
+    },
+    {
+      "subject": "axb",
+      "pattern": "a.b",
+      "expected": false
+    },
+    {
+      "subject": "echo $(whoami)",
+      "pattern": "echo $(*)",
+      "expected": true
+    },
+    {
+      "subject": "x[1]",
+      "pattern": "x[1]",
+      "expected": true
+    },
+    {
+      "subject": "x1",
+      "pattern": "x[1]",
+      "expected": false
+    }
+  ],
+  "commands_in": [
+    {
+      "name": "splits a chained command line",
+      "args": {
+        "command": "cd repo && git push origin main"
+      },
+      "expected": [
+        "cd repo && git push origin main",
+        "cd repo",
+        "git push origin main"
+      ]
+    },
+    {
+      "name": "every chaining operator",
+      "args": {
+        "command": "cd repo && git push; echo done | tee log"
+      },
+      "expected": [
+        "cd repo && git push; echo done | tee log",
+        "cd repo",
+        "git push",
+        "echo done",
+        "tee log"
+      ]
+    },
+    {
+      "name": "or, and newlines",
+      "args": {
+        "command": "make || echo failed\nexit 1"
+      },
+      "expected": [
+        "make || echo failed\nexit 1",
+        "make",
+        "echo failed",
+        "exit 1"
+      ]
+    },
+    {
+      "name": "arguments that are not commands",
+      "args": {
+        "filePath": "/tmp/x"
+      },
+      "expected": []
+    },
+    {
+      "name": "a blank command",
+      "args": {
+        "command": "   "
+      },
+      "expected": []
+    },
+    {
+      "name": "every command key",
+      "args": {
+        "cmd": "ls",
+        "script": "pwd && id",
+        "command": "true"
+      },
+      "expected": [
+        "true",
+        "ls",
+        "pwd && id",
+        "pwd",
+        "id"
+      ]
+    }
+  ],
+  "denial_for": [
+    {
+      "name": "a denied command",
+      "tool": "bash",
+      "args": {
+        "command": "git push origin main"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": {
+        "subject": "git push origin main",
+        "pattern": "git push*"
+      }
+    },
+    {
+      "name": "a denied command inside a chain",
+      "tool": "bash",
+      "args": {
+        "command": "cd x && git push"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": {
+        "subject": "git push",
+        "pattern": "git push*"
+      }
+    },
+    {
+      "name": "what the suite did not deny",
+      "tool": "bash",
+      "args": {
+        "command": "git commit -m 'v1.0'"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": null
+    },
+    {
+      "name": "a read is not a shell call",
+      "tool": "read",
+      "args": {
+        "filePath": "README.md"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": null
+    },
+    {
+      "name": "only shell tools are matched against command patterns",
+      "tool": "edit",
+      "args": {
+        "command": "git push"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": null
+    },
+    {
+      "name": "a shell tool, in Claude Code's casing",
+      "tool": "Bash",
+      "args": {
+        "command": "git push"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": {
+        "subject": "git push",
+        "pattern": "git push*"
+      }
+    },
+    {
+      "name": "a non-shell tool, in Claude Code's casing",
+      "tool": "Write",
+      "args": {
+        "command": "git push"
+      },
+      "deny": [
+        "git push*",
+        "datalad push*"
+      ],
+      "tools": [],
+      "expected": null
+    },
+    {
+      "name": "a denied tool, whatever its arguments",
+      "tool": "webfetch",
+      "args": {},
+      "deny": [],
+      "tools": [
+        "webfetch"
+      ],
+      "expected": {
+        "subject": "tool webfetch",
+        "pattern": "webfetch"
+      }
+    },
+    {
+      "name": "a denied tool, matched case-insensitively",
+      "tool": "WebFetch",
+      "args": {},
+      "deny": [],
+      "tools": [
+        "WebFetch"
+      ],
+      "expected": {
+        "subject": "tool webfetch",
+        "pattern": "WebFetch"
+      }
+    },
+    {
+      "name": "a denied tool by glob",
+      "tool": "mcp__x__y",
+      "args": {},
+      "deny": [],
+      "tools": [
+        "mcp__*"
+      ],
+      "expected": {
+        "subject": "tool mcp__x__y",
+        "pattern": "mcp__*"
+      }
+    },
+    {
+      "name": "no patterns at all",
+      "tool": "bash",
+      "args": {
+        "command": "git push"
+      },
+      "deny": [],
+      "tools": [],
+      "expected": null
+    }
+  ],
+  "parse_list": [
+    {
+      "name": "a JSON array of strings",
+      "raw": "[\"git push*\", \"sudo *\"]",
+      "expected": [
+        "git push*",
+        "sudo *"
+      ]
+    },
+    {
+      "name": "nothing",
+      "raw": null,
+      "expected": []
+    },
+    {
+      "name": "an empty string",
+      "raw": "",
+      "expected": []
+    },
+    {
+      "name": "not JSON",
+      "raw": "not json",
+      "expected": []
+    },
+    {
+      "name": "an object",
+      "raw": "{\"deny\": []}",
+      "expected": []
+    },
+    {
+      "name": "non-strings and empty strings are dropped",
+      "raw": "[\"ok\", 3, \"\"]",
+      "expected": [
+        "ok"
+      ]
+    }
+  ],
+  "parse_budget": [
+    {
+      "name": "a positive integer",
+      "raw": "40",
+      "expected": 40
+    },
+    {
+      "name": "nothing",
+      "raw": null,
+      "expected": null
+    },
+    {
+      "name": "an empty string",
+      "raw": "",
+      "expected": null
+    },
+    {
+      "name": "zero",
+      "raw": "0",
+      "expected": null
+    },
+    {
+      "name": "negative",
+      "raw": "-1",
+      "expected": null
+    },
+    {
+      "name": "a fraction",
+      "raw": "2.5",
+      "expected": null
+    },
+    {
+      "name": "a word",
+      "raw": "lots",
+      "expected": null
+    },
+    {
+      "name": "surrounding spaces",
+      "raw": " 7 ",
+      "expected": 7
+    },
+    {
+      "name": "exponent notation",
+      "raw": "1e2",
+      "known_divergence": "TypeScript's Number() reads exponent notation; Python's int() refuses it, so the Python guard runs without a budget.",
+      "python": null,
+      "typescript": 100
+    },
+    {
+      "name": "hexadecimal",
+      "raw": "0x10",
+      "known_divergence": "TypeScript's Number() reads a 0x prefix; Python's int() refuses it, so the Python guard runs without a budget.",
+      "python": null,
+      "typescript": 16
+    }
+  ],
+  "messages": [
+    {
+      "name": "a refused command",
+      "blocked": [
+        "git push origin main",
+        "git push*"
+      ],
+      "expected": "blocked by the wikiskill evaluation guard: git push origin main matches deny pattern git push*"
+    },
+    {
+      "name": "a refused tool",
+      "blocked": [
+        "tool webfetch",
+        "webfetch"
+      ],
+      "expected": "blocked by the wikiskill evaluation guard: tool webfetch matches deny pattern webfetch"
+    },
+    {
+      "name": "an exhausted budget",
+      "step": 40,
+      "expected": "blocked by the wikiskill evaluation guard: step budget of 40 exhausted"
+    }
+  ]
+}

@@ -1,0 +1,584 @@
+{
+  "$comment": "Redaction cases both loggers must agree on, read by tests/test_parity.py and harness/opencode/plugin/test/parity.test.ts. A case has either `expected`, shared by both, or `known_divergence` (the reason) with each side's current output under `python` and `typescript`. `env` is an environment snapshot, passed through env_secrets first. A text given as {repeat, times} is that string repeated.",
+  "redact": [
+    {
+      "name": "anthropic key",
+      "text": "key=sk-ant-api03-AAAABBBBCCCCDDDDEEEE rest",
+      "env": {},
+      "expected": {
+        "text": "key=[REDACTED:api_key] rest",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "openai key",
+      "text": "sk-AAAABBBBCCCCDDDDEEEEFFFF",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:api_key]",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws access key",
+      "text": "AKIAIOSFODNN7EXAMPLE",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:api_key]",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "github token",
+      "text": "ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:api_key]",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slack token",
+      "text": "xoxb-1234567890-abcdefghij",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:api_key]",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "bearer token",
+      "text": "Authorization: Bearer abcdefghijklmnopqrstuvwxyz12",
+      "env": {},
+      "expected": {
+        "text": "Authorization: Bearer [REDACTED:token]",
+        "redactions": [
+          {
+            "kind": "token",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "bearer too short to be a token",
+      "text": "Authorization: Bearer abc123",
+      "env": {},
+      "expected": {
+        "text": "Authorization: Bearer abc123",
+        "redactions": []
+      }
+    },
+    {
+      "name": "jwt",
+      "text": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NX0.dBjftJeZ4CVPmB92K27u",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:token]",
+        "redactions": [
+          {
+            "kind": "token",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "password assignment",
+      "text": "password=\"hunter2hunter2\"",
+      "env": {},
+      "expected": {
+        "text": "password=\"[REDACTED:password]\"",
+        "redactions": [
+          {
+            "kind": "password",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "api key assignment, any case",
+      "text": "API_KEY: abcdef123456 and Access-Token='zzzzzz9'",
+      "env": {},
+      "expected": {
+        "text": "API_KEY: [REDACTED:password] and Access-Token='[REDACTED:password]'",
+        "redactions": [
+          {
+            "kind": "password",
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "a secret too short to be one",
+      "text": "secret=short",
+      "env": {},
+      "expected": {
+        "text": "secret=short",
+        "redactions": []
+      }
+    },
+    {
+      "name": "url credentials keep the host readable",
+      "text": "postgres://user:s3cr3tpass@db.internal/app",
+      "env": {},
+      "expected": {
+        "text": "postgres://user:[REDACTED:url_credentials]@db.internal/app",
+        "redactions": [
+          {
+            "kind": "url_credentials",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a private key block is removed whole",
+      "text": "-----BEGIN OPENSSH PRIVATE KEY-----\nbase64here\n-----END OPENSSH PRIVATE KEY-----",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:private_key]",
+        "redactions": [
+          {
+            "kind": "private_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "several kinds in one text, counted per kind",
+      "text": "sk-AAAABBBBCCCCDDDDEEEEFFFF then ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG then https://u:pw12345@h.example",
+      "env": {},
+      "expected": {
+        "text": "[REDACTED:api_key] then [REDACTED:api_key] then https://u:[REDACTED:url_credentials]@h.example",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 2
+          },
+          {
+            "kind": "url_credentials",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordinary text is left exactly alone",
+      "text": "created 4 files in /home/u/Projects/dsh and ran 12 tests",
+      "env": {},
+      "expected": {
+        "text": "created 4 files in /home/u/Projects/dsh and ran 12 tests",
+        "redactions": []
+      }
+    },
+    {
+      "name": "empty text",
+      "text": "",
+      "env": {},
+      "expected": {
+        "text": "",
+        "redactions": []
+      }
+    },
+    {
+      "name": "an environment value is scrubbed wherever it appears",
+      "text": "token correct-horse-battery twice correct-horse-battery",
+      "env": {
+        "API_TOKEN": "correct-horse-battery",
+        "HOME": "/home/u",
+        "SHORT": "abc",
+        "DIR": "/opt/x"
+      },
+      "expected": {
+        "text": "token [REDACTED:env_value] twice [REDACTED:env_value]",
+        "redactions": [
+          {
+            "kind": "env_value",
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "an environment value in a shell command",
+      "text": "echo correct-horse-battery | wc -c",
+      "env": {
+        "MY_TOKEN": "correct-horse-battery"
+      },
+      "expected": {
+        "text": "echo [REDACTED:env_value] | wc -c",
+        "redactions": [
+          {
+            "kind": "env_value",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a key preceded by a non-ASCII letter",
+      "text": "ésk-AAAABBBBCCCCDDDDEEEEFFFF",
+      "env": {},
+      "known_divergence": "\\b is Unicode-aware in Python and ASCII-only in JavaScript: after a non-ASCII letter Python sees no word boundary and keeps the key, TypeScript redacts it. Python is the leakier side.",
+      "python": {
+        "text": "ésk-AAAABBBBCCCCDDDDEEEEFFFF",
+        "redactions": []
+      },
+      "typescript": {
+        "text": "é[REDACTED:api_key]",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "an environment value that the marker itself contains",
+      "text": "x REDACTED y",
+      "env": {
+        "X": "REDACTED"
+      },
+      "known_divergence": "Python counts occurrences once and replaces that many; TypeScript loops while the text still contains the value, so a value the marker itself contains is re-replaced up to the cap of 101.",
+      "python": {
+        "text": "x [REDACTED:env_value] y",
+        "redactions": [
+          {
+            "kind": "env_value",
+            "count": 1
+          }
+        ]
+      },
+      "typescript": {
+        "text": "x [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[REDACTED:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value] y",
+        "redactions": [
+          {
+            "kind": "env_value",
+            "count": 101
+          }
+        ]
+      }
+    }
+  ],
+  "env_secrets": [
+    {
+      "name": "secrets kept, paths and short values dropped",
+      "env": {
+        "API_TOKEN": "correct-horse-battery",
+        "HOME": "/home/u",
+        "SHORT": "abc",
+        "DIR": "/opt/x"
+      },
+      "expected": [
+        "correct-horse-battery"
+      ]
+    },
+    {
+      "name": "a secret-looking value",
+      "env": {
+        "MY_TOKEN": "correct-horse-battery"
+      },
+      "expected": [
+        "correct-horse-battery"
+      ]
+    },
+    {
+      "name": "common non-secret variables",
+      "env": {
+        "PATH": "/usr/bin:/bin",
+        "HOME": "/home/u",
+        "TERM": "xterm-256color"
+      },
+      "expected": []
+    },
+    {
+      "name": "a bare path is location, not a secret",
+      "env": {
+        "PROJECT_ROOT": "/home/u/Projects/dsh"
+      },
+      "expected": []
+    },
+    {
+      "name": "a path with credentials is a secret",
+      "env": {
+        "DSN": "/sock:user@host"
+      },
+      "expected": [
+        "/sock:user@host"
+      ]
+    },
+    {
+      "name": "short values are too common to scrub",
+      "env": {
+        "TZ": "UTC"
+      },
+      "expected": []
+    },
+    {
+      "name": "longer values come before shorter ones they contain",
+      "env": {
+        "A": "abcdefghij",
+        "B": "abcdefghijKLMNOP"
+      },
+      "expected": [
+        "abcdefghijKLMNOP",
+        "abcdefghij"
+      ]
+    },
+    {
+      "name": "empty values",
+      "env": {
+        "EMPTY": ""
+      },
+      "expected": []
+    }
+  ],
+  "redact_value": [
+    {
+      "name": "strings nested in a tool's arguments are redacted in place",
+      "value": {
+        "command": "curl -H 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz12'",
+        "files": [
+          "ok.txt",
+          "sk-ant-api03-AAAABBBBCCCCDDDDEEEE"
+        ],
+        "count": 3,
+        "nested": {
+          "deeper": {
+            "token": "ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG"
+          }
+        }
+      },
+      "expected": {
+        "value": {
+          "command": "curl -H 'Authorization: Bearer [REDACTED:token]'",
+          "files": [
+            "ok.txt",
+            "[REDACTED:api_key]"
+          ],
+          "count": 3,
+          "nested": {
+            "deeper": {
+              "token": "[REDACTED:api_key]"
+            }
+          }
+        },
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 2
+          },
+          {
+            "kind": "token",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a single nested string",
+      "value": {
+        "cmd": "curl -H 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz12'",
+        "n": 3
+      },
+      "expected": {
+        "value": {
+          "cmd": "curl -H 'Authorization: Bearer [REDACTED:token]'",
+          "n": 3
+        },
+        "redactions": [
+          {
+            "kind": "token",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "scalars pass through",
+      "value": {
+        "flag": true,
+        "none": null,
+        "n": 1.5,
+        "list": [
+          1,
+          "two",
+          null
+        ]
+      },
+      "expected": {
+        "value": {
+          "flag": true,
+          "none": null,
+          "n": 1.5,
+          "list": [
+            1,
+            "two",
+            null
+          ]
+        },
+        "redactions": []
+      }
+    },
+    {
+      "name": "a pathological structure is cut off",
+      "value": {
+        "next": {
+          "next": {
+            "next": {
+              "next": {
+                "next": {
+                  "next": {
+                    "next": {
+                      "next": {
+                        "next": {
+                          "next": {
+                            "next": {
+                              "next": "leaf sk-AAAABBBBCCCCDDDDEEEEFFFF"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "expected": {
+        "value": {
+          "next": {
+            "next": {
+              "next": {
+                "next": {
+                  "next": {
+                    "next": {
+                      "next": {
+                        "next": {
+                          "next": "[TRUNCATED:depth]"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "redactions": []
+      }
+    }
+  ],
+  "bound": [
+    {
+      "name": "short output is untouched",
+      "text": "hello",
+      "limit": 1024,
+      "expected": {
+        "text": "hello",
+        "length": 5,
+        "truncated": false
+      }
+    },
+    {
+      "name": "long output is cut and its real length reported",
+      "text": {
+        "repeat": "x",
+        "times": 5000
+      },
+      "limit": 100,
+      "expected": {
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "length": 5000,
+        "truncated": true
+      }
+    },
+    {
+      "name": "a cut never splits a two-byte character",
+      "text": {
+        "repeat": "é",
+        "times": 10
+      },
+      "limit": 5,
+      "expected": {
+        "text": "éé",
+        "length": 10,
+        "truncated": true
+      }
+    },
+    {
+      "name": "an odd byte limit stops before a partial character",
+      "text": {
+        "repeat": "é",
+        "times": 100
+      },
+      "limit": 51,
+      "expected": {
+        "text": "ééééééééééééééééééééééééé",
+        "length": 100,
+        "truncated": true
+      }
+    },
+    {
+      "name": "a four-byte character is never cut in half",
+      "text": {
+        "repeat": "🧪",
+        "times": 8
+      },
+      "limit": 10,
+      "known_divergence": "`length` is code points in Python and UTF-16 code units in JavaScript, so a character outside the BMP counts once in Python and twice in TypeScript.",
+      "python": {
+        "text": "🧪🧪",
+        "length": 8,
+        "truncated": true
+      },
+      "typescript": {
+        "text": "🧪🧪",
+        "length": 16,
+        "truncated": true
+      }
+    },
+    {
+      "name": "exactly at the limit is not truncated",
+      "text": "abcde",
+      "limit": 5,
+      "expected": {
+        "text": "abcde",
+        "length": 5,
+        "truncated": false
+      }
+    }
+  ]
+}
