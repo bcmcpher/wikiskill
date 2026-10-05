@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..errors import WikiskillError
 from ..rubric import Dimension, Rubric
 from ..runner.preflight import Endpoint, request_json
 
@@ -40,7 +41,7 @@ DEFAULT_TIMEOUT_S = 300
 SPLIT = "split"
 
 
-class JudgeError(Exception):
+class JudgeError(WikiskillError):
     """The judge could not be consulted. Never a verdict about the work."""
 
 

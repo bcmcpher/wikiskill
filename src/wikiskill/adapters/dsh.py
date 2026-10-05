@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..errors import WikiskillError
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ..collection import Collection
 
@@ -34,7 +36,7 @@ DEFAULT_SPLIT = "val"
 DOER_SUFFIX = "-doer"
 
 
-class AdapterError(Exception):
+class AdapterError(WikiskillError):
     """A fixture that is recognisably DSH's but cannot be translated."""
 
 

@@ -26,6 +26,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from . import paths, rawlog
+from .errors import WikiskillError
 from .frontmatter import Document
 from .frontmatter import read as read_frontmatter
 
@@ -36,7 +37,7 @@ SUPERSEDED = "superseded"
 HISTORY = "## History"
 
 
-class WikiError(Exception):
+class WikiError(WikiskillError):
     """The wiki could not be read or written."""
 
 

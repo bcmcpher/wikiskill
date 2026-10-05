@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..errors import WikiskillError
 from ..suite import Task, Verifier
 
 #: A verifier gets its own budget rather than the session's `timeout_s`: checking the work should
@@ -40,7 +41,7 @@ OUTPUT_TAIL = 2000
 _DROPPED_ENV_PREFIXES = ("OPENCODE_", "WIKISKILL_")
 
 
-class VerifierError(Exception):
+class VerifierError(WikiskillError):
     """A verifier could not be carried out. Infrastructure, never a verdict about the model."""
 
 

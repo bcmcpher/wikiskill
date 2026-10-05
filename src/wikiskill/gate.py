@@ -32,6 +32,7 @@ from typing import Any
 from . import compare, rawlog, refine, wiki
 from . import graph as graph_mod
 from .collection import Collection
+from .errors import WikiskillError
 from .frontmatter import FrontmatterError
 from .runner.base import OFF, ROUTED
 from .score.route import UNSCORED, first_activation, same
@@ -45,7 +46,7 @@ DEFAULT_TOLERANCE = 1 / 3
 ACCEPT, DO_NOT_ACCEPT, NO_RECOMMENDATION = "accept", "do not accept", "none"
 
 
-class GateError(Exception):
+class GateError(WikiskillError):
     """A proposal cannot move as asked."""
 
 

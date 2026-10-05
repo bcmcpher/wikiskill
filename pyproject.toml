@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-wikiskill = "wikiskill.cli:main"
+wikiskill = "wikiskill.entry:main"
 
 # A dependency group, not an extra: `uv sync` installs the `dev` group by default, so a fresh clone
 # can run `bin/check` without remembering a flag. Pyright's `nodejs` extra brings its own Node, so

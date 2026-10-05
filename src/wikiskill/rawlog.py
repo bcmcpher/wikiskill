@@ -22,6 +22,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from . import RAW_SCHEMA_VERSION, paths
+from .errors import WikiskillError
 
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 _ULID_RE = re.compile(r"^[0-7][0-9ABCDEFGHJKMNPQRSTVWXYZ]{25}$")
@@ -43,7 +44,7 @@ CORRECTION_TYPES = ("user_turn", "output_edit", "note", "repeat_activation")
 CONFIDENCES = ("explicit", "high", "medium", "low")
 
 
-class RawLogError(Exception):
+class RawLogError(WikiskillError):
     """Base class for raw log failures."""
 
 

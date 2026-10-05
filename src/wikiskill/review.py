@@ -31,6 +31,7 @@ from typing import Any
 
 from . import compare, paths, rawlog, wiki
 from .collection import Collection
+from .errors import WikiskillError
 from .frontmatter import read as read_frontmatter
 from .runner.base import INFRA_OUTCOMES, OFF, new_run_id
 from .runner.opencode import _default_guard_plugin
@@ -50,7 +51,7 @@ PASSES_PER_TASK = 1
 ROLE_MAX_STEPS = 3
 
 
-class ReviewError(Exception):
+class ReviewError(WikiskillError):
     """A review could not be carried out."""
 
 

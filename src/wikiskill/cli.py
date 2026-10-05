@@ -39,16 +39,16 @@ from .build import (
     unresolved_plugin_paths,
 )
 from .collection import Collection, ManifestError, Source
+from .errors import WikiskillError
 from .frontmatter import FrontmatterError, repaired_warning
 from .frontmatter import read as read_frontmatter
-from .install import SCOPES, InstallError
+from .install import SCOPES
 from .rawlog import RawLogError
 from .runner import base as runner_base
 from .runner import claude as claude_backend
 from .runner import opencode as opencode_backend
 from .runner import preflight as preflight_mod
 from .runner import run as run_mod
-from .runner.base import RunnerError
 from .suite import SuiteError
 
 OK, FAILED, MISUSE = 0, 1, 2
@@ -1452,23 +1452,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (
-        ManifestError,
-        BuildError,
-        InstallError,
-        RawLogError,
-        FrontmatterError,
-        SuiteError,
-        RunnerError,
-        compare_mod.CompareError,
-        review_mod.ReviewError,
-        refine_mod.RefineError,
-        gate_mod.GateError,
-        wiki_mod.WikiError,
-    ) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return FAILED
-    except FileNotFoundError as exc:
+    except (WikiskillError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return FAILED
 

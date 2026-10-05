@@ -9,13 +9,15 @@ from typing import Any
 
 import yaml
 
+from .errors import WikiskillError
+
 _FENCE = "---"
 
 #: A top-level `key: value` line. Indented lines belong to a block above them and are never touched.
 _TOP_LEVEL = re.compile(r"^(?P<key>[A-Za-z0-9_-]+):[ \t]+(?P<value>\S.*?)[ \t]*$")
 
 
-class FrontmatterError(Exception):
+class FrontmatterError(WikiskillError):
     """A component file has no frontmatter, or frontmatter that is not a YAML mapping."""
 
 

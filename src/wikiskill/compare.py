@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from . import paths, rawlog
+from .errors import WikiskillError
 from .score.route import UNSCORED
 
 #: 95% two-sided.
@@ -28,7 +29,7 @@ UP, DOWN, SAME = "up", "down", "no detectable difference"
 POOLED = "pooled"
 
 
-class CompareError(Exception):
+class CompareError(WikiskillError):
     """Two runs cannot be compared."""
 
 

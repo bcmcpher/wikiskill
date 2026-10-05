@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import paths, rawlog
+from ..errors import WikiskillError
 from ..suite import Suite, Task
 
 #: OFF runs without the collection, ROUTED with normal discovery, INJECTED with the component's
@@ -40,7 +41,7 @@ OUTCOMES = (
 INFRA_OUTCOMES = ("infra_error", "skipped")
 
 
-class RunnerError(Exception):
+class RunnerError(WikiskillError):
     """The runner could not set up or carry out a run. Never raised for model behaviour."""
 
 

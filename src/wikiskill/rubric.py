@@ -19,12 +19,14 @@ from typing import Any
 
 import yaml
 
+from .errors import WikiskillError
+
 #: How many judges a rubric may ask for. Three when a dimension is contestable enough to want a
 #: majority; one otherwise, because three judges cost three times as much to learn the same thing.
 JUDGE_COUNTS = (1, 3)
 
 
-class RubricError(Exception):
+class RubricError(WikiskillError):
     """A rubric file is missing, unparseable, or invalid. Carries every problem found."""
 
     def __init__(self, path: Path | None, problems: Sequence[str]) -> None:

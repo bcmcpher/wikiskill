@@ -19,6 +19,7 @@ from pathlib import Path
 from . import __version__, paths
 from .build import BUILD_MARKER, build
 from .collection import Collection
+from .errors import WikiskillError
 from .rawlog import content_hash
 
 SCOPES = ("global", "project")
@@ -40,7 +41,7 @@ CLAUDE_PLUGIN = "wikiskill"
 _PLUGIN_DIR = {"opencode": "plugin"}
 
 
-class InstallError(Exception):
+class InstallError(WikiskillError):
     """An install or uninstall cannot proceed."""
 
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from . import paths
+from .errors import WikiskillError
 
 LAYOUTS = ("opencode", "claude-plugin")
 KINDS = ("skill", "agent", "command")
@@ -34,7 +35,7 @@ DEFAULT_OUTPUT_LIMIT = 16 * 1024
 DEFAULT_FOLLOW_UP_TURNS = 3
 
 
-class ManifestError(Exception):
+class ManifestError(WikiskillError):
     """A manifest is missing, unparseable, or invalid. Carries every problem found."""
 
     def __init__(self, path: Path | None, problems: Sequence[str]) -> None:

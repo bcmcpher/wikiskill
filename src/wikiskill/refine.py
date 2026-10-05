@@ -34,6 +34,7 @@ from . import paths, rawlog, review, wiki
 from . import rubric as rubric_mod
 from . import suite as suite_mod
 from .collection import Collection
+from .errors import WikiskillError
 from .frontmatter import FrontmatterError
 from .frontmatter import parse as parse_frontmatter
 from .frontmatter import read as read_frontmatter
@@ -82,7 +83,7 @@ REPLY_SCHEMA: dict[str, Any] = {
 }
 
 
-class RefineError(Exception):
+class RefineError(WikiskillError):
     """A refinement could not be carried out."""
 
 

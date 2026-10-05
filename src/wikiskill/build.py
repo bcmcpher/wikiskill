@@ -18,6 +18,7 @@ from typing import Any
 
 from . import __version__, paths
 from .collection import Collection, Source
+from .errors import WikiskillError
 from .frontmatter import Document, repaired_warning
 from .frontmatter import read as read_frontmatter
 
@@ -93,7 +94,7 @@ _CITED_PATH = re.compile(
 )
 
 
-class BuildError(Exception):
+class BuildError(WikiskillError):
     """A source component cannot be built."""
 
 

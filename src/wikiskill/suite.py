@@ -24,6 +24,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from . import adapters, paths
+from .errors import WikiskillError
 
 #: Used when neither the task nor the suite's `defaults` says otherwise.
 DEFAULT_REPEATS = 3
@@ -39,7 +40,7 @@ VERIFIER_KINDS = ("command", "file_exists", "regex")
 _WORD = re.compile(r"[a-z0-9]+")
 
 
-class SuiteError(Exception):
+class SuiteError(WikiskillError):
     """A suite file is missing, unparseable, or invalid. Carries every problem found."""
 
     def __init__(self, path: Path | None, problems: Sequence[str]) -> None:
