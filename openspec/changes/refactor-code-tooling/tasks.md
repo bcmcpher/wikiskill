@@ -126,15 +126,26 @@ Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `
 
 ## 2. Errors and the hook fast path (D3, D4; S; `cli.main` only)
 
-- [ ] 2.1 Add `src/wikiskill/errors.py` with `WikiskillError`. Rebase each module's base error onto
+- [x] 2.1 Add `src/wikiskill/errors.py` with `WikiskillError`. Rebase each module's base error onto
   it (20 classes across 17 modules).
-- [ ] 2.2 `cli.main` catches `WikiskillError` and `FileNotFoundError`, with the same message format
+  Done 2026-10-05. The 16 module base errors derive from it, so all 20 classes do.
+- [x] 2.2 `cli.main` catches `WikiskillError` and `FileNotFoundError`, with the same message format
   and exit code.
-- [ ] 2.3 Add a test that every exception class defined in the package derives from
+  Done: one `(WikiskillError, FileNotFoundError)` replaces the list of twelve, with the same
+  `error: {exc}` and `FAILED`. `VerifierError`, `JudgeError`, `RubricError` and `AdapterError`,
+  which would have escaped as tracebacks, now print the same way.
+- [x] 2.3 Add a test that every exception class defined in the package derives from
   `WikiskillError`.
-- [ ] 2.4 `main` dispatches `hook <event>` and `guard` before `build_parser`. Add a test that the
+  Done: `tests/test_entry.py` walks the package and finds 21 classes, the base included.
+- [x] 2.4 `main` dispatches `hook <event>` and `guard` before `build_parser`. Add a test that the
   fast path and the parser accept the same arguments. Record `import`/wall time for `wikiskill hook`
   before and after (baseline: 113 ms import, against 65 ms for `hooks` alone).
+  Done, in a new `wikiskill.entry` rather than in `cli.main`: the console script imported all of
+  `cli` before `main` ran, so a fast path there saved nothing. The console script is now
+  `wikiskill.entry:main`; run `uv sync` to rewrite an existing one. Tests check that the parser
+  sends every fast-path shape to the same handler, that 8 other shapes reach the parser, and that a
+  hook event never imports `wikiskill.cli`. Median wall time: `wikiskill hook Stop` 86 → 50 ms,
+  `wikiskill guard` 86 → 14 ms. Most of what is left is importing `hooks` (39–46 ms).
 
 ## 3. Type checking, outside the runners (D8, part one; S)
 
