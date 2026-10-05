@@ -494,3 +494,17 @@ def test_the_review_command_leaves_writing_the_wiki_to_wikiskill(tmp_path):
     assert "wikiskill-maintainer" in text
     assert "--sample <id> --reply-file" in text
     assert "at most twice" in text
+
+
+def test_the_refine_command_leaves_writing_the_proposal_to_wikiskill(tmp_path):
+    """The proposer answers, and wikiskill checks the answer against its prompt before writing."""
+    result = build("opencode", out_dir=tmp_path / "dist")
+
+    (command,) = [p for p in result.files if p.name == "wikiskill-refine.md"]
+    text = " ".join(command.read_text(encoding="utf-8").lower().split())
+
+    assert "do not edit the component" in text
+    assert "--prepare" in text
+    assert "wikiskill-proposer" in text
+    assert "--prompt <id> --reply-file" in text
+    assert "at most twice" in text

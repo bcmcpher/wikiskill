@@ -142,6 +142,7 @@ def run_suite(
     run_id: str | None = None,
     workers: int = 1,
     on_event=None,
+    proposal: str | None = None,
 ) -> RunResult:
     """Run a suite and write `run.json`, `results.jsonl`, and the raw events, then return the run.
 
@@ -152,6 +153,8 @@ def run_suite(
     than across the whole unit list: every unit of one model shares one endpoint, and the default of
     one is what Ollama serves. Models still run one after another, so an endpoint holding a single
     model in memory is never asked to hold two.
+
+    `proposal` names the refinement proposal whose candidate the collection carries, for `run.json`.
     """
     run_id = run_id or new_run_id()
     collection_name = collection.name if collection else suite.name
@@ -233,6 +236,7 @@ def run_suite(
             collection=collection,
             proofs=proofs,
             duration_s=round(time.time() - started, 1),
+            proposal=proposal,
         )
     )
     return run
@@ -371,6 +375,7 @@ def _manifest(
     collection: Collection | None,
     proofs: dict[str, Any],
     duration_s: float,
+    proposal: str | None = None,
 ) -> dict[str, Any]:
     """`run.json`: what ran, under what, and with which versions. Never an API key."""
     return {
@@ -390,6 +395,8 @@ def _manifest(
         "env": {task.id: dict(task.env) for task in run.suite.tasks if task.env},
         "setup": {task.id: list(task.setup) for task in run.suite.tasks if task.setup},
         "components": _component_versions(collection),
+        # A candidate run evaluates a proposal from a copy of its source; a baseline names none.
+        "proposal": proposal,
         "preflight": {model: result.as_dict() for model, result in run.preflight.items()},
         "isolation": proofs,
         # A model's output cap and thinking setting change what it does as much as its weights do.

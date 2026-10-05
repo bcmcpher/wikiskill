@@ -1,12 +1,4 @@
-# refinement-proposal Specification
-
-## Purpose
-Defines the refinement proposal: one user-triggered patch to one component per invocation, grounded
-in the wiki's patterns and the evidence shown behind them, held to machine checks for atomicity,
-evaluation leakage and model-specific guidance, tied to the component version it was made from,
-and never applied by wikiskill. The gate it passes is `refinement-gate`.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Refinement produces one user-applied patch
 
@@ -37,6 +29,8 @@ pattern MUST be rejected before it is written.
 
 - **WHEN** the wiki holds no pattern for the component
 - **THEN** the result is `no_action` with a reason, and no proposal directory is written
+
+## ADDED Requirements
 
 ### Requirement: Proposals target a single component
 

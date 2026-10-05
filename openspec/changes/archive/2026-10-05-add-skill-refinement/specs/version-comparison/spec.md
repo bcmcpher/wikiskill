@@ -1,10 +1,4 @@
-# version-comparison Specification
-
-## Purpose
-Defines how two evaluation runs of one suite are compared across versions of a component, which
-`refinement-gate` replay builds on, and how `--record` decides a proposal through that gate.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Runs of one suite compare across component versions
 
@@ -42,30 +36,3 @@ the comparison as that proposal's replay and the decision through the refinement
 - **WHEN** the user runs the comparison with `--record reject --proposal p-001`
 - **THEN** `skill-impact.md` gains one entry for `p-001`, the proposal's state is `rejected`, and no
   source file changes
-
-### Requirement: Comparisons report intervals, direction, and tool choice
-
-The comparison MUST report the following, for each condition, for each model and pooled:
-- the pass rate with a Wilson 95% interval
-- the direction of change, reported as "no detectable difference" when the two intervals overlap
-- the distribution of tool calls, from the runs' trajectories in the raw log
-- a pooled row recomputed with timed-out units counted as failures, since the runner classifies a
-  timeout as `infra_error` and excludes it from every other row
-
-Models present in only one run MUST be listed as unmatched rather than compared.
-
-#### Scenario: Overlapping intervals
-
-- **WHEN** version A passes 5 of 10 units and version B passes 7 of 10 for one model
-- **THEN** that model's row reports both intervals and "no detectable difference"
-
-#### Scenario: Tool choice shifts
-
-- **WHEN** version B's units call `datalad save` in 9 of 10 runs and version A's in 3 of 10
-- **THEN** the tool-choice section shows both counts side by side
-
-#### Scenario: Timeouts
-
-- **WHEN** some units timed out in either run
-- **THEN** the pooled row excludes them, and a second pooled row counts them as failures, so a
-  reader sees whether timeouts change the conclusion

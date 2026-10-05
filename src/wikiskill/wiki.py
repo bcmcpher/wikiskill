@@ -97,6 +97,16 @@ def patterns(collection: str, component: str | None = None) -> dict[str, Documen
     return found
 
 
+def impact_entries(collection: str, component: str) -> list[str]:
+    """This component's `skill-impact.md` entries, oldest first, each as written."""
+    path = wiki_root(collection) / IMPACT
+    if not path.is_file():
+        return []
+    sections = re.split(r"(?m)^(?=## )", path.read_text(encoding="utf-8"))
+    marker = f"- component: `{component}`"
+    return [s.strip() for s in sections if s.startswith("## ") and marker in s]
+
+
 # --------------------------------------------------------------------------- validation
 
 

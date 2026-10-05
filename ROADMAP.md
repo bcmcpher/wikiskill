@@ -44,6 +44,21 @@ watermark shows each review only what is new. The prompt budget follows the main
 wikiskill validates and applies its answer. Its live check ran on a local maintainer, which turned
 a logged correction into a pattern.
 
+Step 8 is **done**: archived on 2026-10-05, built on step 3's `refine` and `compare` rather than
+beside them.
+- The proposer is shown the evidence behind its patterns and the component's earlier decisions. A
+  patch must cite enough of that evidence and only that evidence, and must name one component.
+- The text a patch adds is checked for evaluation content (task ids, verifier literals, rubric
+  anchors, long notes) and for unmarked model-specific guidance.
+- `wikiskill eval --proposal` runs a candidate from a copy of the source.
+- `wikiskill proposal replay` reports each model's motivating cases and every task that fell, and
+  recommends.
+- Only `wikiskill proposal decide` reaches a final state, and every decision lands in
+  `skill-impact.md`.
+
+Its live check ran the whole gate on `wikiskill-trace` without touching the source. A replay with a
+motivating eval task waits on a pattern drawn from a verifier suite, which step 4's pilot provides.
+
 Steps 5 and 6 are **done**: both archived on 2026-10-05 with their capabilities live.
 - Step 5 captures corrections. Its last check ran live in OpenCode: a watched skill, a correction
   reply and `/wikiskill-note` logged `user_turn` (high) and `note` (explicit).
@@ -88,11 +103,11 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | 5 ✅ | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 6 ✅ | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
 | 7 ✅ | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
-| 8 | `add-skill-refinement` | refinement-proposal, refinement-gate | 3, 7 | Extends step 3's proposals with gate states and cross-model replay. |
+| 8 ✅ | `add-skill-refinement` | refinement-proposal, refinement-gate (+ version-comparison) | 3, 7 | Extends step 3's proposals with gate states and cross-model replay. |
 | 9 | `add-collection-graph` | collection-graph | 1, 2, 8 | Needs confusion and co-usage data; widens the existing gate. |
 
-Step 8 extends capabilities that step 3 introduces. Its delta specs must be rebased onto those
-capabilities before it is applied (`add-minimal-loop` task 7.1), as step 7's were.
+Steps 7 and 8 were rebased onto step 3's capabilities before they were built (`add-minimal-loop`
+task 7.1). Step 9 extends step 8's gate the same way.
 
 ## Phases and milestones
 

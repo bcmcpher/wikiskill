@@ -25,7 +25,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -205,10 +205,10 @@ def digest(
     Raises `NothingToReview` when every piece of evidence has been reviewed before, and
     `ReviewError` when there never was any.
     """
-    matches = [c for c in collection.discover() if c.name == component]
-    if not matches:
+    found = collection.component(component)
+    if found is None:
         raise ReviewError(f"{component!r} is not a component of collection {collection.name!r}")
-    source_text = matches[0].path.read_text(encoding="utf-8")[:COMPONENT_TEXT_LIMIT]
+    source_text = found.path.read_text(encoding="utf-8")[:COMPONENT_TEXT_LIMIT]
     budget = budget if budget is not None else budget_for(collection)
 
     runs = list(runs) if runs is not None else component_runs(collection.name, component)
@@ -250,6 +250,48 @@ def digest(
     )
     result.text = header + "\n\n".join(blocks) + omitted + "\n"
     return result
+
+
+def cited_digest(
+    collection: Collection,
+    component: str,
+    refs: Sequence[dict[str, Any]],
+    *,
+    budget: int,
+    raw_root: Path | None = None,
+) -> Digest:
+    """The evidence behind ``refs``, rendered and labelled as review renders it, strongest first.
+
+    What the proposer reads: the units and sessions its patterns were drawn from. A ref whose run or
+    session is no longer on disk is left out, and so cannot be cited.
+    """
+    run_ids = {str(ref["run_id"]) for ref in refs if "run_id" in ref}
+    wanted = {_ref_key(ref) for ref in refs}
+    # Only the cited units, so review's one-pass-per-task thinning cannot drop a cited pass.
+    runs = [
+        replace(run, results=tuple(r for r in run.results if _ref_key(r) in wanted))
+        for run in component_runs(collection.name, component)
+        if run.run_id in run_ids
+    ]
+    root = raw_root or paths.raw_dir(collection.name)
+    events = _unit_events(root, run_ids)
+    found = [
+        c
+        for c in _eval_candidates(component, runs, events) + _live_candidates(component, root)
+        if _ref_key(c.evidence.ref) in wanted
+    ]
+    found.sort(key=lambda c: c.newest, reverse=True)
+    found.sort(key=lambda c: c.rank)
+    result = Digest(component=component, text="", runs=sorted(run_ids), budget=budget)
+    result.text = "\n\n".join(_fit(found, result, budget)) + "\n"
+    return result
+
+
+def _ref_key(ref: dict[str, Any]) -> tuple[str, ...]:
+    """An evidence ref without its model, which refs written before step 7 do not carry."""
+    if "session_id" in ref:
+        return (str(ref["session_id"]),)
+    return tuple(str(ref.get(k)) for k in ("run_id", "task_id", "condition", "repeat"))
 
 
 def _unprocessed(

@@ -409,3 +409,16 @@ def test_publishing_with_nothing_configured_writes_an_empty_list(xdg):
     target, published, problems = collection_mod.publish_runtime_config()
     assert published == [] and problems == []
     assert json.loads(target.read_text())["collections"] == []
+
+
+def test_a_name_shared_by_two_kinds_resolves_to_the_watched_one(opencode_source):
+    """`wikiskill-trace` is a skill and a command; review and refine mean the watched one."""
+    (opencode_source / "commands" / "smoke.md").write_text("---\ndescription: c\n---\n\nrun\n")
+    source = (Source(path=opencode_source, layout="opencode"),)
+
+    skills = Collection(name="c", sources=source, watch={"skill": ("smoke",)})
+    commands = Collection(name="c", sources=source, watch={"command": ("smoke",)})
+
+    assert skills.component("smoke").kind == "skill"
+    assert commands.component("smoke").kind == "command"
+    assert skills.component("missing") is None

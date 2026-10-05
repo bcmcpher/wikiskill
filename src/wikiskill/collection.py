@@ -139,6 +139,15 @@ class Collection:
         pool = list(components) if components is not None else self.discover()
         return [c for c in pool if self.matches(c.kind, c.name)]
 
+    def component(self, name: str) -> Component | None:
+        """The component called ``name``, the watched one first when several kinds share it.
+
+        A command often shares its name with the skill it runs, as `wikiskill-trace` does.
+        """
+        named = [c for c in self.discover() if c.name == name]
+        watched = self.watched(named)
+        return (watched or named or [None])[0]
+
     def matches(self, kind: str, name: str) -> bool:
         return any(fnmatch.fnmatchcase(name, pattern) for pattern in self.watch.get(kind, ()))
 

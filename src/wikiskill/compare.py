@@ -1,4 +1,4 @@
-"""Compare two runs of one suite across versions of a component: the light gate.
+"""Compare two runs of one suite across versions of a component, for the refinement gate.
 
 A refinement is worth keeping only if the version it produced does better on the same tasks, the
 same models and the same conditions. This reads two finished runs and says, per model and pooled,
@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import paths, rawlog, wiki
+from . import paths, rawlog
 from .score.route import UNSCORED
 
 #: 95% two-sided.
@@ -442,33 +442,3 @@ def write(comparison: Comparison, out: Path) -> tuple[Path, Path]:
     md.write_text(render(comparison), encoding="utf-8")
     js.write_text(json.dumps(comparison.as_dict(), indent=2) + "\n", encoding="utf-8")
     return md, js
-
-
-def record(collection: str, comparison: Comparison, decision: str, proposal: str) -> Path:
-    """Append the user's decision to `skill-impact.md`. Applies and reverts nothing."""
-    if decision not in ("accept", "reject"):
-        raise CompareError(f"a decision is `accept` or `reject`, not {decision!r}")
-    root = wiki.ensure(collection)
-    target = root / wiki.IMPACT
-    pooled = []
-    for condition in sorted({c for c, _ in comparison.rows}):
-        ra, rb, move = comparison.rows[(condition, POOLED)]
-        pooled.append(f"  - {condition}: {_fmt(ra)} -> {_fmt(rb)}, {move}")
-    entry = [
-        "",
-        f"## {proposal}: {decision}",
-        "",
-        f"- component: `{comparison.component}`",
-        (
-            f"- runs: `{comparison.a.run_id}` (`{(comparison.hash_a or '?')[:12]}`) -> "
-            f"`{comparison.b.run_id}` (`{(comparison.hash_b or '?')[:12]}`)"
-        ),
-        f"- recorded: {rawlog.now_ts()}",
-        "- pooled:",
-        *pooled,
-        "",
-    ]
-    with target.open("a", encoding="utf-8") as handle:
-        handle.write("\n".join(entry))
-    wiki.commit(root, f"{decision} {proposal} for {comparison.component}")
-    return target

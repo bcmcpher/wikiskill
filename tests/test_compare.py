@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 
 import pytest
 
@@ -133,7 +132,9 @@ def test_overlapping_intervals_say_no_detectable_difference(tmp_path):
 def test_separated_intervals_report_a_direction(tmp_path):
     a = make_run(tmp_path, "A", passes=1, total=20)
     b = make_run(tmp_path, "B", passes=19, total=20, hash_="h2")
-    assert compare_mod.compare(a, b, raw_root=tmp_path / "raw").rows[("injected", "pooled")][2] == UP
+    assert (
+        compare_mod.compare(a, b, raw_root=tmp_path / "raw").rows[("injected", "pooled")][2] == UP
+    )
 
 
 def test_different_suites_are_refused(tmp_path):
@@ -238,33 +239,10 @@ def test_tool_choice_counts_units_not_calls(tmp_path):
     assert units_a == units_b == 10
 
 
-# --------------------------------------------------------------------------- recording
+# --------------------------------------------------------------------------- cli
 
 
-def test_record_appends_a_decision_and_changes_nothing_else(xdg, tmp_path):
-    a = make_run(tmp_path, "A", passes=5)
-    b = make_run(tmp_path, "B", passes=7, hash_="h2")
-    comparison = compare_mod.compare(a, b, raw_root=tmp_path / "raw")
-
-    target = compare_mod.record("dsh-datalad", comparison, "reject", "p-001")
-    compare_mod.record("dsh-datalad", comparison, "accept", "p-002")
-
-    text = target.read_text()
-    assert target == paths.wiki_dir("dsh-datalad") / "skill-impact.md"
-    assert text.count("## p-") == 2
-    assert "## p-001: reject" in text and "`h1`" in text and "`h2`" in text
-    patterns = target.parent / "patterns"
-    assert not any(patterns.iterdir()), "a decision touches no pattern"
-    log = subprocess.run(
-        ["git", "-C", str(target.parent), "log", "--format=%s"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert log.stdout.splitlines()[0] == "accept p-002 for datalad/datalad-doer"
-
-
-def test_cli_compare_writes_both_reports_and_records(xdg, tmp_path, capsys):
+def test_cli_compare_writes_both_reports(xdg, tmp_path, capsys):
     evals = paths.evals_dir("dsh-datalad")
     make_run(evals, "A", passes=5)
     make_run(evals, "B", passes=7, hash_="h2")
@@ -277,10 +255,6 @@ def test_cli_compare_writes_both_reports_and_records(xdg, tmp_path, capsys):
                 "B",
                 "--collection",
                 "dsh-datalad",
-                "--record",
-                "accept",
-                "--proposal",
-                "p-001",
             ]
         )
         == 0
@@ -289,7 +263,6 @@ def test_cli_compare_writes_both_reports_and_records(xdg, tmp_path, capsys):
     assert "no detectable difference" in out
     written = evals / "compare" / "A_vs_B"
     assert (written / "compare.md").is_file() and (written / "compare.json").is_file()
-    assert "p-001: accept" in (paths.wiki_dir("dsh-datalad") / "skill-impact.md").read_text()
 
 
 def test_cli_compare_refuses_mismatched_suites(xdg, capsys):

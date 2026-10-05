@@ -3,6 +3,16 @@
 Dependency edges from declarations (1.1) and conflict edges from eval reports (1.3), with `graph show`
 (2.1). That already guards description edits. Deferred: co-usage (1.2), until logs are plentiful.
 
+## 0a. Rebase onto add-skill-refinement
+
+- [ ] 0a.1 `add-skill-refinement` built the gate in `src/wikiskill/gate.py`. Replay compares a
+  baseline and a candidate run (`wikiskill eval --proposal`) of one suite: the motivating cases are
+  the suite tasks the cited patterns came from, and the regression bank is every other task. It
+  does not choose or run suites itself. Restate "neighbours are added to replay" and "description
+  edits replay conflict neighbours' routing tasks" against that design, as `MODIFIED`/`ADDED`
+  deltas on `refinement-gate`. For example, replay could warn when the runs leave out a neighbour's
+  tasks, rather than add runs.
+
 ## 1. Graph construction
 
 - [ ] 1.1 Dependency edges from `delegates_to` frontmatter and body mentions, with evidence locations.
