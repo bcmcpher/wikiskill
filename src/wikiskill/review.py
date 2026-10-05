@@ -347,7 +347,7 @@ def _eval_candidates(
             key = (
                 run.run_id,
                 result["task_id"],
-                result["model"].split("/", 1)[-1],
+                names.model_id(result["model"]),
                 result["condition"],
                 result["repeat"],
             )
