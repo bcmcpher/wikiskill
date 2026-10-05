@@ -120,7 +120,8 @@ def difference(found: Sequence[Verdict], model: str, left: str, right: str) -> d
             "tasks": 0,
             "reason": f"no task was measured under both {left} and {right}",
         }
-    gaps = [a.rate - b.rate for a, b in pairs]
+    # `_paired` keeps only pairs with both rates measured; the filter restates it for pyright.
+    gaps = [a.rate - b.rate for a, b in pairs if a.rate is not None and b.rate is not None]
     return {"value": round(sum(gaps) / len(gaps), 4), "tasks": len(pairs)}
 
 

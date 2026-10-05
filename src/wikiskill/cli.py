@@ -541,6 +541,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
     run_id = runner_base.new_run_id()
     layout = runner_base.RunLayout.create(coll.name if coll else loaded.name, run_id)
     if args.proposal:
+        assert coll is not None, "_eval_misuse refuses --proposal without --collection"
         coll = gate_mod.candidate_collection(coll, args.proposal, layout.root)
     # No --base-url means the harness resolves the model itself, credential included, so there is
     # no endpoint for wikiskill to address and preflight goes through the harness instead.
@@ -883,10 +884,12 @@ def cmd_refine(args: argparse.Namespace) -> int:
     if proposal.action == "no_action":
         print(f"no_action for {args.component}: {proposal.reason}")
         return OK
-    print(f"proposal {proposal.directory.name} for {args.component}: {proposal.directory}")
+    directory = proposal.directory
+    assert directory is not None, "a patch proposal is always written to a directory"
+    print(f"proposal {directory.name} for {args.component}: {directory}")
     print(f"  patterns  {', '.join(proposal.patterns)}")
     print(f"  why       {proposal.reason}")
-    print(f"  read      {proposal.directory / 'preview.md'}")
+    print(f"  read      {directory / 'preview.md'}")
     print("  nothing has been applied")
     return OK
 

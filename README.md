@@ -115,7 +115,8 @@ bin/check        # everything a commit should pass
    `harness/opencode/guard` (the evaluation guard's deny patterns): `bun test` and `tsc`. With bun
    absent, this step is skipped, and the script says so.
 
-It also runs pyright, but only to report errors: they do not fail the check. A package without
+It also runs pyright over `src/`, and its errors fail the check. Two runner modules are excluded
+until a later refactor fixes them (see `[tool.pyright]` in `pyproject.toml`). A package without
 `node_modules` gets a `bun install --frozen-lockfile` first.
 
 **Commit-time checks** are opt-in:

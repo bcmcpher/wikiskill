@@ -54,6 +54,8 @@ pythonpath = ["src"]
 # out until the source is clean (refactor-code-tooling, slice 3).
 [tool.pyright]
 include = ["src"]
+# Excluded until refactor-code-tooling slice 5, which rewrites both and fixes their ten errors.
+exclude = ["src/wikiskill/runner/claude.py", "src/wikiskill/runner/run.py"]
 
 [tool.ruff]
 line-length = 100

@@ -6,8 +6,8 @@
 # Needs `uv sync` first, which installs the dev group (pytest, ruff, pyright). The OpenCode packages
 # need bun; without it their step is skipped and said so, as the contract test does.
 #
-# pyright is report-only until its known errors are fixed (refactor-code-tooling, slice 3): it prints
-# its summary but never fails the check.
+# pyright fails the check. Two runner modules are excluded in pyproject.toml until
+# refactor-code-tooling slice 5 fixes them.
 
 set -eu
 
@@ -24,13 +24,8 @@ uv run --frozen ruff check
 step "ruff format --check"
 uv run --frozen ruff format --check
 
-step "pyright (report only)"
-if report=$(uv run --frozen pyright 2>&1); then
-    printf '%s\n' "$report" | tail -n 1
-else
-    printf '%s\n' "$report" | tail -n 1
-    echo "pyright found errors; report only, not failing (run \`uv run pyright\` for detail)"
-fi
+step "pyright"
+uv run --frozen pyright
 
 step "pytest"
 uv run --frozen pytest -q
