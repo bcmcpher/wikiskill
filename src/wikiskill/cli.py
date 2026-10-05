@@ -441,6 +441,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
         output_limit_bytes=coll.output_limit_bytes if coll else 16 * 1024,
         max_output_tokens=args.max_output_tokens,
         thinking=args.thinking,
+        seed_cache=not args.no_seed_cache,
     )
 
     print(f"run {run_id}  suite {loaded.name}  {len(models)} model(s)  {', '.join(conditions)}")
@@ -815,6 +816,14 @@ def _add_eval_parser(sub) -> None:
         help=(
             "ask the model to think (on) or not (off), against --base-url; default leaves it to "
             "the model, and models differ. Recorded in run.json, and never pooled across settings"
+        ),
+    )
+    ev.add_argument(
+        "--no-seed-cache",
+        action="store_true",
+        help=(
+            "download OpenCode's packages, ripgrep and model catalog into every unit, rather than "
+            "copying them from this machine's seed under ~/.cache/wikiskill/opencode-seed/"
         ),
     )
     ev.add_argument(

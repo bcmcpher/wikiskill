@@ -232,6 +232,84 @@ def test_off_installs_nothing_at_all(backend):
     assert not (workdir.parent / "config" / "opencode").exists()
 
 
+def fetched(root):
+    """What OpenCode would have downloaded into a root, beside what wikiskill installed there."""
+    (root / "cache" / "opencode" / "bin").mkdir(parents=True)
+    (root / "cache" / "opencode" / "bin" / "rg").write_text("ripgrep", encoding="utf-8")
+    (root / "cache" / "opencode" / "models.json").write_text("{}", encoding="utf-8")
+    modules = root / "config" / "opencode" / "node_modules" / "@opencode-ai" / "plugin"
+    modules.mkdir(parents=True)
+    (modules / "index.js").write_text("export {}", encoding="utf-8")
+    (root / "config" / "opencode" / "package.json").write_text("{}", encoding="utf-8")
+    (root / "config" / "opencode" / "skills" / "toy").mkdir(parents=True)
+    (root / "config" / "opencode" / "skills" / "toy" / "SKILL.md").write_text("x", encoding="utf-8")
+    (root / "config.json").write_text("{}", encoding="utf-8")
+
+
+@pytest.fixture
+def seeded(backend, xdg):
+    backend._version = "1.18.34"
+    return backend, xdg["cache"] / "wikiskill" / "opencode-seed" / "1.18.34"
+
+
+def test_a_harvested_seed_reaches_the_next_unit(seeded):
+    backend, seed = seeded
+    first = backend.layout.unit_dir(unit(condition="off"))
+    fetched(first)
+    backend._harvest_seed(first)
+    assert (seed / "cache" / "opencode" / "bin" / "rg").is_file()
+
+    workdir = backend.prepare(unit(condition="off", repeat=1))
+    root = workdir.parent
+    assert (root / "cache" / "opencode" / "models.json").is_file()
+    assert (root / "config" / "opencode" / "node_modules" / "@opencode-ai" / "plugin").is_dir()
+    assert (root / "config" / "opencode" / "package.json").is_file()
+
+
+def test_a_seed_never_carries_what_wikiskill_installed(seeded):
+    backend, seed = seeded
+    root = backend.layout.unit_dir(unit())
+    fetched(root)
+    backend._harvest_seed(root)
+    assert not (seed / "config" / "opencode" / "skills").exists()
+    assert not (seed / "config.json").exists()
+    assert not list(seed.parent.glob("*.tmp-*"))
+
+
+def test_an_existing_seed_is_kept(seeded):
+    backend, seed = seeded
+    (seed / "cache" / "opencode").mkdir(parents=True)
+    (seed / "cache" / "opencode" / "models.json").write_text("old", encoding="utf-8")
+    root = backend.layout.unit_dir(unit())
+    fetched(root)
+    backend._harvest_seed(root)
+    assert (seed / "cache" / "opencode" / "models.json").read_text(encoding="utf-8") == "old"
+
+
+def test_another_opencode_version_gets_no_seed(seeded):
+    backend, _ = seeded
+    root = backend.layout.unit_dir(unit())
+    fetched(root)
+    backend._harvest_seed(root)
+    backend._version = "1.19.0"
+    workdir = backend.prepare(unit(condition="off", repeat=1))
+    assert not (workdir.parent / "cache" / "opencode").exists()
+
+
+def test_seeding_off_neither_keeps_nor_applies_a_seed(seeded):
+    backend, seed = seeded
+    backend.seed_cache = False
+    root = backend.layout.unit_dir(unit())
+    fetched(root)
+    backend._harvest_seed(root)
+    assert not seed.exists()
+    assert backend.run_options()["seed_cache"] is False
+
+
+def test_an_unrunnable_opencode_has_no_seed(backend):
+    assert backend._seed_dir() is None
+
+
 def test_a_missing_fixture_directory_is_an_error_not_an_empty_run(backend):
     from wikiskill.suite import Route, Task
 
@@ -715,9 +793,17 @@ def test_thinking_is_sent_as_a_reasoning_effort(backend, thinking, effort):
 
 def test_run_options_say_what_was_applied(backend):
     backend.thinking = "off"
-    assert backend.run_options() == {"max_output_tokens": 8192, "thinking": "off"}
+    assert backend.run_options() == {
+        "max_output_tokens": 8192,
+        "thinking": "off",
+        "seed_cache": True,
+    }
     backend.endpoint = None
-    assert backend.run_options() == {"max_output_tokens": None, "thinking": None}
+    assert backend.run_options() == {
+        "max_output_tokens": None,
+        "thinking": None,
+        "seed_cache": True,
+    }
 
 
 def test_an_unknown_thinking_setting_is_refused(tmp_path, toy_collection):

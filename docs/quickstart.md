@@ -117,6 +117,13 @@ Two options change how the model behaves, so both are recorded with the run:
 - `--max-output-tokens` caps one model turn, thinking included (default 8192). A model that would
   otherwise think for minutes is cut off and scored on what it produced.
 
+Every unit starts from empty OpenCode directories, which by default means OpenCode downloads its
+packages, ripgrep and its model catalog again for every unit. Instead, the first unit that finishes
+cleanly leaves a copy of those downloads in `~/.cache/wikiskill/opencode-seed/<opencode-version>/`,
+and every later unit starts from that copy. Copy the folder to another machine with the same
+OpenCode version and that machine skips the downloads too. To return to a fresh download per unit,
+pass `--no-seed-cache` or delete the folder.
+
 ## 6. Read the report
 
 Results land in `~/.local/share/wikiskill/wikiskill-self/evals/<run-id>/`. `report.md` has:

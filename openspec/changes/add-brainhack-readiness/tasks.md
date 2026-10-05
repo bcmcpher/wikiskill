@@ -81,6 +81,11 @@ carries these.
       `models.json` into its own fresh cache: about 2.3 GB for one toy-routing run, or ~45 GB across
       20 machines on event Wi-Fi, and a registry hiccup fails units. First confirm OpenCode skips
       its install when the packages are already present
+      **Implemented 2026-10-05, not yet run against a live OpenCode.** The first unit (or
+      preflight probe) that exits cleanly copies `cache/opencode/` and OpenCode's `node_modules`,
+      `package.json` and lockfile into `~/.cache/wikiskill/opencode-seed/<version>/`; later units
+      start from a copy. `--no-seed-cache` turns it off, and `run.json` records which. Still to
+      confirm on a GB10: a seeded unit fetches nothing, and its results match an unseeded one
 - [ ] 4.2 Pre-stage models on every machine: pull once and copy Ollama's model store, or pull well
       ahead (qwen3:30b-a3b took two hours here)
 - [ ] 4.3 Pin one OpenCode and one Ollama version on every machine. OpenCode updates itself in
@@ -93,5 +98,5 @@ carries these.
 - [ ] 4.6 Rehearse the quickstart on one event GB10 as a participant, from its stock accounts and
       software; the walk-through here had OpenCode, Ollama and uv already installed
 - [ ] 4.7 Tag the commit participants check out, and announce it
-- [ ] 4.8 Update the README's Status paragraph, which still says step 3 is next
+- [x] 4.8 Update the README's Status paragraph, which still says step 3 is next
 - [ ] 4.9 After the event: pool the runs, record what they showed, and archive this change

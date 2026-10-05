@@ -8,11 +8,12 @@ Based on [WikiSkill](https://arxiv.org/abs/2608.27454), which produces its execu
 benchmark runs. wikiskill produces them from ordinary use as well, which is why everything it
 records carries harness, provider and model identity.
 
-**Status:** `add-trace-logging` (roadmap step 1) is implemented, and `add-explicit-eval` (step 2) has
-its minimal working core: task suites, the OpenCode eval backend with isolation and preflight, the
-OFF and ROUTED conditions, routing metrics and reports. Step 3, `add-minimal-loop`, is next: the whole loop once on one unit. Steps 3–9 are designed
-and not yet built —
-see [`ROADMAP.md`](ROADMAP.md).
+**Status:** roadmap steps 1 and 2 (`add-trace-logging`, `add-explicit-eval`) are done and archived:
+trace logging, task suites, the OpenCode eval backend with isolation and preflight, the OFF, ROUTED
+and INJECTED conditions, verifiers, and reports. Step 3, `add-minimal-loop`, is built and waiting on
+its live v1-against-v2 runs of one unit. `add-brainhack-readiness` adds what a workshop needs:
+preflight that survives slow local models, `wikiskill leaderboard` to pool runs across machines, and
+the quickstart below. Steps 4–9 are designed and not yet built. See [`ROADMAP.md`](ROADMAP.md).
 
 **New here?** [The quickstart](docs/quickstart.md) goes from a clean machine to a finished,
 poolable run on a local model; [bring your own collection](docs/bring-your-own-collection.md) then

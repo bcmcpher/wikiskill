@@ -80,6 +80,17 @@ DEFAULT_MAX_OUTPUT_TOKENS = 8192
 #: differs: qwen3 thinks unasked, gemma4 does not. That is why the setting is recorded with a run.
 THINKING_EFFORT = {"default": None, "off": "none", "on": "medium"}
 
+#: What OpenCode fetches into a fresh root before it can run: its npm packages beside the config,
+#: and ripgrep and the models.dev catalog in its cache. Relative to a unit's root. Nothing wikiskill
+#: installs is listed, so a seed never carries one run's collection into another.
+SEED_PATHS = (
+    "cache/opencode",
+    "config/opencode/node_modules",
+    "config/opencode/package.json",
+    "config/opencode/bun.lock",
+    "config/opencode/package-lock.json",
+)
+
 _SKILL_TOOLS = {"skill", "skills"}
 _TASK_TOOLS = {"task", "agent"}
 
@@ -124,6 +135,7 @@ class OpenCodeBackend(Backend):
         guard_plugin: Path | None = None,
         max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
         thinking: str = "default",
+        seed_cache: bool = True,
     ) -> None:
         if thinking not in THINKING_EFFORT:
             raise RunnerError(f"thinking must be one of {', '.join(THINKING_EFFORT)}")
@@ -139,6 +151,7 @@ class OpenCodeBackend(Backend):
         self.guard_plugin = guard_plugin or _default_guard_plugin()
         self.max_output_tokens = max_output_tokens
         self.thinking = thinking
+        self.seed_cache = seed_cache
         #: model → the context its server reported in preflight, which OpenCode is then told.
         self._served_context: dict[str, int] = {}
         self._version: str | None = None
@@ -146,13 +159,15 @@ class OpenCodeBackend(Backend):
     def run_options(self) -> dict[str, Any]:
         """What changes a model's behaviour beyond the model itself, recorded in `run.json`.
 
-        Both apply only where wikiskill declares the provider. A model the harness serves itself
-        keeps the harness's own limits, and the record says so with `None`.
+        The output cap and thinking apply only where wikiskill declares the provider. A model the
+        harness serves itself keeps the harness's own limits, and the record says so with `None`.
         """
         declared = self.endpoint is not None
         return {
             "max_output_tokens": self.max_output_tokens if declared else None,
             "thinking": self.thinking if declared else None,
+            # A seeded catalog can be older than a fresh one, and preflight reads context from it.
+            "seed_cache": self.seed_cache,
         }
 
     # ------------------------------------------------------------------ identity
@@ -205,6 +220,7 @@ class OpenCodeBackend(Backend):
         root = Path(self.layout.root) / "preflight" / model.replace("/", "-").replace(":", "-")
         for name in ("config", "data", "state", "cache"):
             (root / name).mkdir(parents=True, exist_ok=True)
+        self._apply_seed(root)
         env = self._env(root, self._config(model), list(BASE_DENY))
 
         try:
@@ -232,6 +248,8 @@ class OpenCodeBackend(Backend):
 
         problems: list[str] = []
         stream, made_file = self._probe(model, root, env)
+        if made_file:
+            self._harvest_seed(root)
         details["probe_tools"] = _stream_tool_calls(stream)
         details["probe_wrote_file"] = made_file
         verdict = probe_verdict(stream, produced_file=made_file, model=model)
@@ -319,6 +337,8 @@ class OpenCodeBackend(Backend):
         root = self.layout.unit_dir(unit)
         for name in ("config", "data", "state", "cache"):
             (root / name).mkdir(parents=True, exist_ok=True)
+        # Before the install, so anything the collection ships wins over a seeded file.
+        self._apply_seed(root)
         workdir = root / "work"
         if workdir.exists():
             shutil.rmtree(workdir)
@@ -384,6 +404,72 @@ class OpenCodeBackend(Backend):
                 f"collection {collection.name!r} produced no installable components, so ROUTED "
                 "would be identical to OFF"
             )
+
+    # ------------------------------------------------------------------ seed
+
+    def _seed_dir(self) -> Path | None:
+        """This machine's copy of what OpenCode downloads into a fresh root, per OpenCode version.
+
+        Every unit has its own XDG directories, so without a seed each one fetches OpenCode's npm
+        packages, ripgrep and the models.dev catalog again: gigabytes per run, and a registry hiccup
+        fails a unit. Keyed by version, so an upgrade never runs on another version's packages.
+        """
+        if not self.seed_cache:
+            return None
+        try:
+            version = self.version()
+        except RunnerError:
+            return None
+        if version == "unknown":
+            return None
+        return paths.cache_home() / "opencode-seed" / version.replace("/", "-")
+
+    def _apply_seed(self, root: Path) -> None:
+        """Copy the seed into a fresh root. Copies, not links: OpenCode may rewrite files."""
+        seed = self._seed_dir()
+        if seed is None or not seed.is_dir():
+            return
+        for relative in SEED_PATHS:
+            source = seed / relative
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if source.is_dir():
+                shutil.copytree(source, target, symlinks=True, dirs_exist_ok=True)
+            elif source.is_file():
+                shutil.copy2(source, target)
+
+    def _harvest_seed(self, root: Path) -> None:
+        """Keep what OpenCode fetched into this root as the seed, unless one already exists.
+
+        Written beside the seed and renamed into place, so a unit running alongside never reads a
+        half-written seed; when two race, the first rename wins and the other is discarded. A seed
+        that cannot be written costs only the download it would have saved, never the unit.
+        """
+        seed = self._seed_dir()
+        if seed is None or seed.exists():
+            return
+        present = [relative for relative in SEED_PATHS if (root / relative).exists()]
+        if not present:
+            return
+        staging = seed.with_name(f"{seed.name}.tmp-{os.getpid()}-{time.monotonic_ns()}")
+        try:
+            for relative in present:
+                source = root / relative
+                target = staging / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if source.is_dir():
+                    shutil.copytree(source, target, symlinks=True)
+                else:
+                    shutil.copy2(source, target)
+            os.replace(staging, seed)
+        except OSError as exc:
+            if not seed.exists():
+                (root / "seed-warning.txt").write_text(
+                    f"could not keep this unit's OpenCode files as the seed at {seed}: {exc}\n",
+                    encoding="utf-8",
+                )
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
 
     def config_for(self, unit: Unit, root: Path | None = None) -> dict[str, Any]:
         """The inline config a unit runs under. Only the target provider, and no MCP at all."""
@@ -658,6 +744,9 @@ class OpenCodeBackend(Backend):
             return Trajectory(unit=unit, outcome="infra_error", error=str(exc), reason=str(exc))
 
         duration_ms = int((time.time() - started) * 1000)
+        if exit_code == 0:
+            # Only after a clean exit: a killed process can leave a half-installed node_modules.
+            self._harvest_seed(root)
         (root / "run.ndjson").write_text(stdout, encoding="utf-8")
         if stderr:
             (root / "run.stderr").write_text(stderr, encoding="utf-8")

@@ -14,6 +14,11 @@ def _xdg(var: str, default: str) -> Path:
     return base / _APP
 
 
+def cache_home() -> Path:
+    """``${XDG_CACHE_HOME:-~/.cache}/wikiskill`` — anything here can be deleted and is rebuilt."""
+    return _xdg("XDG_CACHE_HOME", ".cache")
+
+
 def config_home() -> Path:
     """``${XDG_CONFIG_HOME:-~/.config}/wikiskill``."""
     return _xdg("XDG_CONFIG_HOME", ".config")
