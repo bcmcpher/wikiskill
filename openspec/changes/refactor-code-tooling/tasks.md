@@ -1,12 +1,48 @@
 ## 0. Order
 
-Each slice merges on its own and passes `bin/check` (or, before slice 1 lands, `uv run pytest` and
-`ruff check`).
+Each slice merges on its own and passes `bin/check`.
 
-- **Slices 1–3 first.** They touch nothing step 4 (`add-dsh-pilot`) may be editing. Slice 1 is the
-  first to do.
-- **Slices 4–8 wait** until step 4 merges, then rebase.
-- **Slice 8 (the CLI split) is last** and optional.
+**Status, 2026-10-05.** Slice 1 and wave A (slices 2, 3, 4 and task 7.3) are merged and pushed,
+at `e90f64f`. `bin/check` passes: pytest 840, bun 216 (plugin) and 75 (guard), and pyright 0 errors
+with `runner/claude.py` and `runner/run.py` excluded.
+
+**Before wave B, the user decides:**
+
+1. **The redaction leak.** `redact.py` leaves a secret unredacted when it directly follows a
+   non-ASCII letter (`ésk-AAAA…`): Python's `\b` is Unicode-aware, JavaScript's is not. This is
+   recorded as `known_divergence` in `tests/fixtures/parity/redact.json`. Recommended: a small
+   separate fix that makes Python match TypeScript, then turn the case into an ordinary one.
+2. **The other four divergences** in the parity fixtures: nested markers in TypeScript's env
+   redaction, `bound()` length outside the BMP, and the step budgets `"1e2"` and `"0x10"`. Decide
+   which side is right for each, or keep them recorded.
+3. **The per-side redaction and guard tests** that the parity fixtures now cover. Removing them
+   needs the user's approval; the auto-mode classifier refused it.
+4. **Git in agent worktrees.** The rtk hook rewrites `git` to `rtk git`, and the worktree guard
+   then refuses it. Every wave A agent hit this; one could not commit at all. Fix it before wave B,
+   or have agents call `/usr/bin/git`.
+5. **Out of scope here, for later:** `[logging] retention_days` and a suite task's `followups` are
+   validated but do nothing. Either build them or have the check commands warn.
+
+**Remaining waves.** Within a wave, slices run in parallel, one worktree each. Agents do not edit
+this file: the evidence goes in their report, and tasks are ticked when merging. Merge the slices
+one at a time, rebasing each onto `main`, then push once at the end of the wave.
+
+- **Wave B: slice 5 and task 7.1.**
+  - Slice 5 also removes the pyright `exclude` for `runner/claude.py` and `runner/run.py` (5.4).
+    It drops `opencode._bare` once `claude.py` stops importing it, and moves `_split_model` and
+    `_model_id` onto `names` where the rules agree.
+  - 7.1 touches `review.py:114-126`, `graph.py` and `gate.py`.
+- **Wave C: slice 6 and task 7.2.**
+  - 6 must follow 5, because its client code uses the runner helpers that 5 moves.
+  - 7.2 edits `runner/claude.py` and `run.load_results`, so it also follows 5.
+- **Wave D: slice 8, the CLI split.** It is last and optional. It rewrites `cli.py`, which 2, 3
+  and 6 also edit.
+- **Then:** task 9.1, `openspec validate --strict`, and archive the change.
+
+**Watch for:**
+- A local variable named `names` (slice 4 renamed three) before importing the module.
+- Import-line conflicts with the `from .errors import WikiskillError` lines.
+- Pyright now fails `bin/check`.
 
 ## 1. Tooling baseline — FIRST SLICE (D1, D2; S; no conflict with step 4)
 
