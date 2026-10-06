@@ -1,0 +1,103 @@
+# The DSH pilot's model catalogue: every model in the sweep, as served on the pilot's GB10. Read by
+# `docs/pilots/dsh/findings.toml` (its `models_file`) to group the sweep's tables by family and order
+# them by size; `pilots/archive-doer/sweep.sh` keeps its own run order.
+#
+# Sizes are billions of parameters from `ollama show` (2026-10-06, Ollama 0.34.2). Every model is
+# Q4_K_M except gpt-oss, which is MXFP4. Each entry's comment gives the context Ollama reports and the
+# capabilities it lists; preflight records the context actually served in each run's `run.json`.
+# `olmo-3:32b` lists no `tools` capability, so it is expected to fail preflight's tool-call probe.
+
+[models."qwen2.5-coder:1.5b"] # 32768, tools
+family = "qwen"
+size_b = 1.5
+shape = "dense"
+
+[models."qwen3:1.7b"] # 40960, tools thinking
+family = "qwen"
+size_b = 2.0
+shape = "dense"
+
+[models."qwen3.8:latest"] # 262144, tools thinking
+family = "qwen"
+size_b = 27.3
+shape = "dense"
+
+[models."qwen3:30b-a3b"] # 262144, tools thinking
+family = "qwen"
+size_b = 30.5
+shape = "moe"
+
+[models."qwen3-coder:30b"] # 262144, tools
+family = "qwen"
+size_b = 30.5
+shape = "moe"
+
+[models."granite4.1:3b"] # 131072, tools
+family = "granite"
+size_b = 3.4
+shape = "dense"
+
+[models."granite4.1:8b"] # 131072, tools
+family = "granite"
+size_b = 8.8
+shape = "dense"
+
+[models."granite4.1:30b"] # 131072, tools
+family = "granite"
+size_b = 28.9
+shape = "dense"
+
+[models."ministral-3:3b"] # 262144, tools
+family = "mistral"
+size_b = 3.8
+shape = "dense"
+
+[models."mistral:latest"] # 32768, tools
+family = "mistral"
+size_b = 7.2
+shape = "dense"
+
+[models."mistral-small3.2:24b"] # 131072, tools
+family = "mistral"
+size_b = 24.0
+shape = "dense"
+
+[models."gemma4:latest"] # 131072, tools thinking
+family = "gemma"
+size_b = 8.0
+shape = "dense"
+
+[models."gemma4:31b"] # 262144, tools thinking
+family = "gemma"
+size_b = 30.7
+shape = "dense"
+
+[models."gpt-oss:20b"] # 131072, tools thinking
+family = "gpt-oss"
+size_b = 20.9
+shape = "moe"
+
+[models."gpt-oss:120b"] # 131072, tools thinking
+family = "gpt-oss"
+size_b = 116.8
+shape = "moe"
+
+[models."glm-4.7-flash"] # 202752, tools thinking
+family = "glm"
+size_b = 29.9
+shape = "moe"
+
+[models."olmo-3:32b"] # 65536, thinking
+family = "olmo"
+size_b = 32.2
+shape = "dense"
+
+[models."nemotron-3.5-lightning:latest"] # 1048576, tools thinking
+family = "nemotron"
+size_b = 32.9
+shape = "hybrid-moe"
+
+[models."llama3.3:latest"] # 131072, tools
+family = "llama"
+size_b = 70.6
+shape = "dense"

@@ -8,7 +8,7 @@
 
 A unit passes on its verifiers, or, for a task with none, when its first activation is the expected component. Intervals are Wilson 95%. Units that did not run are counted beside the rate, never in it.
 
-- model catalogue: `../../../examples/models.toml`
+- model catalogue: `../../../pilots/models.toml`
 
 #### Ranking
 
