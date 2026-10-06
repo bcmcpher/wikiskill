@@ -9,12 +9,11 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
-import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .. import __version__, adapters, paths
+from .. import __version__, paths
 from .. import collection as collection_mod
 from .. import compare as compare_mod
 from .. import corrections as corrections_mod
@@ -22,35 +21,16 @@ from .. import gate as gate_mod
 from .. import graph as graph_mod
 from .. import guard as guard_mod
 from .. import hooks as hooks_mod
-from .. import install as install_mod
 from .. import leaderboard as leaderboard_mod
 from .. import refine as refine_mod
-from .. import report as report_mod
 from .. import review as review_mod
 from .. import roles as roles_mod
-from .. import suite as suite_mod
 from .. import wiki as wiki_mod
-from ..build import (
-    HARNESSES,
-    BuildError,
-    build,
-    build_collection,
-    dist_dir,
-)
 from ..collection import Collection, ManifestError
 from ..errors import WikiskillError
-from ..install import SCOPES
 from ..rawlog import RawLogError
-from ..runner import base as runner_base
-from ..runner import claude as claude_backend
-from ..runner import opencode as opencode_backend
-from ..runner import preflight as preflight_mod
-from ..runner import run as run_mod
-from . import collection, log, suite
+from . import build, collection, eval, install, log, suite
 from ._common import FAILED, MISUSE, OK
-
-DEFAULT_MAX_OUTPUT_TOKENS = opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS
-
 
 # --------------------------------------------------------------------------- helpers
 
@@ -152,262 +132,6 @@ def _log_scan_error(coll: Collection, exc: Exception) -> None:
         log.parent.mkdir(parents=True, exist_ok=True)
         with log.open("a", encoding="utf-8") as handle:
             handle.write(f"{datetime.now(UTC).isoformat()} corrections scan: {exc}\n")
-
-
-# --------------------------------------------------------------------------- eval
-
-
-def _report_preflight(backend, models: list[str], layout) -> int:
-    """Check every model and say what it would cost the run, without running anything.
-
-    Worth its own mode because the answer is what decides whether a suite is worth starting at all,
-    and because on a harness-served model the check itself spends tokens.
-    """
-    checks = {model: backend.preflight(model) for model in models}
-    for model, checked in checks.items():
-        print(f"\n{model}: {'ok' if checked.ok else 'unusable'}")
-        for key in ("via", "models_listed", "probe_tools", "context_tokens", "context_source"):
-            if key in checked.details:
-                print(f"    {key}: {checked.details[key]}")
-        for problem in checked.problems:
-            print(f"  - {problem}")
-    layout.write_manifest(
-        {
-            "run_id": layout.run_id,
-            "preflight_only": True,
-            "preflight": {model: checked.as_dict() for model, checked in checks.items()},
-        }
-    )
-    return OK if all(checked.ok for checked in checks.values()) else 1
-
-
-def _eval_misuse(args: argparse.Namespace, conditions: list[str]) -> str | None:
-    """Arguments that cannot describe a run, before anything is loaded or written."""
-    unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
-    if unknown:
-        return f"unknown condition(s): {', '.join(unknown)}"
-    if args.proposal and not args.collection:
-        return "--proposal needs --collection"
-    if args.harness == "claude-code":
-        ignored = [
-            flag
-            for flag, given in (
-                ("--thinking", args.thinking != "default"),
-                ("--max-output-tokens", args.max_output_tokens != DEFAULT_MAX_OUTPUT_TOKENS),
-                ("--no-seed-cache", args.no_seed_cache),
-            )
-            if given
-        ]
-        if ignored:
-            return f"{', '.join(ignored)} only apply to --harness opencode"
-    elif args.foreground_agents:
-        return "--foreground-agents only applies to --harness claude-code"
-    if args.thinking != "default" and not args.base_url:
-        return (
-            "--thinking needs --base-url: a model the harness serves itself keeps the harness's "
-            "own settings"
-        )
-    return None
-
-
-def cmd_eval(args: argparse.Namespace) -> int:
-    # The collection first: an adapted fixture names delegated *plugins*, and the collection is what
-    # knows which agent each of them provides.
-    coll = _collection_for(args.collection)
-    loaded = suite_mod.load(args.suite, collection=coll, split=args.split)
-    for warning in loaded.warnings:
-        print(f"  ? {warning}")
-    conditions = [c.strip() for c in args.condition.split(",") if c.strip()]
-    misuse = _eval_misuse(args, conditions)
-    if misuse:
-        print(f"error: {misuse}", file=sys.stderr)
-        return MISUSE
-
-    models = _eval_models(args, coll)
-    if not models:
-        print(
-            "error: no models to run. Pass --models, or add a [targets] opencode list to the "
-            "collection manifest.",
-            file=sys.stderr,
-        )
-        return MISUSE
-
-    tasks = None
-    if args.task:
-        wanted = set(args.task)
-        tasks = [task for task in loaded.tasks if task.id in wanted]
-        missing = sorted(wanted - {task.id for task in tasks})
-        if missing:
-            print(f"error: no such task(s) in {loaded.name}: {', '.join(missing)}", file=sys.stderr)
-            return MISUSE
-
-    run_id = runner_base.new_run_id()
-    layout = runner_base.RunLayout.create(coll.name if coll else loaded.name, run_id)
-    if args.proposal:
-        assert coll is not None, "_eval_misuse refuses --proposal without --collection"
-        coll = gate_mod.candidate_collection(coll, args.proposal, layout.root)
-    # No --base-url means the harness resolves the model itself, credential included, so there is
-    # no endpoint for wikiskill to address and preflight goes through the harness instead.
-    endpoint = (
-        preflight_mod.Endpoint(
-            base_url=args.base_url,
-            api_key=os.environ.get(args.api_key_env) if args.api_key_env else None,
-        )
-        if args.base_url
-        else None
-    )
-    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
-
-    print(
-        f"run {run_id}  suite {loaded.name}  {args.harness}  {len(models)} model(s)  "
-        f"{', '.join(conditions)}"
-    )
-    print(f"  results  {layout.root}")
-
-    if args.preflight_only:
-        return _report_preflight(backend, models, layout)
-    try:
-        run = run_mod.run_suite(
-            loaded,
-            backend,
-            collection=coll,
-            models=models,
-            conditions=conditions,
-            tasks=tasks,
-            layout=layout,
-            run_id=run_id,
-            workers=args.workers,
-            on_event=lambda line: print(f"  {line}", flush=True),
-            proposal=args.proposal,
-        )
-    except ValueError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return MISUSE
-
-    report = report_mod.write(layout, run.results, run_mod.load_manifest(layout))
-    print()
-    for outcome, count in sorted((report.get("outcomes") or {}).items()):
-        print(f"  {outcome:18} {count}")
-    print(f"  events written     {run.events_written}")
-    print(f"  report             {layout.report_md}")
-    unfinished = report.get("not_run") or []
-    if unfinished:
-        print(f"  not run            {len(unfinished)} (listed in the report)")
-    scored_any = any(row.get("repeats") for row in report.get("rows") or [])
-    return OK if scored_any else FAILED
-
-
-def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):
-    """The backend for `--harness`, configured from the command line."""
-    limit = coll.output_limit_bytes if coll else 16 * 1024
-    if args.harness == "claude-code":
-        return claude_backend.ClaudeCodeBackend(
-            collection=coll,
-            endpoint=endpoint,
-            layout=layout,
-            suite_root=root,
-            executable=args.claude,
-            min_context=args.min_context,
-            probe_timeout=args.probe_timeout,
-            output_limit_bytes=limit,
-            foreground_agents=args.foreground_agents,
-        )
-    return opencode_backend.OpenCodeBackend(
-        collection=coll,
-        endpoint=endpoint,
-        layout=layout,
-        suite_root=root,
-        executable=args.opencode,
-        min_context=args.min_context,
-        probe_timeout=args.probe_timeout,
-        output_limit_bytes=limit,
-        max_output_tokens=args.max_output_tokens,
-        thinking=args.thinking,
-        seed_cache=not args.no_seed_cache,
-    )
-
-
-def _eval_models(args: argparse.Namespace, coll: Collection | None) -> list[str]:
-    """Concrete `provider/model` strings, resolving manifest aliases where one is given."""
-    requested = list(args.models or [])
-    if not requested and coll is not None:
-        requested = list(coll.targets.get(args.harness, ()))
-    resolved = []
-    for name in requested:
-        concrete = name if "/" in name else None
-        if concrete is None and coll is not None:
-            concrete = coll.resolve_alias(args.harness, name)
-        if concrete is None:
-            print(
-                f"warning: {name!r} is not a provider/model and the manifest maps no alias for it",
-                file=sys.stderr,
-            )
-            continue
-        resolved.append(concrete)
-    return resolved
-
-
-# --------------------------------------------------------------------------- build / install
-
-
-def _collection_for(name: str | None) -> Collection | None:
-    return _load(name) if name else None
-
-
-def cmd_build(args: argparse.Namespace) -> int:
-    coll = _collection_for(args.collection)
-    out = Path(args.out) if args.out else dist_dir(args.harness)
-    if coll is None:
-        result = build(args.harness, out_dir=out)
-    else:
-        # The collection's own sources, not wikiskill's: this is what an evaluation installs.
-        try:
-            result = build_collection(args.harness, coll, out)
-        except BuildError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return FAILED
-    print(f"built {len(result.files)} files for {args.harness} into {result.out_dir}")
-    mapping = getattr(result, "mapping", {})
-    if mapping:
-        print("  components:")
-        for qualified, flat in sorted(mapping.items()):
-            print(f"    {qualified} -> {flat}")
-    for relative in result.relative():
-        print(f"  {relative}")
-    for warning in result.warnings:
-        print(f"  warning: {warning}")
-    return OK
-
-
-def cmd_install(args: argparse.Namespace) -> int:
-    target = Path(args.target).expanduser() if args.target else None
-    if args.uninstall:
-        result = install_mod.uninstall(args.harness, args.scope, target=target, force=args.force)
-        print(f"uninstalled from {result.target}")
-        for path in result.removed:
-            print(f"  removed  {path}")
-        for warning in result.warnings:
-            print(f"  warning: {warning}")
-        print(f"  {len(result.removed)} removed, {len(result.skipped)} left in place")
-        return OK
-
-    coll = _collection_for(args.collection)
-    result = install_mod.install(args.harness, args.scope, collection=coll, target=target)
-    print(f"installed {args.harness} components into {result.target}")
-    for path in result.written:
-        print(f"  wrote     {path}")
-    for path in result.removed:
-        print(f"  removed   {path}")
-    if not result.changed:
-        print("  no changes")
-    print(f"  {len(result.unchanged)} unchanged")
-    for note in result.notes:
-        print(f"  {note}")
-    for warning in result.warnings:
-        print(f"  warning: {warning}")
-    print(f"  record    {result.record}")
-    print(f"  wikiskill {install_mod.resolved_cli_path()}")
-    return OK
 
 
 # --------------------------------------------------------------------------- parser
@@ -931,130 +655,6 @@ def _add_leaderboard_parser(sub) -> None:
     board.set_defaults(func=cmd_leaderboard)
 
 
-def _add_eval_parser(sub) -> None:
-    ev = sub.add_parser("eval", help="run a task suite in fresh isolated headless sessions")
-    ev.add_argument("--suite", required=True, help="task suite file")
-    ev.add_argument(
-        "--harness",
-        choices=HARNESSES,
-        default="opencode",
-        help="the harness each unit runs in (default opencode)",
-    )
-    ev.add_argument(
-        "--collection", default=None, help="collection under test (required for ROUTED)"
-    )
-    ev.add_argument(
-        "--models",
-        nargs="+",
-        default=None,
-        metavar="MODEL",
-        help="provider/model strings, or aliases from the manifest (default: its opencode targets)",
-    )
-    ev.add_argument(
-        "--condition",
-        default="off,routed",
-        help="comma-separated: off, routed, injected (default off,routed)",
-    )
-    ev.add_argument("--task", action="append", default=None, help="run only this task id")
-    ev.add_argument(
-        "--split",
-        default=None,
-        choices=suite_mod.SPLITS,
-        help=(
-            "split to place tasks in when the fixture declares none, as data-science-harness's "
-            f"`bench/tasks` do not (default {adapters.DEFAULT_SPLIT})"
-        ),
-    )
-    ev.add_argument(
-        "--base-url",
-        default=None,
-        metavar="URL",
-        help=(
-            "endpoint serving the models under test: OpenAI-compatible for OpenCode, e.g. "
-            "http://localhost:11434/v1 for Ollama, or Anthropic-compatible for Claude Code, e.g. "
-            "http://localhost:11434. Omit it when the harness serves the model itself"
-        ),
-    )
-    ev.add_argument("--api-key-env", default=None, help="environment variable holding its API key")
-    ev.add_argument(
-        "--min-context",
-        type=int,
-        default=16384,
-        help="minimum context window preflight accepts; 0 skips the check",
-    )
-    ev.add_argument(
-        "--probe-timeout",
-        type=int,
-        default=None,
-        metavar="SECONDS",
-        help=(
-            "how long preflight's tool-call probe may take, model loading included (default 120 "
-            "against --base-url, 300 through the harness)"
-        ),
-    )
-    ev.add_argument(
-        "--max-output-tokens",
-        type=int,
-        default=DEFAULT_MAX_OUTPUT_TOKENS,
-        metavar="N",
-        help=(
-            "tokens one model turn may generate, thinking included, against --base-url (default "
-            f"{opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS}). Recorded in run.json"
-        ),
-    )
-    ev.add_argument(
-        "--thinking",
-        choices=tuple(opencode_backend.THINKING_EFFORT),
-        default="default",
-        help=(
-            "ask the model to think (on) or not (off), against --base-url; default leaves it to "
-            "the model, and models differ. Recorded in run.json, and never pooled across settings"
-        ),
-    )
-    ev.add_argument(
-        "--proposal",
-        default=None,
-        help=(
-            "evaluate this refinement proposal's candidate, from a copy of its source in the run "
-            "directory; the source itself is never written"
-        ),
-    )
-    ev.add_argument(
-        "--no-seed-cache",
-        action="store_true",
-        help=(
-            "download OpenCode's packages, ripgrep and model catalog into every unit, rather than "
-            "copying them from this machine's seed under ~/.cache/wikiskill/opencode-seed/"
-        ),
-    )
-    ev.add_argument(
-        "--workers",
-        type=int,
-        default=1,
-        metavar="N",
-        help=(
-            "units to run at once against one endpoint (default 1, which is what Ollama serves). "
-            "Models still run one after another"
-        ),
-    )
-    ev.add_argument(
-        "--preflight-only",
-        action="store_true",
-        help="check each model and stop, without running the suite",
-    )
-    ev.add_argument("--opencode", default="opencode", help="path to the opencode executable")
-    ev.add_argument("--claude", default="claude", help="path to the claude executable")
-    ev.add_argument(
-        "--foreground-agents",
-        action="store_true",
-        help=(
-            "(claude-code) run every subagent in the foreground, even when the model asks for the "
-            "background. Recorded in run.json"
-        ),
-    )
-    ev.set_defaults(func=cmd_eval)
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wikiskill",
@@ -1067,26 +667,9 @@ def build_parser() -> argparse.ArgumentParser:
     log.register(sub)
     suite.register(sub)
 
-    _add_eval_parser(sub)
-
-    build_cmd = sub.add_parser("build", help="generate a harness layout from the neutral source")
-    build_cmd.add_argument("--harness", choices=HARNESSES, required=True)
-    build_cmd.add_argument(
-        "--collection",
-        default=None,
-        help="build this collection's own sources, with its alias table, instead of wikiskill's",
-    )
-    build_cmd.add_argument("--out", default=None, help="output directory (default dist/<harness>)")
-    build_cmd.set_defaults(func=cmd_build)
-
-    inst = sub.add_parser("install", help="install built components and the harness logger")
-    inst.add_argument("--harness", choices=HARNESSES, required=True)
-    inst.add_argument("--scope", choices=SCOPES, required=True)
-    inst.add_argument("--collection", default=None)
-    inst.add_argument("--target", default=None, help="override the harness config directory")
-    inst.add_argument("--uninstall", action="store_true", help="remove exactly what was installed")
-    inst.add_argument("--force", action="store_true", help="on uninstall, remove changed files too")
-    inst.set_defaults(func=cmd_install)
+    eval.register(sub)
+    build.register(sub)
+    install.register(sub)
 
     for add_parser in (
         _add_hook_parser,

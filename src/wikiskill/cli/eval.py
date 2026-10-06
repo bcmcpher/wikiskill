@@ -1,0 +1,342 @@
+"""`wikiskill eval`: run a task suite in fresh isolated headless sessions."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from typing import TYPE_CHECKING
+
+from ._common import FAILED, OK, add_collection_argument, collection_for, misuse
+
+if TYPE_CHECKING:
+    from ..collection import Collection
+
+
+def register(sub) -> None:
+    from .. import adapters
+    from .. import suite as suite_mod
+    from ..build import HARNESSES
+    from ..runner import opencode as opencode_backend
+
+    ev = sub.add_parser("eval", help="run a task suite in fresh isolated headless sessions")
+    ev.add_argument("--suite", required=True, help="task suite file")
+    ev.add_argument(
+        "--harness",
+        choices=HARNESSES,
+        default="opencode",
+        help="the harness each unit runs in (default opencode)",
+    )
+    add_collection_argument(ev, "collection under test (required for ROUTED)")
+    ev.add_argument(
+        "--models",
+        nargs="+",
+        default=None,
+        metavar="MODEL",
+        help="provider/model strings, or aliases from the manifest (default: its opencode targets)",
+    )
+    ev.add_argument(
+        "--condition",
+        default="off,routed",
+        help="comma-separated: off, routed, injected (default off,routed)",
+    )
+    ev.add_argument("--task", action="append", default=None, help="run only this task id")
+    ev.add_argument(
+        "--split",
+        default=None,
+        choices=suite_mod.SPLITS,
+        help=(
+            "split to place tasks in when the fixture declares none, as data-science-harness's "
+            f"`bench/tasks` do not (default {adapters.DEFAULT_SPLIT})"
+        ),
+    )
+    ev.add_argument(
+        "--base-url",
+        default=None,
+        metavar="URL",
+        help=(
+            "endpoint serving the models under test: OpenAI-compatible for OpenCode, e.g. "
+            "http://localhost:11434/v1 for Ollama, or Anthropic-compatible for Claude Code, e.g. "
+            "http://localhost:11434. Omit it when the harness serves the model itself"
+        ),
+    )
+    ev.add_argument("--api-key-env", default=None, help="environment variable holding its API key")
+    ev.add_argument(
+        "--min-context",
+        type=int,
+        default=16384,
+        help="minimum context window preflight accepts; 0 skips the check",
+    )
+    ev.add_argument(
+        "--probe-timeout",
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "how long preflight's tool-call probe may take, model loading included (default 120 "
+            "against --base-url, 300 through the harness)"
+        ),
+    )
+    ev.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS,
+        metavar="N",
+        help=(
+            "tokens one model turn may generate, thinking included, against --base-url (default "
+            f"{opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS}). Recorded in run.json"
+        ),
+    )
+    ev.add_argument(
+        "--thinking",
+        choices=tuple(opencode_backend.THINKING_EFFORT),
+        default="default",
+        help=(
+            "ask the model to think (on) or not (off), against --base-url; default leaves it to "
+            "the model, and models differ. Recorded in run.json, and never pooled across settings"
+        ),
+    )
+    ev.add_argument(
+        "--proposal",
+        default=None,
+        help=(
+            "evaluate this refinement proposal's candidate, from a copy of its source in the run "
+            "directory; the source itself is never written"
+        ),
+    )
+    ev.add_argument(
+        "--no-seed-cache",
+        action="store_true",
+        help=(
+            "download OpenCode's packages, ripgrep and model catalog into every unit, rather than "
+            "copying them from this machine's seed under ~/.cache/wikiskill/opencode-seed/"
+        ),
+    )
+    ev.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help=(
+            "units to run at once against one endpoint (default 1, which is what Ollama serves). "
+            "Models still run one after another"
+        ),
+    )
+    ev.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="check each model and stop, without running the suite",
+    )
+    ev.add_argument("--opencode", default="opencode", help="path to the opencode executable")
+    ev.add_argument("--claude", default="claude", help="path to the claude executable")
+    ev.add_argument(
+        "--foreground-agents",
+        action="store_true",
+        help=(
+            "(claude-code) run every subagent in the foreground, even when the model asks for the "
+            "background. Recorded in run.json"
+        ),
+    )
+    ev.set_defaults(func=cmd_eval)
+
+
+def _report_preflight(backend, models: list[str], layout) -> int:
+    """Check every model and say what it would cost the run, without running anything.
+
+    Worth its own mode because the answer is what decides whether a suite is worth starting at all,
+    and because on a harness-served model the check itself spends tokens.
+    """
+    checks = {model: backend.preflight(model) for model in models}
+    for model, checked in checks.items():
+        print(f"\n{model}: {'ok' if checked.ok else 'unusable'}")
+        for key in ("via", "models_listed", "probe_tools", "context_tokens", "context_source"):
+            if key in checked.details:
+                print(f"    {key}: {checked.details[key]}")
+        for problem in checked.problems:
+            print(f"  - {problem}")
+    layout.write_manifest(
+        {
+            "run_id": layout.run_id,
+            "preflight_only": True,
+            "preflight": {model: checked.as_dict() for model, checked in checks.items()},
+        }
+    )
+    return OK if all(checked.ok for checked in checks.values()) else 1
+
+
+def _eval_misuse(args: argparse.Namespace, conditions: list[str]) -> str | None:
+    """Arguments that cannot describe a run, before anything is loaded or written."""
+    from ..runner import base as runner_base
+    from ..runner import opencode as opencode_backend
+
+    unknown = [c for c in conditions if c not in runner_base.CONDITIONS]
+    if unknown:
+        return f"unknown condition(s): {', '.join(unknown)}"
+    if args.proposal and not args.collection:
+        return "--proposal needs --collection"
+    if args.harness == "claude-code":
+        ignored = [
+            flag
+            for flag, given in (
+                ("--thinking", args.thinking != "default"),
+                (
+                    "--max-output-tokens",
+                    args.max_output_tokens != opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS,
+                ),
+                ("--no-seed-cache", args.no_seed_cache),
+            )
+            if given
+        ]
+        if ignored:
+            return f"{', '.join(ignored)} only apply to --harness opencode"
+    elif args.foreground_agents:
+        return "--foreground-agents only applies to --harness claude-code"
+    if args.thinking != "default" and not args.base_url:
+        return (
+            "--thinking needs --base-url: a model the harness serves itself keeps the harness's "
+            "own settings"
+        )
+    return None
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    from .. import gate as gate_mod
+    from .. import report as report_mod
+    from .. import suite as suite_mod
+    from ..runner import base as runner_base
+    from ..runner import preflight as preflight_mod
+    from ..runner import run as run_mod
+
+    # The collection first: an adapted fixture names delegated *plugins*, and the collection is what
+    # knows which agent each of them provides.
+    coll = collection_for(args.collection)
+    loaded = suite_mod.load(args.suite, collection=coll, split=args.split)
+    for warning in loaded.warnings:
+        print(f"  ? {warning}")
+    conditions = [c.strip() for c in args.condition.split(",") if c.strip()]
+    problem = _eval_misuse(args, conditions)
+    if problem:
+        return misuse(problem)
+
+    models = _eval_models(args, coll)
+    if not models:
+        return misuse(
+            "no models to run. Pass --models, or add a [targets] opencode list to the "
+            "collection manifest."
+        )
+
+    tasks = None
+    if args.task:
+        wanted = set(args.task)
+        tasks = [task for task in loaded.tasks if task.id in wanted]
+        missing = sorted(wanted - {task.id for task in tasks})
+        if missing:
+            return misuse(f"no such task(s) in {loaded.name}: {', '.join(missing)}")
+
+    run_id = runner_base.new_run_id()
+    layout = runner_base.RunLayout.create(coll.name if coll else loaded.name, run_id)
+    if args.proposal:
+        assert coll is not None, "_eval_misuse refuses --proposal without --collection"
+        coll = gate_mod.candidate_collection(coll, args.proposal, layout.root)
+    # No --base-url means the harness resolves the model itself, credential included, so there is
+    # no endpoint for wikiskill to address and preflight goes through the harness instead.
+    endpoint = (
+        preflight_mod.Endpoint(
+            base_url=args.base_url,
+            api_key=os.environ.get(args.api_key_env) if args.api_key_env else None,
+        )
+        if args.base_url
+        else None
+    )
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
+
+    print(
+        f"run {run_id}  suite {loaded.name}  {args.harness}  {len(models)} model(s)  "
+        f"{', '.join(conditions)}"
+    )
+    print(f"  results  {layout.root}")
+
+    if args.preflight_only:
+        return _report_preflight(backend, models, layout)
+    try:
+        run = run_mod.run_suite(
+            loaded,
+            backend,
+            collection=coll,
+            models=models,
+            conditions=conditions,
+            tasks=tasks,
+            layout=layout,
+            run_id=run_id,
+            workers=args.workers,
+            on_event=lambda line: print(f"  {line}", flush=True),
+            proposal=args.proposal,
+        )
+    except ValueError as exc:
+        return misuse(str(exc))
+
+    report = report_mod.write(layout, run.results, run_mod.load_manifest(layout))
+    print()
+    for outcome, count in sorted((report.get("outcomes") or {}).items()):
+        print(f"  {outcome:18} {count}")
+    print(f"  events written     {run.events_written}")
+    print(f"  report             {layout.report_md}")
+    unfinished = report.get("not_run") or []
+    if unfinished:
+        print(f"  not run            {len(unfinished)} (listed in the report)")
+    scored_any = any(row.get("repeats") for row in report.get("rows") or [])
+    return OK if scored_any else FAILED
+
+
+def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):
+    """The backend for `--harness`, configured from the command line."""
+    limit = coll.output_limit_bytes if coll else 16 * 1024
+    if args.harness == "claude-code":
+        from ..runner import claude as claude_backend
+
+        return claude_backend.ClaudeCodeBackend(
+            collection=coll,
+            endpoint=endpoint,
+            layout=layout,
+            suite_root=root,
+            executable=args.claude,
+            min_context=args.min_context,
+            probe_timeout=args.probe_timeout,
+            output_limit_bytes=limit,
+            foreground_agents=args.foreground_agents,
+        )
+    from ..runner import opencode as opencode_backend
+
+    return opencode_backend.OpenCodeBackend(
+        collection=coll,
+        endpoint=endpoint,
+        layout=layout,
+        suite_root=root,
+        executable=args.opencode,
+        min_context=args.min_context,
+        probe_timeout=args.probe_timeout,
+        output_limit_bytes=limit,
+        max_output_tokens=args.max_output_tokens,
+        thinking=args.thinking,
+        seed_cache=not args.no_seed_cache,
+    )
+
+
+def _eval_models(args: argparse.Namespace, coll: Collection | None) -> list[str]:
+    """Concrete `provider/model` strings, resolving manifest aliases where one is given."""
+    requested = list(args.models or [])
+    if not requested and coll is not None:
+        requested = list(coll.targets.get(args.harness, ()))
+    resolved = []
+    for name in requested:
+        concrete = name if "/" in name else None
+        if concrete is None and coll is not None:
+            concrete = coll.resolve_alias(args.harness, name)
+        if concrete is None:
+            print(
+                f"warning: {name!r} is not a provider/model and the manifest maps no alias for it",
+                file=sys.stderr,
+            )
+            continue
+        resolved.append(concrete)
+    return resolved
