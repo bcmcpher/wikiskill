@@ -18,7 +18,8 @@
 # A run that scores no unit (a failed preflight, an interruption) is not recorded, and is retried
 # on the next invocation. Logs go to $SWEEP_LOGS, one file per model and setting.
 #
-# Environment: SUITE (default pilots/archive-doer/suite.yaml), COLLECTION (dsh-archive), BASE_URL
+# Environment: SUITE (default pilots/archive-doer/suite.yaml), REPEATS (10, the design's; the suite
+# says 3 and keeps its hash), COLLECTION (dsh-archive), BASE_URL
 # (http://localhost:11434/v1), MODELS (space-separated, overrides the list below), DRY_RUN=1 (print
 # what would run). Run from the repository root of the results/dsh-pilot branch.
 
@@ -28,6 +29,7 @@ ROOT=$(git rev-parse --show-toplevel) || exit 2
 cd "$ROOT" || exit 2
 
 SUITE=${SUITE:-pilots/archive-doer/suite.yaml}
+REPEATS=${REPEATS:-10}
 COLLECTION=${COLLECTION:-dsh-archive}
 BASE_URL=${BASE_URL:-http://localhost:11434/v1}
 STUDY=docs/pilots/dsh
@@ -121,7 +123,7 @@ PY
 eval_args() {
   local model=$1
   printf '%s\n' --suite "$SUITE" --collection "$COLLECTION" --models "ollama/$model" \
-    --condition off,injected --base-url "$BASE_URL"
+    --condition off,injected --base-url "$BASE_URL" --repeats "$REPEATS"
 }
 
 preflight() {
@@ -175,7 +177,7 @@ sweep() {
   done
 }
 
-say "sweep $PHASE: suite $SUITE, collection $COLLECTION, ${#ORDER[@]} model(s), logs $SWEEP_LOGS"
+say "sweep $PHASE: suite $SUITE x$REPEATS, collection $COLLECTION, ${#ORDER[@]} model(s), logs $SWEEP_LOGS"
 case $PHASE in
   preflight) preflight ;;
   default) sweep default ;;
