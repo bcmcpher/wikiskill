@@ -113,6 +113,8 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
   from `ollama show`, and which ones the server says can think.
 - [ ] 4.2 Fix the repeats before the first run (design: 10 per task, n = 60 per cell) and record
   them in the report.
+- [x] 4.2a `eval --repeats N`, outside the suite hash, so the sweep runs 10 repeats on the unchanged
+  suite and the 3-repeat v1 run still pools in. `run.json` records each task's repeats.
 - [ ] 4.3 One run per model that passed, OFF and INJECTED, smallest first, `llama3.3` last. The
   suite file is unchanged, so its hash matches v1.
 - [ ] 4.4 Thinking arm: `--thinking off` for the models that can think (from 4.1), same suite and

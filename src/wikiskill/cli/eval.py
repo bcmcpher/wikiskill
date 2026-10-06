@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import os
 import sys
 from typing import TYPE_CHECKING
@@ -94,6 +95,16 @@ def register(sub) -> None:
         help=(
             "ask the model to think (on) or not (off), against --base-url; default leaves it to "
             "the model, and models differ. Recorded in run.json, and never pooled across settings"
+        ),
+    )
+    ev.add_argument(
+        "--repeats",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "run every task N times, in place of the suite's repeats. Recorded in run.json, and "
+            "not part of the suite hash, so the run pools with runs of the same suite"
         ),
     )
     ev.add_argument(
@@ -214,9 +225,17 @@ def cmd_eval(args: argparse.Namespace) -> int:
     for warning in loaded.warnings:
         print(f"  ? {warning}")
     conditions = [c.strip() for c in args.condition.split(",") if c.strip()]
-    problem = _eval_misuse(args, conditions)
+    problem = _eval_misuse(args, conditions) or (
+        "--repeats must be at least 1" if args.repeats is not None and args.repeats < 1 else None
+    )
     if problem:
         return misuse(problem)
+
+    if args.repeats is not None:
+        loaded = dataclasses.replace(
+            loaded,
+            tasks=tuple(dataclasses.replace(task, repeats=args.repeats) for task in loaded.tasks),
+        )
 
     models = _eval_models(args, coll)
     if not models:

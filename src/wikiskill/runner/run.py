@@ -444,6 +444,8 @@ def _manifest(
         "models": run.models,
         "conditions": run.conditions,
         "tasks": [task.id for task in run.suite.tasks],
+        # As run: `eval --repeats` changes these without changing the suite file or its hash.
+        "repeats": {task.id: task.repeats for task in run.suite.tasks},
         "env": {task.id: dict(task.env) for task in run.suite.tasks if task.env},
         "setup": {task.id: list(task.setup) for task in run.suite.tasks if task.setup},
         "components": run.components,
