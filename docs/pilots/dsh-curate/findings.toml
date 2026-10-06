@@ -1,0 +1,7 @@
+# The DSH pilot's sweep of gen-data-dict as a study: `pilots/dsh-sweep/sweep.sh` adds each complete run
+# here with role `sweep`. Tables come once there are runs to make them from. See README "Studies".
+
+[study]
+name = "dsh-curate"
+collection = "dsh-curate"
+models_file = "../../../pilots/models.toml"

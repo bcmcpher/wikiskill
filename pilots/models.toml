@@ -1,6 +1,6 @@
 # The DSH pilot's model catalogue: every model in the sweep, as served on the pilot's GB10. Read by
 # `docs/pilots/dsh/findings.toml` (its `models_file`) to group the sweep's tables by family and order
-# them by size; `pilots/archive-doer/sweep.sh` keeps its own run order.
+# them by size; `pilots/dsh-sweep/sweep.sh` keeps its own run order, a subset of these.
 #
 # Sizes are billions of parameters from `ollama show` (2026-10-06, Ollama 0.34.2). Every model is
 # Q4_K_M except gpt-oss, which is MXFP4. Each entry's comment gives the context Ollama reports and the
