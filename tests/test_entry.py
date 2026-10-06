@@ -82,6 +82,18 @@ def test_a_hook_event_never_imports_the_cli(xdg):
     assert done.stdout.strip() == "False"
 
 
+def test_importing_the_cli_loads_no_command_module():
+    """Each command group imports its modules in its handlers, not when `wikiskill.cli` loads."""
+    code = (
+        "import sys\n"
+        "import wikiskill.cli\n"
+        "print(sorted(m for m in sys.modules\n"
+        "             if m.startswith('wikiskill.') and not m.startswith('wikiskill.cli')))\n"
+    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert done.stdout.strip() == "['wikiskill.errors']"
+
+
 # --------------------------------------------------------------------------- one error base
 
 
