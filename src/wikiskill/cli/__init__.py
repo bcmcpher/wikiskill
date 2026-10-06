@@ -11,19 +11,30 @@ import json
 import sys
 from pathlib import Path
 
-from .. import __version__, paths
+from .. import __version__
 from .. import collection as collection_mod
-from .. import compare as compare_mod
 from .. import gate as gate_mod
 from .. import graph as graph_mod
-from .. import leaderboard as leaderboard_mod
 from .. import refine as refine_mod
 from .. import review as review_mod
 from .. import roles as roles_mod
 from .. import wiki as wiki_mod
 from ..collection import Collection
 from ..errors import WikiskillError
-from . import build, collection, corrections, eval, hook, install, log, note, suite
+from . import (
+    build,
+    collection,
+    compare,
+    corrections,
+    eval,
+    hook,
+    install,
+    leaderboard,
+    log,
+    note,
+    review,
+    suite,
+)
 from ._common import FAILED, MISUSE, OK
 from .hook import cmd_guard, cmd_hook
 
@@ -37,144 +48,6 @@ def _load(name: str) -> Collection:
 
 
 # --------------------------------------------------------------------------- parser
-
-
-def cmd_compare(args: argparse.Namespace) -> int:
-    a = compare_mod.load_run(args.collection, args.run_a)
-    b = compare_mod.load_run(args.collection, args.run_b)
-    comparison = compare_mod.compare(a, b, component=args.component)
-    out = compare_mod.output_dir(args.collection, a, b)
-    md, js = compare_mod.write(comparison, out)
-    print(compare_mod.render(comparison))
-    print(f"wrote {md}")
-    print(f"wrote {js}")
-    if args.record:
-        if not args.proposal:
-            print("error: --record needs --proposal <id>", file=sys.stderr)
-            return FAILED
-        replayed = gate_mod.replay(args.collection, args.proposal, a.root, b.root)
-        print(f"replayed {args.proposal}: recommendation {replayed.recommendation}")
-        target = gate_mod.decide(args.collection, args.proposal, args.record, note=args.note)
-        print(f"recorded {args.record} for {args.proposal} in {target}")
-    return OK
-
-
-def cmd_leaderboard(args: argparse.Namespace) -> int:
-    runs = []
-    for run in args.run:
-        if not Path(run).is_dir() and not args.collection:
-            print(f"error: {run} is not a directory; pass a path, or --collection", file=sys.stderr)
-            return MISUSE
-        runs.append(compare_mod.load_run(args.collection or "", run))
-    board = leaderboard_mod.pool(runs)
-    if args.out:
-        out = Path(args.out)
-    else:
-        collection = args.collection or runs[0].manifest.get("collection") or board.suite or "runs"
-        out = paths.evals_dir(collection) / "leaderboard" / leaderboard_mod.output_name(runs)
-    md, js = leaderboard_mod.write(board, out)
-    print(leaderboard_mod.render(board))
-    print(f"wrote {md}")
-    print(f"wrote {js}")
-    return OK
-
-
-def _sampling(args: argparse.Namespace) -> dict:
-    """The sampling options `review` and `sample` share."""
-    return {
-        "budget": args.budget,
-        "signals": args.signals,
-        "clean": args.clean,
-        "resample": args.resample,
-    }
-
-
-def cmd_sample(args: argparse.Namespace) -> int:
-    coll = _load(args.collection)
-    runs = [compare_mod.load_run(coll.name, run) for run in args.run] if args.run else None
-    try:
-        found = review_mod.digest(coll, args.component, runs=runs, **_sampling(args))
-    except review_mod.NothingToReview as exc:
-        print(exc)
-        return OK
-    sample_id, directory = review_mod.save_sample(coll, found)
-    print(f"sample {sample_id}")
-    print(f"  prompt        {directory / 'prompt.md'}")
-    print(f"  instructions  {directory / 'instructions.md'}")
-    print(
-        f"  evidence      {len(found.evidence)} shown, {found.omitted} waiting, "
-        f"{len(found.text)} of {found.budget} characters"
-    )
-    print(
-        f"  apply with    wikiskill review {args.component} --collection {coll.name} "
-        f"--sample {sample_id} --reply-file <reply.json>"
-    )
-    return OK
-
-
-def cmd_review(args: argparse.Namespace) -> int:
-    coll = _load(args.collection)
-    runs = [compare_mod.load_run(coll.name, run) for run in args.run] if args.run else None
-    if args.sample and not args.reply_file:
-        print("error: --sample needs --reply-file", file=sys.stderr)
-        return MISUSE
-    try:
-        sample = review_mod.load_sample(coll, args.sample) if args.sample else None
-        if sample and sample.component != args.component:
-            raise review_mod.ReviewError(
-                f"sample {args.sample} is of {sample.component}, not {args.component}"
-            )
-        if args.dry_run:
-            found = sample or review_mod.digest(coll, args.component, runs=runs, **_sampling(args))
-            print(found.text)
-            print(
-                f"--- {len(found.text)} characters, {len(found.evidence)} pieces of evidence, "
-                f"{found.omitted} omitted, runs: {', '.join(found.runs) or 'none'}"
-            )
-            return OK
-        if args.reply_file:
-            replies = iter([Path(args.reply_file).read_text(encoding="utf-8")])
-            ask = lambda _messages: next(replies)  # noqa: E731
-            maintainer, retries = f"reply file {args.reply_file}", 0
-        else:
-            ask, maintainer = roles_mod.role_asker(coll, "maintainer")
-            retries = args.retries
-        outcome = review_mod.review(
-            coll,
-            args.component,
-            ask=ask,
-            maintainer=maintainer,
-            runs=runs,
-            retries=retries,
-            sample=sample,
-            **_sampling(args),
-        )
-    except review_mod.NothingToReview as exc:
-        print(exc)
-        return OK
-    return _report_review(args.component, coll.name, outcome)
-
-
-def _report_review(component: str, collection: str, outcome) -> int:
-    if outcome.applied is None:
-        print(
-            f"no pattern written: the reply failed validation after {outcome.attempts} "
-            f"attempt(s); the failure is in {wiki_mod.wiki_root(collection) / wiki_mod.LOG}"
-        )
-        for problem in outcome.problems:
-            print(f"  - {problem}")
-        return FAILED
-    applied = outcome.applied
-    print(f"review of {component} applied after {outcome.attempts} attempt(s)")
-    print(f"  created  {', '.join(applied.created) or 'none'}")
-    print(f"  updated  {', '.join(applied.updated) or 'none'}")
-    if applied.superseded:
-        print(f"  retired  {', '.join(applied.superseded)}")
-    note = "" if applied.committed else " (not committed)"
-    print(f"  wiki     {wiki_mod.wiki_root(collection)}{note}")
-    for warning in applied.warnings:
-        print(f"  warning: {warning}")
-    return OK
 
 
 def cmd_refine(args: argparse.Namespace) -> int:
@@ -413,100 +286,6 @@ def _add_graph_parser(sub) -> None:
         action.add_argument("--collection", required=True)
 
 
-def _add_review_parser(sub) -> None:
-    rev = sub.add_parser("review", help="distil one component's evidence into wiki patterns")
-    _add_sampling_arguments(rev)
-    rev.add_argument("--retries", type=int, default=review_mod.DEFAULT_RETRIES)
-    rev.add_argument("--dry-run", action="store_true", help="print the prompt and stop")
-    rev.add_argument(
-        "--reply-file",
-        default=None,
-        help="validate and apply a maintainer reply written elsewhere, e.g. in-harness",
-    )
-    rev.add_argument(
-        "--sample",
-        default=None,
-        help="the `wikiskill sample` id (or directory) the --reply-file answers",
-    )
-    rev.set_defaults(func=cmd_review)
-
-    sam = sub.add_parser(
-        "sample", help="take and keep a review sample, for a maintainer that runs elsewhere"
-    )
-    _add_sampling_arguments(sam)
-    sam.set_defaults(func=cmd_sample)
-
-
-def _add_sampling_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("component", help="e.g. datalad/datalad-doer")
-    parser.add_argument("--collection", required=True)
-    parser.add_argument(
-        "--run", action="append", default=None, help="only this run (default: every run of it)"
-    )
-    parser.add_argument(
-        "--budget",
-        type=int,
-        default=None,
-        help=(
-            f"prompt characters (default {review_mod.DEFAULT_BUDGET}, less for a maintainer "
-            "whose `context_tokens` is under 64k)"
-        ),
-    )
-    parser.add_argument(
-        "--signals",
-        type=int,
-        default=review_mod.DEFAULT_SIGNALS,
-        help="most pieces of evidence with a correction or failure signal",
-    )
-    parser.add_argument(
-        "--clean",
-        type=int,
-        default=review_mod.DEFAULT_CLEAN,
-        help="most pieces of evidence with no signal",
-    )
-    parser.add_argument(
-        "--resample", action="store_true", help="include evidence earlier reviews were shown"
-    )
-
-
-def _add_compare_parser(sub) -> None:
-    cmp = sub.add_parser(
-        "compare", help="compare two runs of one suite across versions of a component"
-    )
-    cmp.add_argument("run_a", help="the earlier run: an id under the collection's evals, or a path")
-    cmp.add_argument("run_b", help="the later run")
-    cmp.add_argument("--collection", required=True)
-    cmp.add_argument(
-        "--component", default=None, help="the component under test (default: inferred)"
-    )
-    cmp.add_argument(
-        "--record",
-        choices=("accept", "reject"),
-        default=None,
-        help=(
-            "record these runs as the proposal's replay and this decision in the wiki's "
-            "skill-impact.md; nothing is applied or reverted"
-        ),
-    )
-    cmp.add_argument("--proposal", default=None, help="the proposal id the decision is about")
-    cmp.add_argument("--note", default="", help="the reviewer's note for --record")
-    cmp.set_defaults(func=cmd_compare)
-
-
-def _add_leaderboard_parser(sub) -> None:
-    board = sub.add_parser(
-        "leaderboard", help="pool runs of one suite, from any machines, per model and condition"
-    )
-    board.add_argument(
-        "run", nargs="+", help="a run directory, or a run id under --collection's evals"
-    )
-    board.add_argument("--collection", default=None, help="where to find runs given by id")
-    board.add_argument(
-        "--out", default=None, help="output directory (default: under the collection's evals)"
-    )
-    board.set_defaults(func=cmd_leaderboard)
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wikiskill",
@@ -526,10 +305,10 @@ def build_parser() -> argparse.ArgumentParser:
     hook.register(sub)
     note.register(sub)
     corrections.register(sub)
+    compare.register(sub)
+    leaderboard.register(sub)
+    review.register(sub)
     for add_parser in (
-        _add_compare_parser,
-        _add_leaderboard_parser,
-        _add_review_parser,
         _add_refine_parser,
         _add_proposal_parser,
         _add_graph_parser,
