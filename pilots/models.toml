@@ -82,7 +82,7 @@ family = "gpt-oss"
 size_b = 116.8
 shape = "moe"
 
-[models."glm-4.7-flash"] # 202752, tools thinking
+[models."glm-4.7-flash:latest"] # 202752, tools thinking
 family = "glm"
 size_b = 29.9
 shape = "moe"
