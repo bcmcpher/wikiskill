@@ -66,28 +66,16 @@ redaction of unit transcripts (excluded by decision).
 
 - [x] 6.1 `bin/check` passes (ruff, pyright, pytest, both bun suites and tsc), and the pytest and bun
   counts only grow.
-- [ ] 6.2 End to end on a scratch collection: a toy suite whose task echoes a fake `ghp_…` token and
+- [x] 6.2 End to end on a scratch collection: a toy suite whose task echoes a fake `ghp_…` token and
   a suite `env` value. After `wikiskill eval`, `grep -r ghp_ raw/` finds nothing and
   `grep -r ghp_ evals/<run>/units/` still finds the transcript copy. With `redact = false`, the raw
   event keeps the token.
 
-  Not yet run: the laptop it was implemented on is CPU-only, and its Ollama serves a 4096-token
-  context. `qwen2.5-coder:1.5b` fails the tool-call probe and `qwen3:1.7b` timed out at 300 s.
-  Recipe, in a scratch XDG so no real collection is touched:
-
-  ```bash
-  S=/tmp/wsredact; mkdir -p $S/src/skills/smoke $S/xdg/{config,data,state,cache}
-  printf -- "---\nname: smoke\ndescription: d\n---\n\nbody\n" > $S/src/skills/smoke/SKILL.md
-  export XDG_CONFIG_HOME=$S/xdg/config XDG_DATA_HOME=$S/xdg/data \
-         XDG_STATE_HOME=$S/xdg/state XDG_CACHE_HOME=$S/xdg/cache
-  wikiskill collection init scratch --source $S/src
-  # suite.yaml: one task, `env: { DATASET_TOKEN: "s3cr3t-value-123" }`, setup
-  #   printf 'ghp_<36 x A>\n' > secret.txt
-  # prompt: run `cat secret.txt; echo $DATASET_TOKEN` and report what it printed.
-  wikiskill eval --suite suite.yaml --collection scratch --models <model> --condition off \
-    --base-url http://localhost:11434/v1
-  grep -r 'ghp_\|s3cr3t-value' $S/xdg/data/wikiskill/scratch/raw/      # expect nothing
-  grep -rl ghp_ $S/xdg/data/wikiskill/scratch/evals/*/units/            # expect the transcript
-  # then `[logging] redact = false` in the manifest, re-run: raw/ keeps the token
-  ```
+  Run 2026-10-06 on the GB10, `ollama/gemma4:latest`, OFF, in a scratch XDG under `/tmp`. The task
+  set `DATASET_TOKEN: "s3cr3t-value-123"`, wrote `ghp_` + 36 `A` to `secret.txt` in `setup`, and
+  asked for `cat secret.txt; echo $DATASET_TOKEN`; a `final_text` regex verifier on `s3cr3t` passed
+  both times. Run `01M490PDCPZZMSVNYAHDK45KVH` (redact on): no hit in `raw/`, two events carry
+  `redactions: [{api_key: 1}, {env_value: 1}]`, and the unit's `run.ndjson`, export and
+  `opencode.db` keep both values. Run `01M490QWASXDQ1J0HX1ABWR2P7` (`[logging] redact = false`):
+  `raw/` keeps the token and the env value, twice each.
 - [x] 6.3 `openspec validate redact-eval-and-notes --strict --no-interactive`.
