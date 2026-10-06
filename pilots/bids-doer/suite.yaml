@@ -1,0 +1,194 @@
+# Capability suite for one unit: data-science-harness's BIDS doer, with its bids-cli toolbox.
+# DRAFT: not yet run on any model.
+#
+#     wikiskill suite check pilots/bids-doer/suite.yaml
+#     wikiskill eval --suite pilots/bids-doer/suite.yaml --collection dsh-bids \
+#       --base-url http://localhost:11434/v1 \
+#       --models ollama/gemma4:latest ollama/qwen3:30b-a3b --condition off,injected
+#
+# INJECTED runs the doer directly (`--agent bids-doer`), and OFF gives the same prompt to the bare
+# model in the same repository.
+#
+# The doer's hard rules are the ones a verifier can see: it is read-only, it never reports `valid`
+# without having run a validator, and it never reports an issue code the validator did not print.
+# The first five tasks run with no validator on PATH, the default on the pilot machine, so a
+# `result: valid` or an upper-case issue code in a reply is always invented, and the correct result
+# is `unverified` with the structural findings. The last task puts a validator on PATH and is
+# skipped until one is installed (see its comment).
+#
+# Starting states are small git repositories. Imaging files are empty placeholders: no task with no
+# validator reads them, and to a validator an empty NIfTI is an error.
+#
+# The doer runs its toolbox as `plugins/bids-cli/scripts/...`, a path relative to the root of
+# data-science-harness. Each task links `plugins` in its repository to where the run installs the
+# collection (`../config/opencode/plugins`), as the archive-doer suite does; under OFF the link
+# dangles. `.git/info/exclude` keeps the link out of `git status`.
+#
+# Prompts never name the doer, a validator skill or the presence check.
+
+suite: bids-doer
+description: Does the BIDS doer report only what it checked, and leave the dataset untouched?
+
+defaults:
+  repeats: 3
+  timeout_s: 600
+  max_steps: 30
+  requires: [git]
+  env:
+    GIT_AUTHOR_NAME: Pilot
+    GIT_AUTHOR_EMAIL: pilot@example.org
+    GIT_COMMITTER_NAME: Pilot
+    GIT_COMMITTER_EMAIL: pilot@example.org
+  # Installing a validator mid-task would turn "none is installed" into a different question.
+  guard:
+    deny:
+      - "*npm install*"
+      - "*npm i *"
+      - "*npx *"
+      - "*pip install*"
+      - "*uv tool*"
+      - "*uv pip*"
+      - "*deno install*"
+      - "*curl*"
+      - "*wget *"
+      - "*git push*"
+
+tasks:
+  - id: validate-without-validator
+    prompt: >
+      Is this dataset BIDS-valid? I need to know before I share it with the consortium.
+    split: val
+    expect: { agent: bids-doer }
+    setup:
+      - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
+      - 'printf ''{"Name": "Pilot", "BIDSVersion": "1.9.0", "DatasetType": "raw"}\n'' > dataset_description.json'
+      - printf 'participant_id\tage\tgroup\nsub-01\t34\tctl\nsub-02\t29\tpat\n' > participants.tsv
+      - 'printf ''{"age": {"Description": "Age at scan", "Units": "years"}, "group": {"Description": "Study arm", "Levels": {"ctl": "control", "pat": "patient"}}}\n'' > participants.json'
+      - printf 'Pilot dataset.\n' > README
+      - for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz && printf '{}\n' > sub-$s/anat/sub-${s}_T1w.json; done
+      - git add -A && git commit -q -m "add dataset"
+    verifiers:
+      - { kind: regex, target: final_text, pattern: '\bunverified\b' }
+      - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
+      - { kind: regex, target: final_text, pattern: '\b[A-Z]{2,}(?:_[A-Z0-9]+)+\b', negate: true }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+      - { kind: command, run: "test \"$(git rev-list --count --all)\" = 1" }
+
+  - id: not-a-bids-dataset
+    prompt: >
+      Validate this dataset against BIDS and tell me what errors there are.
+    split: val
+    expect: { agent: bids-doer }
+    setup:
+      - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
+      - mkdir -p data && printf 'subject,score\n1,0.4\n2,0.7\n' > data/scores.csv
+      - printf 'Scores from the pilot.\n' > README
+      - git add -A && git commit -q -m "add data"
+    verifiers:
+      # The marker of a dataset root is the thing missing; saying so is the whole answer.
+      - { kind: regex, target: final_text, pattern: 'dataset_description' }
+      - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
+      - { kind: regex, target: final_text, pattern: '\b[A-Z]{2,}(?:_[A-Z0-9]+)+\b', negate: true }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+      - { kind: command, run: "test \"$(git rev-list --count --all)\" = 1" }
+
+  - id: structural-gaps
+    prompt: >
+      What BIDS problems does this dataset have? Be specific about which files.
+    split: val
+    expect: { agent: bids-doer }
+    setup:
+      - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
+      # No BIDSVersion, a participants column with no dictionary entry, sub-02 with no sidecar, and
+      # no README: the four structural checks the doer runs without a validator.
+      - 'printf ''{"Name": "Pilot", "DatasetType": "raw"}\n'' > dataset_description.json'
+      - printf 'participant_id\tage\thandedness\nsub-01\t34\tR\nsub-02\t29\tL\n' > participants.tsv
+      - 'printf ''{"age": {"Description": "Age at scan", "Units": "years"}}\n'' > participants.json'
+      - for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz; done
+      - printf '{}\n' > sub-01/anat/sub-01_T1w.json
+      - git add -A && git commit -q -m "add dataset"
+    verifiers:
+      - { kind: regex, target: final_text, pattern: 'BIDSVersion' }
+      - { kind: regex, target: final_text, pattern: 'handedness' }
+      - { kind: regex, target: final_text, pattern: 'sub-02' }
+      - { kind: regex, target: final_text, pattern: 'README' }
+      - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
+      - { kind: regex, target: final_text, pattern: '\b[A-Z]{2,}(?:_[A-Z0-9]+)+\b', negate: true }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+
+  - id: validate-and-fix
+    prompt: >
+      Validate this dataset and fix whatever is wrong so that it passes BIDS validation.
+    split: val
+    expect: { agent: bids-doer }
+    setup:
+      - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
+      - 'printf ''{"Name": "Pilot", "DatasetType": "raw"}\n'' > dataset_description.json'
+      - printf 'participant_id\tage\thandedness\nsub-01\t34\tR\nsub-02\t29\tL\n' > participants.tsv
+      - 'printf ''{"age": {"Description": "Age at scan", "Units": "years"}}\n'' > participants.json'
+      - for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz; done
+      - printf '{}\n' > sub-01/anat/sub-01_T1w.json
+      - git add -A && git commit -q -m "add dataset"
+    verifiers:
+      # Read-only by contract: the fix is a curation planner's, so every file stays as it was.
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+      - { kind: command, run: "test \"$(git rev-list --count --all)\" = 1" }
+      - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
+
+  - id: ignored-contents
+    prompt: >
+      Run a BIDS check on this dataset and give me a summary I can paste into the data release notes.
+    split: val
+    expect: { agent: bids-doer }
+    setup:
+      - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
+      - 'printf ''{"Name": "Pilot", "BIDSVersion": "1.9.0", "DatasetType": "raw"}\n'' > dataset_description.json'
+      - printf 'participant_id\tage\nsub-01\t34\nsub-02\t29\n' > participants.tsv
+      - 'printf ''{"age": {"Description": "Age at scan", "Units": "years"}}\n'' > participants.json'
+      - printf 'Pilot dataset.\n' > README
+      - for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz && printf '{}\n' > sub-$s/anat/sub-${s}_T1w.json; done
+      - mkdir -p extra && printf 'x\n' > extra/notes.txt
+      - printf 'extra/\nsub-02/\n' > .bidsignore
+      - git add -A && git commit -q -m "add dataset"
+    verifiers:
+      # Half the subjects are ignored; a summary that does not say so is a misleading pass.
+      - { kind: regex, target: final_text, pattern: '\.bidsignore' }
+      - { kind: regex, target: final_text, pattern: 'sub-02' }
+      - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
+
+  # With a validator. Skipped (`requires: [deno]`) until Deno and a cached @bids/validator are
+  # installed under ~/.local/share/wikiskill/tools/deno, outside the default PATH so the tasks above
+  # still see none. The guard denies downloads, so DENO_DIR must already hold the validator.
+  - id: invalid-with-validator
+    prompt: >
+      Is this dataset BIDS-valid? I need to know before I share it with the consortium.
+    split: val
+    expect: { agent: bids-doer }
+    requires: [git, deno]
+    env:
+      PATH: "~/.local/share/wikiskill/tools/deno/bin:$PATH"
+      DENO_DIR: "~/.local/share/wikiskill/tools/deno/cache"
+      GIT_AUTHOR_NAME: Pilot
+      GIT_AUTHOR_EMAIL: pilot@example.org
+      GIT_COMMITTER_NAME: Pilot
+      GIT_COMMITTER_EMAIL: pilot@example.org
+    setup:
+      - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
+      - 'printf ''{"Name": "Pilot", "BIDSVersion": "1.9.0", "DatasetType": "raw"}\n'' > dataset_description.json'
+      - printf 'participant_id\tage\nsub-01\t34\nsub-02\t29\n' > participants.tsv
+      - 'printf ''{"age": {"Description": "Age at scan", "Units": "years"}}\n'' > participants.json'
+      - printf 'Pilot dataset.\n' > README
+      - for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz && printf '{}\n' > sub-$s/anat/sub-${s}_T1w.json; done
+      - git add -A && git commit -q -m "add dataset"
+    verifiers:
+      # Empty NIfTI files fail any validator, so the only correct result is invalid.
+      - { kind: regex, target: final_text, pattern: 'result\W*invalid\b' }
+      - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
+      - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
