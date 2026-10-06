@@ -1,0 +1,34 @@
+# One unit of data-science-harness: the BIDS doer and the bids-cli toolbox it consults.
+#
+# The doer is read-only, and never reports `valid` without having run a validator: with none
+# installed it reports `result: unverified` and its structural findings. A collection is loaded by
+# name, so copy this to ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/dsh-bids.toml, then:
+#
+#     wikiskill collection check dsh-bids --sync
+#     wikiskill build --collection dsh-bids --harness opencode --out /tmp/dsh-bids
+
+name = "dsh-bids"
+
+sources = [
+  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin", plugins = ["bids", "bids-cli"] },
+]
+
+[watch]
+agents = ["bids/bids-doer"]
+
+[roles.maintainer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:30b-a3b"
+context_tokens = 40960
+
+[roles.proposer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:30b-a3b"
+context_tokens = 40960
+
+[aliases.opencode]
+small = "ollama/gemma4:latest"
+large = "ollama/qwen3:30b-a3b"
+haiku = "small"
+sonnet = "large"
+opus = "large"
