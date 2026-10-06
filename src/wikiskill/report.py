@@ -22,12 +22,22 @@ from typing import Any
 
 from . import leaderboard
 from . import score as score_mod
+from .catalogue import Catalogue
 from .compare import LoadedRun
+from .rubric import Dimension
 from .runner.base import INFRA_OUTCOMES, INJECTED, OFF, ROUTED, RunLayout
+from .score import judge as judge_mod
 
 
-def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str, Any]:
-    """The whole report as data. `report.md` is a rendering of this and adds nothing."""
+def build_report(
+    results: list[dict[str, Any]],
+    manifest: dict[str, Any],
+    catalogue: Catalogue | None = None,
+) -> dict[str, Any]:
+    """The whole report as data. `report.md` is a rendering of this and adds nothing.
+
+    ``catalogue`` only marks judges of the judged model's family; nothing else depends on it.
+    """
     scores = score_mod.score_all(results)
     by_model_condition: dict[tuple[str, str], list[score_mod.RouteScore]] = {}
     for score in scores:
@@ -36,7 +46,7 @@ def build_report(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dic
     # A run is one harness, but each row names it, so rows from runs in different harnesses can
     # stand in one table without losing which was which: task x model x harness x condition.
     harness = manifest.get("harness") or leaderboard.DEFAULT_HARNESS
-    rows = [{**_row(score, results), "harness": harness} for score in scores]
+    rows = [{**_row(score, results, catalogue), "harness": harness} for score in scores]
     return {
         "run_id": manifest.get("run_id"),
         "suite": manifest.get("suite"),
@@ -72,7 +82,11 @@ def _pooled(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str
     return leaderboard.pool([run]).as_dict()["ranking"]
 
 
-def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str, Any]:
+def _row(
+    score: score_mod.RouteScore,
+    results: list[dict[str, Any]],
+    catalogue: Catalogue | None = None,
+) -> dict[str, Any]:
     """One task, model and condition: routing, pass rate, tokens, wall time, outcome classes."""
     group = [
         result
@@ -93,7 +107,7 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
             "pass_rate": rate,
             "pass_basis": basis,
             "failed_verifiers": _failed_verifiers(usable),
-            "rubric": _rubric(usable),
+            "rubric": _rubric(usable, score.model, catalogue),
             "tokens": dict(tokens),
             "wall_time_ms": sum(result.get("duration_ms") or 0 for result in usable),
             "outcomes": dict(Counter(result["outcome"] for result in group)),
@@ -102,12 +116,18 @@ def _row(score: score_mod.RouteScore, results: list[dict[str, Any]]) -> dict[str
     return row
 
 
-def _rubric(usable: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The rubric dimensions across a task's repeats, counted by level.
+def _rubric(
+    usable: list[dict[str, Any]], model: str = "", catalogue: Catalogue | None = None
+) -> dict[str, Any] | None:
+    """The rubric dimensions across a task's repeats, counted by level, overall and per judge.
 
     Reported beside the pass rate and never folded into it: a judge scores dimensions, verifiers
     decide outcomes. Levels are counted rather than averaged, because a rubric's anchors are names
     and the mean of `partial` and `complete` is not a thing.
+
+    With a catalogue, a judge of the judged model's own family is marked, and each dimension also
+    gets the majority of the other judges: a family grading its own output is the self-judging the
+    judge rules forbid, one step removed.
     """
     graded = [result["rubric"] for result in usable if isinstance(result.get("rubric"), dict)]
     if not graded:
@@ -119,12 +139,70 @@ def _rubric(usable: list[dict[str, Any]]) -> dict[str, Any] | None:
             levels.setdefault(score["dimension"], Counter())[score["level"]] += 1
     if not levels and errors:
         return {"error": errors[0], "graded": 0}
-    return {
+    family = catalogue.family(model) if catalogue and model else None
+    judges: dict[str, dict[str, Counter]] = {}
+    same: set[str] = set()
+    kept_by_entry: list[tuple[dict[str, list[str]], dict[str, Any]]] = []
+    for entry in graded:
+        kept: dict[str, list[str]] = {}
+        for number, opinion in enumerate(entry.get("opinions") or [], start=1):
+            judge = opinion.get("model") or f"judge {number}"
+            own = bool(family and catalogue and catalogue.family(judge) == family)
+            if own:
+                same.add(judge)
+            for score in opinion.get("scores") or []:
+                judges.setdefault(judge, {}).setdefault(score["dimension"], Counter())[
+                    score["level"]
+                ] += 1
+                if not own:
+                    kept.setdefault(score["dimension"], []).append(score["level"])
+        kept_by_entry.append((kept, entry.get("scales") or {}))
+    found = {
         "id": next((entry.get("rubric") for entry in graded if entry.get("rubric")), None),
         "graded": len(graded) - len(errors),
         "dimensions": {name: dict(counts) for name, counts in sorted(levels.items())},
+        "judges": {
+            judge: {name: dict(counts) for name, counts in sorted(dimensions.items())}
+            for judge, dimensions in sorted(judges.items())
+        },
         **({"error": errors[0]} if errors else {}),
     }
+    if same:
+        found["same_family"] = sorted(same)
+        found["others_majority"] = _others_majority(kept_by_entry)
+    return found
+
+
+def _others_majority(
+    kept_by_entry: list[tuple[dict[str, list[str]], dict[str, Any]]],
+) -> dict[str, dict[str, int]]:
+    """Per dimension, what the judges outside the family settled on, counted across repeats.
+
+    Folded only once every judge is known, so a repeat whose family judge did not answer counts.
+    """
+    others: dict[str, Counter] = {}
+    for kept, scales in kept_by_entry:
+        for dimension, said in kept.items():
+            settled = _majority(dimension, said, scales.get(dimension))
+            others.setdefault(dimension, Counter())[settled] += 1
+    return {name: dict(counts) for name, counts in sorted(others.items())}
+
+
+def _majority(dimension: str, levels: list[str], scale: list[str] | None) -> str:
+    """What the given judges settle on, by the panel's own rule (`judge.settle`).
+
+    A run recorded before judgements kept their scale cannot resolve a two-level tie to the worse
+    level, so there such a tie stays `split`.
+    """
+    if not levels:
+        return "none"
+    counts = Counter(levels)
+    if not scale:
+        leaders = [level for level, count in counts.items() if count == max(counts.values())]
+        return leaders[0] if len(leaders) == 1 else judge_mod.SPLIT
+    known = Dimension(id=dimension, anchors=tuple((level, "") for level in scale))
+    settled = judge_mod.settle(known, levels)
+    return settled.level if settled else "none"
 
 
 def _failed_verifiers(usable: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -177,15 +255,8 @@ def _derived(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[st
 def not_run(results: list[dict[str, Any]], manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Every combination that did not produce a usable result, with the reason it did not."""
     entries = []
-    for model, preflight in (manifest.get("preflight") or {}).items():
-        if not preflight.get("ok"):
-            entries.append(
-                {
-                    "kind": "preflight",
-                    "model": model,
-                    "reason": "; ".join(preflight.get("problems") or ["preflight failed"]),
-                }
-            )
+    for model, problems in leaderboard.preflight_failures(manifest).items():
+        entries.append({"kind": "preflight", "model": model, "reason": "; ".join(problems)})
     for result in results:
         if result["outcome"] not in INFRA_OUTCOMES:
             continue
@@ -330,12 +401,23 @@ def _rubric_lines(rows: list[dict[str, Any]]) -> list[str]:
         if rubric.get("id"):
             header += f" — `{rubric['id']}`"
         lines.append(header + ":")
+        same = set(rubric.get("same_family") or [])
         for name, counts in (rubric.get("dimensions") or {}).items():
-            tally = ", ".join(f"{level} x{count}" for level, count in sorted(counts.items()))
-            lines.append(f"  - {name}: {tally}")
+            lines.append(f"  - {name}: {_tally(counts)}")
+            for judge, dimensions in (rubric.get("judges") or {}).items():
+                if name in dimensions:
+                    mark = " (same family)" if judge in same else ""
+                    lines.append(f"    - {judge}{mark}: {_tally(dimensions[name])}")
+            others = (rubric.get("others_majority") or {}).get(name)
+            if others:
+                lines.append(f"    - majority without the same family: {_tally(others)}")
         if rubric.get("error"):
             lines.append(f"  - not graded: {rubric['error']}")
     return lines
+
+
+def _tally(counts: dict[str, int]) -> str:
+    return ", ".join(f"{level} x{count}" for level, count in sorted(counts.items()))
 
 
 def _derived_lines(derived: dict[str, Any]) -> list[str]:
@@ -387,9 +469,31 @@ def _pct(value: float | None) -> str:
     return "—" if value is None else f"{value * 100:.0f}%"
 
 
-def write(layout: RunLayout, results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict:
+def write(
+    layout: RunLayout,
+    results: list[dict[str, Any]],
+    manifest: dict[str, Any],
+    catalogue: Catalogue | None = None,
+) -> dict:
     """Write `report.json` and `report.md` into a run directory, and return the report."""
-    report = build_report(results, manifest)
-    layout.report_json.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    layout.report_md.write_text(render_markdown(report), encoding="utf-8")
+    return write_into(layout.report_json.parent, results, manifest, catalogue)
+
+
+def write_into(
+    directory: Path,
+    results: list[dict[str, Any]],
+    manifest: dict[str, Any],
+    catalogue: Catalogue | None = None,
+) -> dict:
+    report = build_report(results, manifest, catalogue)
+    (directory / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (directory / "report.md").write_text(render_markdown(report), encoding="utf-8")
     return report
+
+
+def rebuild(run: LoadedRun, catalogue: Catalogue | None = None) -> dict:
+    """A finished run's report again, from its own `run.json` and `results.jsonl`.
+
+    Nothing is run or judged: the units' verdicts and opinions are read as they were recorded.
+    """
+    return write_into(run.root, list(run.results), run.manifest, catalogue)

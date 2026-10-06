@@ -102,6 +102,19 @@ version's mean counts every model equally, over the models that ran every versio
   file lists checks as `{task: <id or *>, verifier: <0-based index>}`.
 - OFF does not load the component, so one OFF run per model serves every version.
 
+Both boards list the models that failed preflight, with their reasons. The leaderboard also counts
+each model's units by outcome (`permission_blocked`, `step_exhausted`, ...), with median time and
+tokens. With `--critical`, the version board also lists the checks each bare model broke under OFF,
+which never disqualify a version. `--models-file` takes a model catalogue
+([`examples/models.toml`](examples/models.toml)) giving each model's family and size. Rows are then
+grouped by family and ordered by size.
+
+`wikiskill report <run> --models-file models.toml` rebuilds a finished run's report from its own
+files and runs nothing. A rubric graded by a judge panel (`[roles.judge] models = [...]`) shows each
+judge's levels. The report also marks a judge from the family of the model it judged, and gives the
+other judges' majority beside the full one. A rubric with `shows: [delegations]` lets its judge see
+each handoff the model made, to grade it.
+
 The board is saved under `evals/versions/`. It ranks and never decides: a winner still goes
 through `proposal replay` and `proposal decide`. `wikiskill review --model <model>` reviews only
 one model's eval units and live sessions, so a proposal can target that model.

@@ -102,6 +102,9 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 
 ## 4. Model sweep (archive-doer suite)
 
+- [ ] 4.0 `pilots/models.toml`, the model catalogue (`add-pilot-reporting`): family, size and shape
+  of every model in the design's table. `pilots/archive-doer/sweep.sh`: one eval per model, in the
+  design's order, skipping models with a finished run, and appending each run id to a log.
 - [ ] 4.1 Preflight every model in the design's table, at `--thinking default`. Record per model:
   pass or the failure reason, and the served context. Fill in the size and shape of the added models
   from `ollama show`, and which ones the server says can think.
@@ -144,8 +147,9 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
   - guard rules, and `env: { DATALAD_AUTOSAVE: "0" }`
   - `suite check` passes, and no prompt names its expected component
 - [ ] 5.3 A three-judge handoff rubric for `handoff@k`, scored against the parameters each doer
-  states it requires. Judges: `gpt-oss:120b`, `llama3.3` and `nemotron-3.5-lightning`, which are
-  not routing entrants.
+  states it requires, with `shows: [delegations]`. Judges: `gpt-oss:120b`, `llama3.3` and
+  `nemotron-3.5-lightning` as one `[roles.judge] models` panel (`add-pilot-reporting`); none is a
+  routing entrant.
 - [ ] 5.4 Smoke run: `gemma4`, OFF and ROUTED, k=3. Read the transcripts: routes are detected and
   delegations are captured.
 - [ ] 5.5 Reported run: the models that finished the sweep, except the judges, from at least three

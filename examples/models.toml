@@ -1,0 +1,98 @@
+# A model catalogue: what wikiskill is told about each model, since it never guesses a family from a
+# name. Used by `wikiskill leaderboard --models-file` and `wikiskill report --models-file` to group
+# rows by family, order them by size, and mark a judge that shares a family with the model it
+# judges. A key names a model with or without its provider.
+#
+# These are the models served on the DSH pilot's GB10. Sizes are billions of parameters, from
+# `ollama show` where it was run and from the Ollama library otherwise.
+
+[models."qwen2.5-coder:1.5b"]
+family = "qwen"
+size_b = 1.5
+shape = "dense"
+
+[models."qwen3:1.7b"]
+family = "qwen"
+size_b = 2.0
+shape = "dense"
+
+[models."qwen3.8:latest"]
+family = "qwen"
+size_b = 27.3
+shape = "dense"
+
+[models."qwen3:30b-a3b"]
+family = "qwen"
+size_b = 30.5
+shape = "moe"
+
+[models."qwen3-coder:30b"]
+family = "qwen"
+size_b = 30
+shape = "moe"
+
+[models."granite4.1:3b"]
+family = "granite"
+size_b = 3
+
+[models."granite4.1:8b"]
+family = "granite"
+size_b = 8
+
+[models."granite4.1:30b"]
+family = "granite"
+size_b = 30
+
+[models."ministral-3:3b"]
+family = "mistral"
+size_b = 3.8
+shape = "dense"
+
+[models."mistral:latest"]
+family = "mistral"
+size_b = 7.2
+shape = "dense"
+
+[models."mistral-small3.2:24b"]
+family = "mistral"
+size_b = 24
+shape = "dense"
+
+[models."gemma4:latest"]
+family = "gemma"
+size_b = 8.0
+shape = "dense"
+
+[models."gemma4:31b"]
+family = "gemma"
+size_b = 31
+shape = "dense"
+
+[models."gpt-oss:20b"]
+family = "gpt-oss"
+size_b = 20
+shape = "moe"
+
+[models."gpt-oss:120b"]
+family = "gpt-oss"
+size_b = 116.8
+shape = "moe"
+
+[models."glm-4.7-flash"]
+family = "glm"
+shape = "moe"
+
+[models."olmo-3:32b"]
+family = "olmo"
+size_b = 32
+shape = "dense"
+
+[models."nemotron-3.5-lightning:latest"]
+family = "nemotron"
+size_b = 32.9
+shape = "hybrid-moe"
+
+[models."llama3.3:latest"]
+family = "llama"
+size_b = 70.6
+shape = "dense"

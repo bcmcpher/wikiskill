@@ -109,6 +109,13 @@ class Role:
     api_key_env: str | None = None
     #: The model's context window, when known; what is sent to the role is sized by it.
     context_tokens: int | None = None
+    #: A judge panel of several models on the one endpoint; `model` is then its first.
+    models: tuple[str, ...] = ()
+
+    @property
+    def panel(self) -> tuple[str, ...]:
+        """Every model the role asks: its panel, or its one model."""
+        return self.models or (self.model,)
 
 
 @dataclass(frozen=True)
@@ -348,16 +355,17 @@ def judge_target_conflicts(collection: Collection) -> list[str]:
     judge = collection.roles.get("judge")
     if judge is None:
         return []
-    judge_forms = _model_forms(judge.model)
     conflicts = []
-    for harness, models in sorted(collection.targets.items()):
-        for target in models:
-            resolved = collection.resolve_alias(harness, target) or target
-            if judge_forms & _model_forms(resolved):
-                conflicts.append(
-                    f"`roles.judge.model` is {judge.model!r}, which is also a target model for "
-                    f"{harness} (listed as {target!r}); the judge must not be a model under test"
-                )
+    for model in judge.panel:
+        judge_forms = _model_forms(model)
+        for harness, models in sorted(collection.targets.items()):
+            for target in models:
+                resolved = collection.resolve_alias(harness, target) or target
+                if judge_forms & _model_forms(resolved):
+                    conflicts.append(
+                        f"the judge model {model!r} is also a target model for {harness} (listed "
+                        f"as {target!r}); the judge must not be a model under test"
+                    )
     return conflicts
 
 
@@ -456,10 +464,10 @@ def _parse_roles(value: Any, problems: list[str]) -> dict[str, Role]:
         if not isinstance(entry, dict):
             problems.append(f"`roles.{role_name}` must be a table")
             continue
-        model = entry.get("model")
-        if not isinstance(model, str) or not model.strip():
-            problems.append(f"`roles.{role_name}.model` is required")
+        panel = _parse_panel(role_name, entry, problems)
+        if panel is None:
             continue
+        model = panel[0]
         base_url = entry.get("base_url")
         if base_url is not None and not isinstance(base_url, str):
             problems.append(f"`roles.{role_name}.base_url` must be a string")
@@ -476,7 +484,7 @@ def _parse_roles(value: Any, problems: list[str]) -> dict[str, Role]:
         ):
             problems.append(f"`roles.{role_name}.context_tokens` must be a positive integer")
             context_tokens = None
-        extra = set(entry) - {"model", "base_url", "api_key_env", "context_tokens"}
+        extra = set(entry) - {"model", "models", "base_url", "api_key_env", "context_tokens"}
         if extra:
             problems.append(f"`roles.{role_name}` has unknown keys: {', '.join(sorted(extra))}")
         roles[role_name] = Role(
@@ -485,8 +493,34 @@ def _parse_roles(value: Any, problems: list[str]) -> dict[str, Role]:
             base_url=base_url,
             api_key_env=api_key_env,
             context_tokens=context_tokens,
+            models=panel if len(panel) > 1 else (),
         )
     return roles
+
+
+def _parse_panel(role_name: str, entry: dict, problems: list[str]) -> tuple[str, ...] | None:
+    """A role's one `model`, or, for the judge, a `models` panel of two or more distinct models."""
+    model, models = entry.get("model"), entry.get("models")
+    if models is None:
+        if isinstance(model, str) and model.strip():
+            return (model,)
+        problem = f"`roles.{role_name}.model` is required"
+    elif role_name != "judge":
+        problem = f"`roles.{role_name}.models` is for the judge only; name one `model`"
+    elif model is not None:
+        problem = "`roles.judge` names `model` and `models`; name one or the other"
+    elif (
+        not isinstance(models, list)
+        or len(models) < 2
+        or not all(isinstance(m, str) and m.strip() for m in models)
+    ):
+        problem = "`roles.judge.models` must list two or more models"
+    elif len({m.strip().lower() for m in models}) != len(models):
+        problem = "`roles.judge.models` names a model twice"
+    else:
+        return tuple(m.strip() for m in models)
+    problems.append(problem)
+    return None
 
 
 def _parse_aliases(value: Any, problems: list[str]) -> dict[str, dict[str, str]]:

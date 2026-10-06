@@ -83,7 +83,8 @@ class Panel:
     """
 
     endpoint: Any
-    model: str
+    #: the judge model, or every model of a panel
+    models: tuple[str, ...]
     suite_root: Path
     models_under_test: tuple[str, ...]
     _cache: dict[str, Rubric | str] = field(default_factory=dict)
@@ -99,10 +100,17 @@ class Panel:
 
 
 def panel_for(
-    collection: Collection | None, suite: Suite, models: list[str]
+    collection: Collection | None,
+    suite: Suite,
+    models: list[str],
+    tasks: list[Task] | None = None,
 ) -> tuple[Panel | None, str | None]:
-    """The run's judge, or the reason it has none. A missing judge is stated, never assumed."""
-    if not any(task.rubric for task in suite.tasks):
+    """The run's judge, or the reason it has none. A missing judge is stated, never assumed.
+
+    Only the tasks the run will run are checked: a rubric on a task left out never asks the panel.
+    """
+    chosen = suite.tasks if tasks is None else tasks
+    if not any(task.rubric for task in chosen):
         return None, None
     if collection is None:
         return None, "no collection, so no `roles.judge` to grade with"
@@ -115,11 +123,17 @@ def panel_for(
     key = os.environ.get(role.api_key_env) if role.api_key_env else None
     panel = Panel(
         endpoint=Endpoint(role.base_url, key),
-        model=role.model,
+        models=role.panel,
         suite_root=suite.root,
         models_under_test=tuple(models),
     )
-    judge_mod.refuse_self_judging(role.model, models)
+    for member in role.panel:
+        judge_mod.refuse_self_judging(member, models)
+    # A rubric whose judges the panel cannot fill is refused now, not after every unit has run.
+    for reference in sorted({task.rubric for task in chosen if task.rubric}):
+        rubric = panel.rubric(reference)
+        if not isinstance(rubric, str):
+            judge_mod.panel_slots(rubric.judges, role.panel)
     return panel, None
 
 
@@ -162,6 +176,8 @@ def run_suite(
     """
     run_id = run_id or new_run_id()
     collection_name = collection.name if collection else suite.name
+    # A judge panel that cannot grade the run refuses it before a run directory exists.
+    panel, no_judge = panel_for(collection, suite, models, tasks)
     where = layout if layout is not None else RunLayout.create(collection_name, run_id)
     conditions = list(conditions or [OFF, ROUTED])
     needs_collection = [name for name in (ROUTED, INJECTED) if name in conditions]
@@ -172,7 +188,6 @@ def run_suite(
         )
 
     report = on_event or (lambda _line: None)
-    panel, no_judge = panel_for(collection, suite, models)
     started = time.time()
     run = RunResult(
         layout=where,
@@ -217,6 +232,7 @@ def run_suite(
             run.results.append(result)
             where.append_result(result)
             run.events_written += _write_events(backend, trajectory, raw_root)
+            trajectory.events = None
 
     for model in models:
         mine = [unit for unit in units if unit.model == model]
@@ -277,7 +293,7 @@ def _run_unit(
     report(f"{unit.condition:7} {unit.model}  {unit.task.id} (repeat {unit.repeat})")
     trajectory = backend.execute(unit)
     _verify(trajectory, report)
-    _judge(trajectory, panel, no_judge, report)
+    _judge(trajectory, panel, no_judge, report, backend)
     report(f"  {trajectory.outcome}" + (f": {trajectory.error}" if trajectory.error else ""))
     return trajectory
 
@@ -315,7 +331,13 @@ def _verify(trajectory: Trajectory, report) -> None:
     report(f"  verifiers {kept}/{len(results)} passed")
 
 
-def _judge(trajectory: Trajectory, panel: Panel | None, no_judge: str | None, report) -> None:
+def _judge(
+    trajectory: Trajectory,
+    panel: Panel | None,
+    no_judge: str | None,
+    report,
+    backend: Backend | None = None,
+) -> None:
     """Score the task's rubric, last and least authoritatively.
 
     A judge never touches `passed`. It runs after the verifiers so that its dimensions are read
@@ -336,11 +358,24 @@ def _judge(trajectory: Trajectory, panel: Panel | None, no_judge: str | None, re
         report(f"  rubric {reference}: did not load")
         return
 
+    handoffs = None
+    if "delegations" in rubric.shows:
+        # Judging a handoff without the handoff would score missing evidence as no delegation.
+        events, problem = _events(backend, trajectory)
+        if events is None:
+            trajectory.rubric = {
+                "rubric": rubric.id,
+                "error": f"the rubric shows delegations, but {problem}",
+            }
+            report(f"  rubric {rubric.id}: delegations unknown, not judged")
+            return
+        handoffs = judge_mod.delegations(events)
     try:
         judgement = judge_mod.judge_task(
             rubric,
             endpoint=panel.endpoint,
-            model=panel.model,
+            model=panel.models,
+            handoffs=handoffs,
             final_text=trajectory.final_text,
             workdir=trajectory.workdir,
             models_under_test=panel.models_under_test,
@@ -355,11 +390,28 @@ def _judge(trajectory: Trajectory, panel: Panel | None, no_judge: str | None, re
     report(f"  rubric {rubric.id}: {scored}/{len(rubric.dimensions)} dimensions scored")
 
 
+def _events(
+    backend: Backend | None, trajectory: Trajectory
+) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """A unit's normalized events, made once and kept for the raw log, or why there are none."""
+    if trajectory.events is not None:
+        return trajectory.events, None
+    if backend is None:
+        return None, "no harness was given to read the unit's sessions"
+    if not trajectory.sessions:
+        return None, "the unit's sessions were not captured"
+    try:
+        trajectory.events = backend.normalize(trajectory)
+    except Exception as exc:
+        return None, f"the unit's sessions could not be read: {exc}"
+    return trajectory.events, None
+
+
 def _write_events(backend: Backend, trajectory: Trajectory, raw_root: Path) -> int:
     """Append a trajectory's events to the collection's raw log, grouped by root session."""
     if not trajectory.sessions:
         return 0
-    events = backend.normalize(trajectory)
+    events = trajectory.events if trajectory.events is not None else backend.normalize(trajectory)
     written = 0
     for event in events:
         path = rawlog.session_log_path(raw_root, event["ts"], event["root_session_id"])

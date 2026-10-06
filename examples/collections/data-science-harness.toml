@@ -43,6 +43,9 @@ commands = []
 [roles.judge]
 base_url = "http://localhost:11434/v1"
 model = "gemma2:2b"
+# Or a panel of different models on the one endpoint. A rubric with `judges: 3` then asks each once,
+# and every opinion records which model gave it. No panel model may be a model under test.
+# models = ["gpt-oss:120b", "llama3.3:latest", "nemotron-3.5-lightning:latest"]
 
 [roles.maintainer]
 base_url = "http://localhost:11434/v1"

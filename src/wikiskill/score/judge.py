@@ -27,6 +27,7 @@ from typing import Any
 
 from .. import names, roles
 from ..errors import WikiskillError
+from ..hooks import qualified
 from ..rubric import Dimension, Rubric
 from ..runner.preflight import Endpoint
 
@@ -35,6 +36,12 @@ from ..runner.preflight import Endpoint
 MAX_FILES = 40
 MAX_FILE_BYTES = 4000
 MAX_ANSWER_CHARS = 8000
+#: Each field of a delegation shown to a judge: the description, and the prompt passed on.
+MAX_DELEGATION_CHARS = 4000
+#: Where a harness's tool input names the agent a delegation goes to.
+_AGENT_FIELDS = ("subagent_type", "subagentType", "agent")
+#: The tools that delegate, in Claude Code and OpenCode alike, matched without case.
+_AGENT_TOOLS = ("agent", "task")
 
 DEFAULT_TIMEOUT_S = 300
 
@@ -83,6 +90,9 @@ class Judgement:
     model: str
     opinions: list[Opinion] = field(default_factory=list)
     consensus: list[DimensionScore] = field(default_factory=list)
+    #: Each dimension's levels, worst to best, so a report can settle a subset of the opinions by
+    #: the same rule without the rubric file.
+    scales: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -91,9 +101,14 @@ class Judgement:
             "judges": len(self.opinions),
             "consensus": [score.as_dict() for score in self.consensus],
             "opinions": [
-                {"scores": [s.as_dict() for s in opinion.scores], "error": opinion.error}
+                {
+                    "model": opinion.model,
+                    "scores": [s.as_dict() for s in opinion.scores],
+                    "error": opinion.error,
+                }
                 for opinion in self.opinions
             ],
+            "scales": {name: list(levels) for name, levels in self.scales.items()},
         }
 
 
@@ -159,8 +174,93 @@ def artifacts(workdir: Path | None) -> str:
     return "\n\n".join(chunks)
 
 
-def prompt_for(rubric: Rubric, *, final_text: str, workdir: Path | None) -> list[dict[str, str]]:
-    """The messages sent to the judge. Nothing here names the route the task expected."""
+@dataclass(frozen=True)
+class Delegation:
+    """One handoff a unit made: the agent it chose, and what it passed."""
+
+    agent: str
+    description: str = ""
+    prompt: str = ""
+
+
+def delegations(events: Sequence[dict[str, Any]]) -> list[Delegation]:
+    """Every delegation in a unit's normalized events, in order.
+
+    From the agent tool call that made it, which carries the whole prompt passed on. A call that
+    failed handed nothing off and is left out, and the agent is named as the harness's own
+    `delegation` events name it. Only when no agent call was captured at all do those events stand
+    in, giving the agent and description.
+    """
+    found = []
+    calls = 0
+    for event in events:
+        payload = event.get("payload") or {}
+        if event.get("type") != "tool_call":
+            continue
+        if str(payload.get("tool") or "").lower() not in _AGENT_TOOLS:
+            continue
+        args = payload.get("input")
+        if not isinstance(args, dict):
+            continue
+        agent = next((args[k] for k in _AGENT_FIELDS if isinstance(args.get(k), str)), None)
+        if not agent:
+            continue
+        calls += 1
+        if payload.get("ok") is False:
+            continue
+        found.append(
+            Delegation(
+                agent=qualified(agent),
+                description=str(args.get("description") or ""),
+                prompt=str(args.get("prompt") or ""),
+            )
+        )
+    if calls:
+        return found
+    return [
+        Delegation(
+            agent=qualified(str((event.get("payload") or {}).get("subagent_type") or "unknown")),
+            description=str((event.get("payload") or {}).get("description") or ""),
+        )
+        for event in events
+        if event.get("type") == "delegation"
+    ]
+
+
+def _bounded(text: str) -> str:
+    if len(text) <= MAX_DELEGATION_CHARS:
+        return text
+    cut = f"(cut at {MAX_DELEGATION_CHARS} of {len(text)} characters)"
+    return f"{text[:MAX_DELEGATION_CHARS]}\n... {cut}"
+
+
+def describe_delegations(found: Sequence[Delegation] | None) -> str:
+    if found is None:
+        return "(the run's sessions were not captured, so what it delegated is unknown)"
+    if not found:
+        return "(the run delegated nothing)"
+    blocks = []
+    for number, delegation in enumerate(found, start=1):
+        blocks.append(
+            f"## Delegation {number}: to `{delegation.agent}`\n\n"
+            f"Description:\n```\n{_bounded(delegation.description) or '(none)'}\n```\n\n"
+            f"Prompt passed on:\n```\n{_bounded(delegation.prompt) or '(none)'}\n```"
+        )
+    return "\n\n".join(blocks)
+
+
+def prompt_for(
+    rubric: Rubric,
+    *,
+    final_text: str,
+    workdir: Path | None,
+    handoffs: Sequence[Delegation] | None = None,
+) -> list[dict[str, str]]:
+    """The messages sent to the judge. Nothing here names the route the task expected.
+
+    ``handoffs`` are shown only when the rubric asks for delegations. The agent a model delegated
+    to is what it did, not what it should have done, so showing it keeps the judge blind.
+    """
     system = (
         "You grade work against a rubric. Score every dimension by choosing exactly one of its "
         "levels, using the evidence given and nothing else. You are not told what approach was "
@@ -172,7 +272,12 @@ def prompt_for(rubric: Rubric, *, final_text: str, workdir: Path | None) -> list
         f"{describe(rubric)}\n\n"
         f"# The final answer\n\n{answer}\n\n"
         f"# The files the work left behind\n\n{artifacts(workdir)}\n\n"
-        f"Score these dimensions, all of them: {', '.join(d.id for d in rubric.dimensions)}."
+        + (
+            f"# The delegations the work made, in order\n\n{describe_delegations(handoffs)}\n\n"
+            if "delegations" in rubric.shows
+            else ""
+        )
+        + f"Score these dimensions, all of them: {', '.join(d.id for d in rubric.dimensions)}."
     )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
@@ -239,9 +344,10 @@ def ask_once(
     final_text: str,
     workdir: Path | None,
     timeout_s: int = DEFAULT_TIMEOUT_S,
+    handoffs: Sequence[Delegation] | None = None,
 ) -> Opinion:
     """One judge's opinion. A judge that cannot answer is recorded, not raised over."""
-    messages = prompt_for(rubric, final_text=final_text, workdir=workdir)
+    messages = prompt_for(rubric, final_text=final_text, workdir=workdir, handoffs=handoffs)
     try:
         status, body = roles.chat(endpoint, model, messages, timeout=timeout_s)
     except OSError as exc:
@@ -299,29 +405,58 @@ def settle(
     )
 
 
+def panel_slots(judges: int, panel: Sequence[str]) -> list[str]:
+    """Which model gives each of a rubric's `judges` opinions.
+
+    A panel of one model is asked as many times as the rubric has judges; a panel of as many models
+    as judges asks each once. Anything else is refused: filling three slots from two models would
+    let one model's two opinions carry the majority.
+    """
+    if len(panel) == 1:
+        return list(panel) * judges
+    if len(panel) == judges:
+        return list(panel)
+    raise JudgeError(
+        f"the rubric asks for {judges} judge(s), but the judge panel has {len(panel)} models "
+        f"({', '.join(panel)}): give it one model, or exactly {judges}"
+    )
+
+
 def judge_task(
     rubric: Rubric,
     *,
     endpoint: Endpoint,
-    model: str,
+    model: str | Sequence[str],
     final_text: str,
     workdir: Path | None,
     models_under_test: Sequence[str] = (),
     timeout_s: int = DEFAULT_TIMEOUT_S,
+    handoffs: Sequence[Delegation] | None = None,
 ) -> Judgement:
-    """Consult the panel the rubric asks for, and settle each dimension."""
-    refuse_self_judging(model, models_under_test)
+    """Consult the panel the rubric asks for, and settle each dimension.
 
-    judgement = Judgement(rubric=rubric.id, model=model)
-    for _ in range(rubric.judges):
+    ``model`` is the one judge model, or a panel of several; each opinion records its model.
+    """
+    panel = [model] if isinstance(model, str) else list(model)
+    for member in panel:
+        refuse_self_judging(member, models_under_test)
+    slots = panel_slots(rubric.judges, panel)
+
+    judgement = Judgement(
+        rubric=rubric.id,
+        model=", ".join(panel),
+        scales={dimension.id: dimension.levels for dimension in rubric.dimensions},
+    )
+    for member in slots:
         judgement.opinions.append(
             ask_once(
                 rubric,
                 endpoint=endpoint,
-                model=model,
+                model=member,
                 final_text=final_text,
                 workdir=workdir,
                 timeout_s=timeout_s,
+                handoffs=handoffs,
             )
         )
     if all(opinion.error for opinion in judgement.opinions):

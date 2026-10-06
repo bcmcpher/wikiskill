@@ -29,6 +29,7 @@ from . import (
     note,
     proposal,
     refine,
+    report,
     review,
     suite,
 )
@@ -51,6 +52,7 @@ GROUPS = (
     compare,
     diff,
     leaderboard,
+    report,
     review,
     refine,
     proposal,

@@ -149,7 +149,7 @@ An example line, wrapped here for reading:
 evals/<run_id>/
 ├── run.json           the run's manifest, written when the run ends
 ├── results.jsonl      one line per unit, appended as each finishes
-├── report.md          the human-readable report
+├── report.md          the human-readable report (`wikiskill report` rebuilds both from the run's files)
 ├── report.json        the same, as data
 ├── units/<task>__<model>__<condition>__r<N>/   each unit's own sandbox and transcripts
 ├── preflight/<model>/  the endpoint check before tasks run (OpenCode)
@@ -173,7 +173,9 @@ It never contains an API key.
   - `infra_error`, which a timeout is: `reason` says "timed out after Ns";
   - `skipped`;
 - `reason`, `error`, `duration_ms`, `exit_code`, `tokens`, `session_id`, `activations`;
-- `verifiers` and `passed` (`null` when a task has no verifiers), `rubric`, `expected`.
+- `verifiers` and `passed` (`null` when a task has no verifiers), `rubric`, `expected`. Each
+  opinion in `rubric.opinions` names the judge `model` that gave it, and `rubric.scales` gives each
+  dimension's levels from worst to best; runs before judge panels carry neither.
 
 `infra_error` and `skipped` units are reported but left out of pass rates.
 

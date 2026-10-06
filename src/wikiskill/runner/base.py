@@ -229,6 +229,9 @@ class Trajectory:
     passed: bool | None = None
     #: The rubric panel's answer, or why there was none. Never touches `passed`.
     rubric: dict[str, Any] | None = None
+    #: The normalized events, once something has needed them: made once for the judge and the raw
+    #: log alike, then dropped.
+    events: list[dict[str, Any]] | None = None
 
     @property
     def scored(self) -> bool:

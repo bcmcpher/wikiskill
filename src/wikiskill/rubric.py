@@ -24,6 +24,9 @@ from .errors import WikiskillError
 #: How many judges a rubric may ask for. Three when a dimension is contestable enough to want a
 #: majority; one otherwise, because three judges cost three times as much to learn the same thing.
 JUDGE_COUNTS = (1, 3)
+#: What a rubric may ask its judge to be shown beyond the answer and the files: the delegations the
+#: unit made, for grading a handoff.
+SHOWS = ("delegations",)
 
 
 class RubricError(WikiskillError):
@@ -66,6 +69,7 @@ class Rubric:
     judges: int = 1
     notes: tuple[str, ...] = ()
     path: Path | None = None
+    shows: tuple[str, ...] = ()
 
     def dimension(self, dimension_id: str) -> Dimension:
         for dimension in self.dimensions:
@@ -134,6 +138,11 @@ def parse(document: Any, *, path: Path | None = None) -> Rubric:
             f"`judges` is {judges!r}; expected one of {', '.join(str(n) for n in JUDGE_COUNTS)}"
         )
 
+    shows = document.get("shows") or []
+    if not isinstance(shows, list) or any(item not in SHOWS for item in shows):
+        problems.append(f"`shows` is {shows!r}; expected a list of {', '.join(SHOWS)}")
+        shows = []
+
     if problems:
         raise RubricError(path, problems)
 
@@ -144,6 +153,7 @@ def parse(document: Any, *, path: Path | None = None) -> Rubric:
         judges=int(judges),
         notes=tuple(str(note).strip() for note in notes),
         path=path,
+        shows=tuple(shows),
     )
 
 

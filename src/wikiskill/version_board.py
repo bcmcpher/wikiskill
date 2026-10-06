@@ -29,17 +29,21 @@ from typing import Any
 import yaml
 
 from . import diff, paths, rawlog
+from .catalogue import Catalogue
 from .compare import DOWN, SAME, LoadedRun, Rate, direction
 from .gate import DEFAULT_TOLERANCE
 from .leaderboard import (
     LeaderboardError,
     _fmt,
     _short,
+    _size,
     check_suite,
     components,
     entrant_labels,
     harness_of,
     output_name,
+    preflight_lines,
+    preflight_summary,
     run_warnings,
     unit_verdict,
 )
@@ -178,6 +182,13 @@ class VersionBoard:
     critical: Critical | None = None
     #: version → units that failed a critical check
     failures: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    #: model → OFF units that failed a critical check: what the bare model does, never disqualifying
+    off_failures: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    #: models left out of every rate: failed preflight, or preflighted and ran nothing
+    preflight: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    catalogue: Catalogue | None = None
+    #: entrant → the model as the runs named it, which is what a catalogue keys on
+    base: dict[str, str] = field(default_factory=dict)
     tolerance: float = DEFAULT_TOLERANCE
     warnings: list[str] = field(default_factory=list)
 
@@ -186,8 +197,22 @@ class VersionBoard:
 
     @property
     def models(self) -> list[str]:
-        """Every model with a unit on the board, scored or not run."""
-        return sorted({model for model, _ in self.cells} | {model for model, _ in self.not_run})
+        """Every model with a unit on the board, scored or not run.
+
+        By name, or grouped by family and ordered by size when there is a catalogue.
+        """
+        models = sorted({model for model, _ in self.cells} | {model for model, _ in self.not_run})
+        if self.catalogue is None:
+            return models
+        base = {model: self.base.get(model, model) for model in models}
+        ordered = self.catalogue.order(sorted(set(base.values())))
+        return sorted(models, key=lambda m: (ordered.index(base[m]), m))
+
+    def described(self, model: str) -> dict[str, Any]:
+        if self.catalogue is None:
+            return {}
+        info = self.catalogue.get(self.base.get(model, model))
+        return {"family": info.family if info else None, "size_b": info.size_b if info else None}
 
     @property
     def panel(self) -> list[str]:
@@ -355,6 +380,7 @@ class VersionBoard:
             "left_out": self.left_out,
             "per_model": {
                 model: {
+                    **self.described(model),
                     "control": self.control[model].as_dict() if model in self.control else None,
                     "versions": [
                         {
@@ -387,6 +413,10 @@ class VersionBoard:
             "critical_failures": {
                 version: units for version, units in self.failures.items() if units
             },
+            "critical_failures_off": {
+                model: units for model, units in sorted(self.off_failures.items()) if units
+            },
+            "preflight": self.preflight,
             "units": self.units,
             "warnings": self.warnings,
         }
@@ -423,6 +453,7 @@ def pool(
     labels: dict[str, str] | None = None,
     critical: Critical | None = None,
     tolerance: float = DEFAULT_TOLERANCE,
+    catalogue: Catalogue | None = None,
 ) -> VersionBoard:
     """Pool runs that differ only in ``component``'s version, refusing any that differ otherwise.
 
@@ -470,8 +501,10 @@ def pool(
         labels=dict(labels or {}),
         critical=critical,
         tolerance=tolerance,
+        catalogue=catalogue,
     )
     board.warnings += run_warnings(runs)
+    board.preflight = preflight_summary(runs)
     several = len({harness_of(run) for run in runs}) > 1
     ignored: set[str] = set()
     for run in runs:
@@ -482,6 +515,7 @@ def pool(
             if unit_condition not in (OFF, condition):
                 ignored.add(unit_condition)
                 continue
+            board.base[result["model"] + entrant] = result["model"]
             _add(board, run, result, version, result["model"] + entrant)
     if ignored:
         board.warnings.append(
@@ -516,30 +550,34 @@ def _add(
     )
     if condition == OFF:
         board.control[model] = _plus(board.control.get(model), verdict)
+        if board.critical:
+            for failed in _critical_breaks(board.critical, run, result, model):
+                board.off_failures.setdefault(model, []).append(failed)
         return
     board.cells[(model, version)] = _plus(board.cells.get((model, version)), verdict)
     board.matrix[(model, version, task)] = _plus(board.matrix.get((model, version, task)), verdict)
     if board.critical:
-        _critical_failures(board, run, result, version, model)
+        for failed in _critical_breaks(board.critical, run, result, model):
+            board.failures.setdefault(version, []).append(failed)
 
 
-def _critical_failures(
-    board: VersionBoard, run: LoadedRun, result: dict[str, Any], version: str, model: str
-) -> None:
-    assert board.critical is not None
+def _critical_breaks(
+    critical: Critical, run: LoadedRun, result: dict[str, Any], model: str
+) -> list[dict[str, Any]]:
+    """The critical checks one unit failed."""
     recorded = result.get("verifiers") or []
-    for index in board.critical.indices(result["task_id"]):
-        if index < len(recorded) and recorded[index].get("passed") is False:
-            board.failures.setdefault(version, []).append(
-                {
-                    "run_id": run.run_id,
-                    "task_id": result["task_id"],
-                    "model": model,
-                    "repeat": result.get("repeat"),
-                    "verifier": index,
-                    "detail": recorded[index].get("detail", ""),
-                }
-            )
+    return [
+        {
+            "run_id": run.run_id,
+            "task_id": result["task_id"],
+            "model": model,
+            "repeat": result.get("repeat"),
+            "verifier": index,
+            "detail": recorded[index].get("detail", ""),
+        }
+        for index in critical.indices(result["task_id"])
+        if index < len(recorded) and recorded[index].get("passed") is False
+    ]
 
 
 def _plus(rate: Rate | None, passed: bool) -> Rate:
@@ -610,6 +648,7 @@ def render(board: VersionBoard) -> str:
     lines += [f"> warning: {warning}" for warning in board.warnings]
     if board.warnings:
         lines.append("")
+    lines += preflight_lines(board.preflight)
     lines += _overall_lines(board)
     lines += _per_model_lines(board)
     lines += _critical_lines(board)
@@ -651,15 +690,24 @@ def _overall_lines(board: VersionBoard) -> list[str]:
 
 
 def _per_model_lines(board: VersionBoard) -> list[str]:
+    described = board.catalogue is not None
     lines = [
         "## Per model",
         "",
-        "| model | OFF | version | passed (95% CI) | lift | against baseline | not run | |",
-        "|---|---|---|---|---|---|---|---|",
+        "| model | "
+        + ("family | size (B) | " if described else "")
+        + "OFF | version | passed (95% CI) | lift | against baseline | not run | |",
+        "|---|" + ("---|---|" if described else "") + "---|---|---|---|---|---|---|",
     ]
     for model in board.models:
         best = board.best(model)
         control = _fmt(board.control.get(model) or Rate(0, 0))
+        info = board.described(model)
+        about = (
+            f"{info.get('family') or 'uncatalogued'} | {_size(info.get('size_b'))} | "
+            if described
+            else ""
+        )
         for entry in board.entries(model):
             notes = []
             if best and entry.version == best.version:
@@ -675,29 +723,55 @@ def _per_model_lines(board: VersionBoard) -> list[str]:
                 notes.append("fell on " + ", ".join(fallen))
             against = "baseline" if entry.version == board.baseline else entry.direction
             lines.append(
-                f"| {model} | {control} | `{board.label(entry.version)}` | {_fmt(entry.rate)} | "
+                f"| {model} | {about}{control} | `{board.label(entry.version)}` | "
+                f"{_fmt(entry.rate)} | "
                 f"{_pct(entry.lift, signed=True)} | {against} | {entry.not_run} | "
                 f"{', '.join(notes)} |"
             )
             control = ""
+            about = "| | " if described else ""
     return [*lines, ""]
 
 
 def _critical_lines(board: VersionBoard) -> list[str]:
-    failed = {version: units for version, units in board.failures.items() if units}
     if not board.critical:
         return []
-    if not failed:
-        return ["## Critical checks", "", "No version failed a critical check.", ""]
+    failed = {version: units for version, units in board.failures.items() if units}
     lines = ["## Critical checks", ""]
+    if not failed:
+        lines.append("No version failed a critical check.")
     for version in board.versions:
         for unit in failed.get(version, []):
-            lines.append(
-                f"- `{board.label(version)}` failed verifier {unit['verifier']} of "
-                f"`{unit['task_id']}` on {unit['model']} (run `{unit['run_id']}`, repeat "
-                f"{unit['repeat']}): {unit['detail']}"
-            )
+            lines.append(f"- `{board.label(version)}` {_broke(unit)}")
+    lines += [
+        "",
+        "### Under OFF",
+        "",
+        (
+            "The bare model, without the component. These disqualify no version: they say what a "
+            "model does on its own."
+        ),
+        "",
+    ]
+    off = {model: units for model, units in sorted(board.off_failures.items()) if units}
+    if not any(cell.total for cell in board.control.values()):
+        lines.append("No OFF unit ran, so the bare models were not checked.")
+    elif not off:
+        lines.append("No OFF unit failed a critical check.")
+    for model in board.models:
+        units = off.get(model, [])
+        if units:
+            control = board.control.get(model)
+            lines.append(f"- {model}: {len(units)} of {control.total if control else 0} OFF units")
+            lines += [f"  - {_broke(unit)}" for unit in units]
     return [*lines, ""]
+
+
+def _broke(unit: dict[str, Any]) -> str:
+    return (
+        f"failed verifier {unit['verifier']} of `{unit['task_id']}` on {unit['model']} (run "
+        f"`{unit['run_id']}`, repeat {unit['repeat']}): {unit['detail']}"
+    )
 
 
 def _matrix_lines(board: VersionBoard) -> list[str]:

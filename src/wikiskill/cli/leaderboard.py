@@ -42,6 +42,11 @@ def register(sub) -> None:
         default=None,
         help="with --by-version: a YAML list of {task, verifier} checks that must never fail",
     )
+    board.add_argument(
+        "--models-file",
+        default=None,
+        help="a model catalogue (TOML): group rows by family and order them by size",
+    )
     board.set_defaults(func=cmd_leaderboard)
 
 
@@ -68,9 +73,15 @@ def cmd_leaderboard(args: argparse.Namespace) -> int:
         if not Path(run).is_dir() and not args.collection:
             return misuse(f"{run} is not a directory; pass a path, or --collection")
         runs.append(compare_mod.load_run(args.collection or "", run))
+    from .. import catalogue as catalogue_mod
+
+    try:
+        catalogue = catalogue_mod.load_optional(args.models_file)
+    except catalogue_mod.CatalogueError as exc:
+        return misuse(str(exc))
     if args.by_version:
-        return _by_version(args, runs)
-    board = leaderboard_mod.pool(runs)
+        return _by_version(args, runs, catalogue)
+    board = leaderboard_mod.pool(runs, catalogue)
     if args.out:
         out = Path(args.out)
     else:
@@ -83,7 +94,7 @@ def cmd_leaderboard(args: argparse.Namespace) -> int:
     return OK
 
 
-def _by_version(args: argparse.Namespace, runs) -> int:
+def _by_version(args: argparse.Namespace, runs, catalogue) -> int:
     from .. import diff as diff_mod
     from .. import version_board as board_mod
 
@@ -99,6 +110,7 @@ def _by_version(args: argparse.Namespace, runs) -> int:
             baseline=baseline,
             labels=board_mod.version_labels(coll, component, runs),
             critical=critical,
+            catalogue=catalogue,
         )
     except (diff_mod.DiffError, board_mod.LeaderboardError) as exc:
         return misuse(str(exc))

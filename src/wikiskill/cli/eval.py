@@ -225,13 +225,11 @@ def cmd_eval(args: argparse.Namespace) -> int:
             "collection manifest."
         )
 
-    tasks = None
-    if args.task:
-        wanted = set(args.task)
-        tasks = [task for task in loaded.tasks if task.id in wanted]
-        missing = sorted(wanted - {task.id for task in tasks})
-        if missing:
-            return misuse(f"no such task(s) in {loaded.name}: {', '.join(missing)}")
+    tasks, problem = _eval_tasks(args, loaded)
+    # A judge panel that cannot grade the run is refused before a run directory exists.
+    problem = problem or _judge_refusal(coll, loaded, models, tasks)
+    if problem:
+        return misuse(problem)
 
     run_id = runner_base.new_run_id()
     layout = runner_base.RunLayout.create(coll.name if coll else loaded.name, run_id)
@@ -286,6 +284,30 @@ def cmd_eval(args: argparse.Namespace) -> int:
         print(f"  not run            {len(unfinished)} (listed in the report)")
     scored_any = any(row.get("repeats") for row in report.get("rows") or [])
     return OK if scored_any else FAILED
+
+
+def _eval_tasks(args: argparse.Namespace, loaded) -> tuple[list | None, str | None]:
+    """The tasks `--task` selects, or None for all of them, and any task the suite lacks."""
+    if not args.task:
+        return None, None
+    wanted = set(args.task)
+    tasks = [task for task in loaded.tasks if task.id in wanted]
+    missing = sorted(wanted - {task.id for task in tasks})
+    if missing:
+        return tasks, f"no such task(s) in {loaded.name}: {', '.join(missing)}"
+    return tasks, None
+
+
+def _judge_refusal(coll: Collection | None, loaded, models: list[str], tasks) -> str | None:
+    """Why the judge panel cannot grade the selected tasks, or None when it can."""
+    from ..runner import run as run_mod
+    from ..score import judge as judge_mod
+
+    try:
+        run_mod.panel_for(coll, loaded, models, tasks)
+    except judge_mod.JudgeError as exc:
+        return str(exc)
+    return None
 
 
 def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):

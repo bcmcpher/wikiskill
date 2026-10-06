@@ -26,11 +26,14 @@ passed the other half cleanly.
 from __future__ import annotations
 
 import json
+import statistics
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from . import rawlog
+from .catalogue import Catalogue
 from .compare import CompareError, LoadedRun, Rate, wilson
 from .runner.base import ROUTED
 from .score.route import UNSCORED, first_activation, same
@@ -60,6 +63,8 @@ class Cell:
     condition: str
     harness: str = DEFAULT_HARNESS
     served: str = ""
+    #: the model as the runs named it, with no thinking or harness label: what a catalogue keys on
+    base: str = ""
     passed: int = 0
     total: int = 0
     #: units whose first activation was checked against the expected component, under ROUTED
@@ -68,6 +73,12 @@ class Cell:
     not_run: int = 0
     runs: set[str] = field(default_factory=set)
     contexts: set[int] = field(default_factory=set)
+    #: every unit by outcome class, the ones that did not run included
+    outcomes: Counter = field(default_factory=Counter)
+    #: of units that ran
+    durations_ms: list[int] = field(default_factory=list)
+    tokens_in: list[int] = field(default_factory=list)
+    tokens_out: list[int] = field(default_factory=list)
 
     @property
     def rate(self) -> Rate:
@@ -88,7 +99,15 @@ class Cell:
             "not_run": self.not_run,
             "runs": sorted(self.runs),
             "context_tokens": sorted(self.contexts),
+            "outcomes": dict(sorted(self.outcomes.items())),
+            "median_duration_ms": median(self.durations_ms),
+            "median_tokens": {"input": median(self.tokens_in), "output": median(self.tokens_out)},
         }
+
+
+def median(values: list[int]) -> float | None:
+    """The median, or None for nothing: one runaway generation would swamp a mean."""
+    return statistics.median(values) if values else None
 
 
 @dataclass
@@ -104,6 +123,34 @@ class Leaderboard:
     #: task → how its units are judged: `verifier` or `route`
     bases: dict[str, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    #: models that failed preflight, and models that passed it but ran no unit, per run
+    preflight: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    catalogue: Catalogue | None = None
+
+    def described(self, cell: Cell) -> dict[str, Any]:
+        """A cell's family and size from the catalogue, when there is one."""
+        if self.catalogue is None:
+            return {}
+        info = self.catalogue.get(cell.base or cell.model)
+        return {"family": info.family if info else None, "size_b": info.size_b if info else None}
+
+    @property
+    def models_in_order(self) -> list[str]:
+        """Entrants by name, or grouped by family and ordered by size with a catalogue."""
+        models = sorted({cell.model for cell in self.cells.values()})
+        if self.catalogue is None:
+            return models
+        base = {cell.model: cell.base or cell.model for cell in self.cells.values()}
+        ordered = self.catalogue.order(sorted(set(base.values())))
+        return sorted(models, key=lambda m: (ordered.index(base[m]), m))
+
+    @property
+    def uncatalogued(self) -> list[str]:
+        if self.catalogue is None:
+            return []
+        return sorted(
+            {c.base for c in self.cells.values() if c.base and not self.catalogue.get(c.base)}
+        )
 
     @property
     def conditions(self) -> list[str]:
@@ -177,7 +224,7 @@ class Leaderboard:
             "bases": self.bases,
             "ranking": {
                 condition: [
-                    {**cell.as_dict(), "clear_of_leader": clear}
+                    {**cell.as_dict(), **self.described(cell), "clear_of_leader": clear}
                     for cell, clear in self.ranked(condition)
                 ]
                 for condition in self.conditions
@@ -187,6 +234,12 @@ class Leaderboard:
                 for (task, model, condition), rate in sorted(self.matrix.items())
             ],
             "across_harnesses": self.across_harnesses(),
+            "preflight": self.preflight,
+            **(
+                {"catalogue": self.catalogue.source, "uncatalogued": self.uncatalogued}
+                if self.catalogue
+                else {}
+            ),
             "warnings": self.warnings,
         }
 
@@ -194,7 +247,7 @@ class Leaderboard:
 # --------------------------------------------------------------------------- pooling
 
 
-def pool(runs: list[LoadedRun]) -> Leaderboard:
+def pool(runs: list[LoadedRun], catalogue: Catalogue | None = None) -> Leaderboard:
     """Pool runs of one suite, refusing any that measured something else."""
     check_suite(runs)
     first = runs[0]
@@ -203,14 +256,48 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
         suite_hash=first.suite_hash,
         runs=list(runs),
         components=components(runs),
+        catalogue=catalogue,
     )
     board.warnings += run_warnings(runs)
+    board.preflight = preflight_summary(runs)
     for run in runs:
         contexts = _contexts(run)
         labels = entrant_labels(run, several=len(board.harnesses) > 1)
         for result in run.results:
             _add(board, run, result, contexts, labels)
     return board
+
+
+def preflight_summary(runs: list[LoadedRun]) -> dict[str, list[dict[str, Any]]]:
+    """Models a pooled rate leaves out: those that failed preflight, and those that passed but ran
+    nothing, each with the run it was in.
+
+    A model that failed in one run and passed in another is listed for the run it failed in, since
+    its pooled rate omits that run.
+    """
+    failed, idle = [], []
+    for run in runs:
+        ran = {result["model"] for result in run.results}
+        refused = preflight_failures(run.manifest)
+        for model in sorted(run.manifest.get("preflight") or {}):
+            if model in refused:
+                failed.append({"model": model, "run_id": run.run_id, "problems": refused[model]})
+            elif model not in ran:
+                idle.append({"model": model, "run_id": run.run_id})
+    return {"failed": failed, "no_units": idle}
+
+
+def preflight_failures(manifest: dict[str, Any]) -> dict[str, list[str]]:
+    """Each model a run's preflight did not pass, with its problems.
+
+    The one reading of `run.json`'s `preflight`, for the report and the pooled outputs alike: an
+    entry that does not say `ok`, a missing or empty one included, did not pass.
+    """
+    return {
+        model: list((entry or {}).get("problems") or ["preflight failed"])
+        for model, entry in (manifest.get("preflight") or {}).items()
+        if not (entry or {}).get("ok")
+    }
 
 
 def check_suite(runs: list[LoadedRun]) -> None:
@@ -323,14 +410,22 @@ def _add(
     model = served + label
     cell = board.cells.setdefault(
         (model, condition),
-        Cell(model=model, condition=condition, harness=harness, served=served + thinking),
+        Cell(
+            model=model,
+            condition=condition,
+            harness=harness,
+            served=served + thinking,
+            base=served,
+        ),
     )
     cell.runs.add(run.run_id)
     if served in contexts:
         cell.contexts.add(contexts[served])
+    cell.outcomes[result.get("outcome") or "unknown"] += 1
     if result.get("outcome") in UNSCORED:
         cell.not_run += 1
         return
+    _cost(cell, result)
     expected = (result.get("expected") or {}).get("primary")
     if expected and condition == ROUTED:
         cell.routed += 1
@@ -345,6 +440,17 @@ def _add(
     board.matrix[(task, model, condition)] = Rate(
         passed=rate.passed + (1 if verdict else 0), total=rate.total + 1
     )
+
+
+def _cost(cell: Cell, result: dict[str, Any]) -> None:
+    """Time and tokens of a unit that ran, where it recorded them."""
+    if isinstance(result.get("duration_ms"), int):
+        cell.durations_ms.append(result["duration_ms"])
+    tokens = result.get("tokens") or {}
+    if isinstance(tokens.get("input"), int):
+        cell.tokens_in.append(tokens["input"])
+    if isinstance(tokens.get("output"), int):
+        cell.tokens_out.append(tokens["output"])
 
 
 def unit_verdict(result: dict[str, Any]) -> tuple[bool | None, str]:
@@ -380,18 +486,28 @@ def ranking_lines(ranking: dict[str, list[dict[str, Any]]]) -> list[str]:
     for condition, entries in sorted(ranking.items()):
         if not entries:
             continue
+        described = any("family" in entry for entry in entries)
         lines += [
             f"### {condition}",
             "",
-            "| # | model | passed (95% CI) | not run | runs | context |",
-            "|---|---|---|---|---|---|",
+            "| # | model | "
+            + ("family | size (B) | " if described else "")
+            + "passed (95% CI) | not run | median s | runs | context |",
+            "|---|---|" + ("---|---|" if described else "") + "---|---|---|---|---|",
         ]
         for place, entry in enumerate(entries, start=1):
             mark = str(place) if place == 1 or entry["clear_of_leader"] else f"{place}≈"
             rate = Rate(passed=entry["passed"], total=entry["total"])
             contexts = ", ".join(f"{c // 1024}k" for c in entry["context_tokens"]) or "-"
+            seconds = entry.get("median_duration_ms")
+            about = (
+                f"{entry.get('family') or 'uncatalogued'} | {_size(entry.get('size_b'))} | "
+                if described
+                else ""
+            )
             lines.append(
-                f"| {mark} | {entry['model']} | {_fmt(rate)} | {entry['not_run']} | "
+                f"| {mark} | {entry['model']} | {about}{_fmt(rate)} | {entry['not_run']} | "
+                f"{'-' if seconds is None else f'{seconds / 1000:.1f}'} | "
                 f"{len(entry['runs'])} | {contexts} |"
             )
         lines.append("")
@@ -423,10 +539,74 @@ def render(board: Leaderboard) -> str:
     lines += [f"> warning: {warning}" for warning in board.warnings]
     if board.warnings:
         lines.append("")
-    lines += ["## Ranking", "", *ranking_lines(board.as_dict()["ranking"])]
+    data = board.as_dict()
+    lines += preflight_lines(board.preflight)
+    if board.catalogue:
+        lines += [f"- model catalogue: `{board.catalogue.source}`"]
+        if board.uncatalogued:
+            lines += [f"- uncatalogued: {', '.join(board.uncatalogued)}"]
+        lines.append("")
+    lines += ["## Ranking", "", *ranking_lines(data["ranking"])]
     lines += across_harness_lines(board.across_harnesses())
+    lines += outcome_lines(data["ranking"], board.models_in_order)
     lines += _matrix_lines(board)
     return "\n".join(lines)
+
+
+def preflight_lines(preflight: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Models the pooled rates leave out, from `preflight_summary`."""
+    failed, idle = preflight.get("failed") or [], preflight.get("no_units") or []
+    if not failed and not idle:
+        return []
+    lines = ["## Not in the rates", ""]
+    for entry in failed:
+        why = "; ".join(str(problem) for problem in entry["problems"]) or "no reason recorded"
+        lines.append(f"- {entry['model']} failed preflight in `{entry['run_id']}`: {why}")
+    for entry in idle:
+        lines.append(f"- {entry['model']} passed preflight in `{entry['run_id']}` but ran no unit")
+    return [*lines, ""]
+
+
+def outcome_lines(
+    ranking: dict[str, list[dict[str, Any]]], order: list[str] | None = None
+) -> list[str]:
+    """Each model's units by outcome class, with median time and tokens of the units that ran.
+
+    What tells a model that cannot drive the harness (`permission_blocked`, `step_exhausted`,
+    `infra_error`) from one that drives it and gets the task wrong (`completed`, failed).
+    """
+    rows = [(condition, e) for condition, entries in sorted(ranking.items()) for e in entries]
+    if not rows:
+        return []
+    classes = sorted({name for _, entry in rows for name in entry.get("outcomes") or {}})
+    lines = [
+        "## Outcomes and cost",
+        "",
+        "Medians are of the units that ran.",
+        "",
+        "| model | condition | " + " | ".join(classes) + " | median s | median tokens in/out |",
+        "|---|---|" + "---|" * len(classes) + "---|---|",
+    ]
+    place = {model: index for index, model in enumerate(order or [])}
+    rows.sort(key=lambda r: (place.get(r[1]["model"], len(place)), r[1]["model"], r[0]))
+    for condition, entry in rows:
+        counts = [str((entry.get("outcomes") or {}).get(name, 0)) for name in classes]
+        seconds = entry.get("median_duration_ms")
+        tokens = entry.get("median_tokens") or {}
+        lines.append(
+            f"| {entry['model']} | {condition} | " + " | ".join(counts) + " | "
+            f"{'-' if seconds is None else f'{seconds / 1000:.1f}'} | "
+            f"{_count(tokens.get('input'))}/{_count(tokens.get('output'))} |"
+        )
+    return [*lines, ""]
+
+
+def _size(value: float | None) -> str:
+    return "-" if value is None else f"{value:g}"
+
+
+def _count(value: float | None) -> str:
+    return "-" if value is None else f"{value:.0f}"
 
 
 def across_harness_lines(rows: list[dict[str, Any]]) -> list[str]:
@@ -457,7 +637,8 @@ def across_harness_lines(rows: list[dict[str, Any]]) -> list[str]:
 
 
 def _matrix_lines(board: Leaderboard) -> list[str]:
-    models = sorted({model for _, model, _ in board.matrix})
+    present = {model for _, model, _ in board.matrix}
+    models = [model for model in board.models_in_order if model in present]
     tasks = sorted({task for task, _, _ in board.matrix})
     lines = ["## Per task", ""]
     for condition in board.conditions:
