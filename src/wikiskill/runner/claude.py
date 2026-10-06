@@ -219,7 +219,7 @@ class ClaudeCodeBackend(Backend):
 
     def settings_for(self, unit: Unit, root: Path) -> dict[str, Any]:
         """The only settings a unit's Claude Code reads: `--setting-sources user` in its own dir."""
-        deny = list(DENIED_TOOLS)
+        deny: list[str] = list(DENIED_TOOLS)
         injected = _injected_skill(unit)
         if injected and self.collection is not None:
             # The skill's text is in the system prompt, so the model must not also load it: that
@@ -502,7 +502,8 @@ class _Normaliser:
             elif kind == "result":
                 self.turn_usage(event)
             elif kind in ("assistant", "user"):
-                parent = event.get("parent_tool_use_id")
+                # A tool-use id, or null on the root session's own messages.
+                parent: str | None = event.get("parent_tool_use_id")
                 session = self.children.get(parent, parent) if parent else self.root
                 self.begin(
                     session,
@@ -576,7 +577,7 @@ class _Normaliser:
     def tool(self, use: dict[str, Any], called: str, result: dict[str, Any], session: str):
         """An activation, a delegation and the call itself, for one answered tool call."""
         name = str(use.get("name") or "unknown")
-        args = use.get("input") if isinstance(use.get("input"), dict) else {}
+        args = _call_input(use)
         failed = bool(result.get("is_error"))
         output = _result_text(result.get("content"))
         answered, self.ts = self.ts, called
@@ -783,6 +784,12 @@ def _calls(stream: list[dict[str, Any]]):
                     yield use, block
 
 
+def _call_input(use: dict[str, Any]) -> dict[str, Any]:
+    """A tool call's arguments, or none when its `input` is not an object."""
+    args = use.get("input")
+    return args if isinstance(args, dict) else {}
+
+
 def _activation_name(tool: str, args: dict[str, Any]) -> tuple[str, str] | None:
     """``(kind, plugin/name)`` for a Skill or Agent call. Claude Code writes `plugin:name`."""
     if tool in _SKILL_TOOLS:
@@ -803,8 +810,7 @@ def activations(stream: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     found: list[dict[str, Any]] = []
     for use, result in _calls(stream):
-        args = use.get("input") if isinstance(use.get("input"), dict) else {}
-        target = _activation_name(str(use.get("name") or "").lower(), args)
+        target = _activation_name(str(use.get("name") or "").lower(), _call_input(use))
         if target is None:
             continue
         entry: dict[str, Any] = {"kind": target[0], "name": target[1]}

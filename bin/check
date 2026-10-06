@@ -6,8 +6,7 @@
 # Needs `uv sync` first, which installs the dev group (pytest, ruff, pyright). The OpenCode packages
 # need bun; without it their step is skipped and said so, as the contract test does.
 #
-# pyright fails the check. Two runner modules are excluded in pyproject.toml until
-# refactor-code-tooling slice 5 fixes them.
+# pyright fails the check.
 
 set -eu
 

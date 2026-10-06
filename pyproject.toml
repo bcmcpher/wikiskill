@@ -50,12 +50,9 @@ packages = ["src/wikiskill"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 
-# Report-only in `bin/check` for now. The source alone, in pyright's default mode; tests are left
-# out until the source is clean (refactor-code-tooling, slice 3).
+# The source alone, in pyright's default mode; any error fails `bin/check`. Tests are left out.
 [tool.pyright]
 include = ["src"]
-# Excluded until refactor-code-tooling slice 5, which rewrites both and fixes their ten errors.
-exclude = ["src/wikiskill/runner/claude.py", "src/wikiskill/runner/run.py"]
 
 [tool.ruff]
 line-length = 100
