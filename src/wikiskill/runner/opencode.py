@@ -324,22 +324,7 @@ class OpenCodeBackend(Backend):
             (root / name).mkdir(parents=True, exist_ok=True)
         # Before the install, so anything the collection ships wins over a seeded file.
         self._apply_seed(root)
-        workdir = root / "work"
-        if workdir.exists():
-            shutil.rmtree(workdir)
-        fixtures = self.suite_root / unit.task.fixtures if unit.task.fixtures else None
-        if fixtures and fixtures.is_dir():
-            shutil.copytree(fixtures, workdir)
-        else:
-            if fixtures:
-                raise RunnerError(
-                    f"task {unit.task.id!r} names a fixture directory that is not there: {fixtures}"
-                )
-            workdir.mkdir(parents=True)
-        common.run_setup(unit, workdir, root)
-        # After setup, so a command that makes its own repository (`datalad create`) finds an
-        # ordinary directory; on an existing repository this is a harmless re-initialisation.
-        common.git_init(workdir)
+        workdir = self.prepare_workdir(unit, root)
 
         if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
             # INJECTED installs too: the point is to compare routing against content with the same

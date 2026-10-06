@@ -11,6 +11,7 @@ skill.
 from __future__ import annotations
 
 import json
+import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -273,6 +274,8 @@ class Backend(ABC):
 
     #: `harness` as it appears in raw events.
     harness: str = ""
+    #: The directory a task's `fixtures` path is relative to: the suite file's own.
+    suite_root: Path
 
     @abstractmethod
     def version(self) -> str:
@@ -293,3 +296,29 @@ class Backend(ABC):
     @abstractmethod
     def normalize(self, trajectory: Trajectory) -> list[dict[str, Any]]:
         """Turn a trajectory into raw events carrying `origin: eval` and the unit's provenance."""
+
+    def prepare_workdir(self, unit: Unit, root: Path) -> Path:
+        """Build ``root/work`` in the task's starting state: its fixtures, its setup, `git init`.
+
+        A fixture directory that is not there, or a setup command that fails, raises `RunnerError`.
+        """
+        # `common` imports this module, for `RunnerError` and `Unit`.
+        from . import common  # noqa: PLC0415
+
+        workdir = root / "work"
+        if workdir.exists():
+            shutil.rmtree(workdir)
+        fixtures = self.suite_root / unit.task.fixtures if unit.task.fixtures else None
+        if fixtures and fixtures.is_dir():
+            shutil.copytree(fixtures, workdir)
+        else:
+            if fixtures:
+                raise RunnerError(
+                    f"task {unit.task.id!r} names a fixture directory that is not there: {fixtures}"
+                )
+            workdir.mkdir(parents=True)
+        common.run_setup(unit, workdir, root)
+        # After setup, so a command that makes its own repository (`datalad create`) finds an
+        # ordinary directory; on an existing repository this is a harmless re-initialisation.
+        common.git_init(workdir)
+        return workdir

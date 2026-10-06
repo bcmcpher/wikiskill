@@ -188,20 +188,7 @@ class ClaudeCodeBackend(Backend):
             shutil.rmtree(config_dir)
         config_dir.mkdir(parents=True)
 
-        workdir = root / "work"
-        if workdir.exists():
-            shutil.rmtree(workdir)
-        fixtures = self.suite_root / unit.task.fixtures if unit.task.fixtures else None
-        if fixtures and fixtures.is_dir():
-            shutil.copytree(fixtures, workdir)
-        else:
-            if fixtures:
-                raise RunnerError(
-                    f"task {unit.task.id!r} names a fixture directory that is not there: {fixtures}"
-                )
-            workdir.mkdir(parents=True)
-        common.run_setup(unit, workdir, root)
-        common.git_init(workdir)
+        workdir = self.prepare_workdir(unit, root)
 
         if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
             self._build_plugin(root)

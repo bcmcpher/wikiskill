@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from wikiskill import names
@@ -81,3 +83,58 @@ def test_a_failing_setup_command_stops_the_rest_and_says_why(tmp_path):
 def test_git_init_makes_a_repository(tmp_path):
     common.git_init(tmp_path)
     assert (tmp_path / ".git").is_dir()
+
+
+class Stub(runner_base.Backend):
+    """Only what `prepare_workdir` reads: the suite root."""
+
+    def __init__(self, suite_root):
+        self.suite_root = suite_root
+
+    def version(self):
+        return "0"
+
+    def preflight(self, model):
+        return runner_base.PreflightResult(model=model, ok=True)
+
+    def prepare(self, unit):
+        raise NotImplementedError
+
+    def execute(self, unit):
+        raise NotImplementedError
+
+    def normalize(self, trajectory):
+        return []
+
+
+def with_fixtures(task_unit, fixtures):
+    return dataclasses.replace(
+        task_unit, task=dataclasses.replace(task_unit.task, fixtures=fixtures)
+    )
+
+
+def test_prepare_workdir_copies_fixtures_then_runs_setup_then_inits(tmp_path):
+    (tmp_path / "suite" / "start").mkdir(parents=True)
+    (tmp_path / "suite" / "start" / "README").write_text("seeded")
+    root = tmp_path / "unit"
+    root.mkdir()
+    (root / "work").mkdir()
+    (root / "work" / "stale").write_text("from a previous run")
+
+    chosen = with_fixtures(unit("cat README > copied"), "start")
+    workdir = Stub(tmp_path / "suite").prepare_workdir(chosen, root)
+
+    assert workdir == root / "work"
+    assert not (workdir / "stale").exists(), "a previous run's workdir is replaced"
+    assert (workdir / "copied").read_text() == "seeded", "setup runs after the fixtures are copied"
+    assert (workdir / ".git").is_dir()
+
+
+def test_prepare_workdir_without_fixtures_starts_empty(tmp_path):
+    workdir = Stub(tmp_path).prepare_workdir(unit(), tmp_path)
+    assert sorted(p.name for p in workdir.iterdir()) == [".git"]
+
+
+def test_prepare_workdir_refuses_a_missing_fixture_directory(tmp_path):
+    with pytest.raises(runner_base.RunnerError, match="names a fixture directory that is not"):
+        Stub(tmp_path).prepare_workdir(with_fixtures(unit(), "absent"), tmp_path)
