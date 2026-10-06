@@ -60,9 +60,10 @@ STUDY[bids]=docs/pilots/dsh-bids
 SUITE[curate]=pilots/gen-data-dict/suite.yaml COLLECTION[curate]=dsh-curate
 STUDY[curate]=docs/pilots/dsh-curate
 
-# Scaled back from the design's 18 models on 2026-10-06, as the suites grew to three: two to three
-# per family across the size range, dense and MoE, smallest and fastest first, llama3.3 (70B dense)
-# last. gpt-oss:120b is left out: it judges gen-data-dict.
+# Scaled back from the design's 18 models on 2026-10-06, as the suites grew to three: one to two per
+# family across the size range, dense and MoE, smallest and fastest first. llama3.3 (70B dense) is
+# left out for time: it is by far the slowest, an estimated 8 hours or more. gpt-oss:120b is left
+# out: it judges gen-data-dict.
 ORDER=(
   qwen3:1.7b
   llama3.2:3b
@@ -71,7 +72,6 @@ ORDER=(
   gpt-oss:20b
   qwen3:30b-a3b
   gemma4:31b
-  llama3.3:latest
 )
 
 usage() {
