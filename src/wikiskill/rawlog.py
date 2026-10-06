@@ -95,6 +95,16 @@ def is_event_id(value: str) -> bool:
     return bool(_ULID_RE.match(value))
 
 
+def event_id_ms(value: str) -> int | None:
+    """The millisecond timestamp a ULID was made at, or None when it is not one."""
+    if not is_event_id(value):
+        return None
+    ms = 0
+    for char in value[:10]:
+        ms = ms * 32 + _CROCKFORD.index(char)
+    return ms
+
+
 def now_ts() -> str:
     """RFC 3339 timestamp in UTC, millisecond precision — matches what the plugin writes."""
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -104,12 +114,18 @@ def content_hash(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
-def file_hash(path: str | os.PathLike[str]) -> str | None:
-    """SHA-256 of a component's main file, or None when it cannot be read."""
+def read_bytes(path: str | os.PathLike[str]) -> bytes | None:
+    """A file's bytes, or None when it cannot be read."""
     try:
-        return content_hash(Path(path).read_bytes())
+        return Path(path).read_bytes()
     except OSError:
         return None
+
+
+def file_hash(path: str | os.PathLike[str]) -> str | None:
+    """SHA-256 of a component's main file, or None when it cannot be read."""
+    data = read_bytes(path)
+    return content_hash(data) if data is not None else None
 
 
 # --------------------------------------------------------------------------- schema

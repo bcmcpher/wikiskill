@@ -19,6 +19,7 @@ user. What happens to it next is `gate`'s business.
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import json
 import re
@@ -30,7 +31,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from . import names, paths, rawlog, review, wiki
+from . import names, paths, rawlog, review, sources, wiki
 from . import rubric as rubric_mod
 from . import suite as suite_mod
 from .collection import Collection
@@ -97,6 +98,8 @@ class Proposal:
     diff: str = ""
     attempts: int = 1
     problems: list[str] = field(default_factory=list)
+    #: What went wrong beside the proposal without stopping it, such as a snapshot not kept.
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -455,7 +458,11 @@ def repository_of(path: Path) -> Path | None:
 def make_diff(path: Path, before: str, after: str) -> str:
     """A unified diff `git apply` accepts, relative to the file's repository when it has one."""
     repo = repository_of(path)
-    relative = str(path.relative_to(repo)) if repo else path.name
+    relative = path.name
+    if repo is not None:
+        # `repo` is git's resolved path; resolve `path` too, so a symlinked source still fits.
+        with contextlib.suppress(ValueError):
+            relative = str(path.resolve().relative_to(repo.resolve()))
     lines = difflib.unified_diff(
         before.splitlines(keepends=True),
         after.splitlines(keepends=True),
@@ -670,6 +677,7 @@ def _write(
         "status": "proposed",
     }
     (directory / "meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    proposal.warnings += _snapshot(collection.name, found, rendered)
     (directory / "preview.md").write_text(
         _preview(
             collection.name,
@@ -683,6 +691,32 @@ def _write(
     )
     wiki.commit(root, f"propose {proposal_id} for {component}")
     return proposal
+
+
+def _snapshot(collection: str, found: Context, rendered: Path) -> list[str]:
+    """Keep the text before the edit and the rendered candidate, so both outlive the source.
+
+    The base is the text the proposal was built from. Read as text it can differ from the file's
+    bytes only in line endings; then the file is read again, and kept only if it still hashes to
+    the proposal's `source_hash`. Nothing here stops the proposal: a failure is a warning.
+    """
+    warnings = []
+    base: bytes | None = found.text.encode("utf-8")
+    if rawlog.content_hash(base) != found.source_hash:
+        base = rawlog.read_bytes(found.path)
+        if base is None or rawlog.content_hash(base) != found.source_hash:
+            warnings.append(
+                f"{found.path} changed while the proposal was written; its base was not kept"
+            )
+            base = None
+    for data in (base, rawlog.read_bytes(rendered)):
+        if data is None:
+            continue
+        try:
+            sources.store(collection, data)
+        except sources.SnapshotError as exc:
+            warnings.append(str(exc))
+    return warnings
 
 
 def _preview(

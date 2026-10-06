@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import __version__, paths, rawlog
+from .. import __version__, paths, rawlog, sources
 from ..collection import Collection, Role
 from ..rubric import Rubric, RubricError
 from ..rubric import load as load_rubric
@@ -57,6 +57,10 @@ class RunResult:
     events_written: int = 0
     #: Units run at once against one endpoint. Recorded because it changes what a wall time means.
     workers: int = 1
+    #: What went wrong around the run without touching its results, such as a snapshot not kept.
+    warnings: list[str] = field(default_factory=list)
+    #: Each watched component and the hash of its text, read before the first unit runs.
+    components: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def run_id(self) -> str:
@@ -181,6 +185,10 @@ def run_suite(
     if no_judge:
         report(f"no rubric judge: {no_judge}")
 
+    # Read before any unit runs, so the recorded version is the text that ran, even if the file is
+    # edited while the run is under way.
+    run.components = _component_versions(collection, run.warnings)
+
     for model in models:
         report(f"preflight {model}")
         run.preflight[model] = backend.preflight(model)
@@ -239,6 +247,8 @@ def run_suite(
             proposal=proposal,
         )
     )
+    for warning in run.warnings:
+        report(f"warning: {warning}")
     return run
 
 
@@ -384,7 +394,7 @@ def _manifest(
         "tasks": [task.id for task in run.suite.tasks],
         "env": {task.id: dict(task.env) for task in run.suite.tasks if task.env},
         "setup": {task.id: list(task.setup) for task in run.suite.tasks if task.setup},
-        "components": _component_versions(collection),
+        "components": run.components,
         # A candidate run evaluates a proposal from a copy of its source; a baseline names none.
         "proposal": proposal,
         "preflight": {model: result.as_dict() for model, result in run.preflight.items()},
@@ -395,21 +405,37 @@ def _manifest(
         "duration_s": duration_s,
         "outcomes": run.counts(),
         "events_written": run.events_written,
+        "warnings": run.warnings,
     }
 
 
-def _component_versions(collection: Collection | None) -> list[dict[str, Any]]:
-    """Every component under test, with the hash of the text that ran, so a result is repeatable."""
+def _component_versions(
+    collection: Collection | None, warnings: list[str] | None = None
+) -> list[dict[str, Any]]:
+    """Every component under test, with the hash of the text that ran, so a result is repeatable.
+
+    The text itself is kept as a source snapshot, so the version can be shown after the file moves
+    on. A snapshot that cannot be stored is a warning: the run's results do not depend on it.
+    """
     if collection is None:
         return []
-    return [
-        {
-            "kind": component.kind,
-            "name": component.name,
-            "source_hash": rawlog.file_hash(component.path),
-        }
-        for component in collection.watched()
-    ]
+    found = []
+    for component in collection.watched():
+        data = rawlog.read_bytes(component.path)
+        if data is not None:
+            try:
+                sources.store(collection.name, data)
+            except sources.SnapshotError as exc:
+                if warnings is not None and str(exc) not in warnings:
+                    warnings.append(str(exc))
+        found.append(
+            {
+                "kind": component.kind,
+                "name": component.name,
+                "source_hash": rawlog.content_hash(data) if data is not None else None,
+            }
+        )
+    return found
 
 
 def load_manifest(layout: RunLayout) -> dict[str, Any]:

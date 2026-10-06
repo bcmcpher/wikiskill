@@ -69,6 +69,22 @@ Before any task runs, each model is preflighted for reachability, tool calling a
 A model that fails is skipped with an actionable message rather than scoring zero — on a CPU-only
 laptop with Ollama's 4096-token default, that is the usual outcome, and the report says so.
 
+### Comparing versions of a component
+
+Each version of a component is the hash of its file. `wikiskill diff` shows what changed between two
+of them, in text and in results, from what wikiskill already stores; it never runs an evaluation.
+
+```bash
+wikiskill diff datalad/datalad-doer --list --collection data-science-harness
+wikiskill diff datalad/datalad-doer p-003^ p-003 --collection data-science-harness
+wikiskill diff datalad/datalad-doer run:<run-id> current --collection data-science-harness
+```
+
+A version is `current`, a hash prefix of 7 or more hex digits, a proposal (`p-003` is its candidate,
+`p-003^` what it was made from) or `run:<run-id>`. The results half compares the newest pair of
+finished runs of the two versions on the same suite; `--run-a`/`--run-b` choose them. The report is
+printed and saved under `evals/diff/`.
+
 ## What it records, and what it will not
 
 - Only sessions that activate a **watched** skill, agent or command are logged. A session that never

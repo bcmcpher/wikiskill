@@ -61,6 +61,10 @@ def evals_dir(collection: str) -> Path:
     return collection_data(collection) / "evals"
 
 
+def sources_dir(collection: str) -> Path:
+    return collection_data(collection) / "sources"
+
+
 def logger_error_log(collection: str) -> Path:
     return raw_dir(collection) / "_logger-errors.log"
 

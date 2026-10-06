@@ -87,6 +87,8 @@ def cmd_refine(args: argparse.Namespace) -> int:
     print(f"  why       {proposal.reason}")
     print(f"  read      {directory / 'preview.md'}")
     print("  nothing has been applied")
+    for warning in proposal.warnings:
+        print(f"  warning   {warning}")
     return OK
 
 

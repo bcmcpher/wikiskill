@@ -23,6 +23,7 @@ Inside a collection's data directory:
 ├── raw/        session logs: what happened when a watched component ran (live and eval)
 ├── evals/      evaluation runs, comparisons and leaderboards
 ├── wiki/       distilled patterns, proposals and decisions (a git repository)
+├── sources/    the text of each component version a run or a proposal used, by hash
 └── samples/    review and refine prompts saved for answering inside a harness
 ```
 
@@ -193,6 +194,21 @@ Other outputs under `evals/`:
 |---|---|
 | `evals/compare/<runA>_vs_<runB>/compare.{md,json}` | `wikiskill compare` |
 | `evals/leaderboard/<suite>-<id>/leaderboard.{md,json}` | `wikiskill leaderboard` |
+| `evals/diff/<component>/<a7>_vs_<b7>/diff.{md,json}`, `text.diff` | `wikiskill diff` ("/" and ":" in names become "-"; `text.diff` only when both texts were found) |
+
+## Source snapshots: `sources/`
+
+A version of a component is the `source_hash` of its main file. So that `wikiskill diff` can show a
+version after the file has moved on, every eval run stores the text of each watched component it
+records a hash for, and refine stores a proposal's base and candidate text. Each is one file,
+`sources/sha256-<hex>`, written once and never changed; two runs of one version share it. A
+snapshot that cannot be written is a warning in `run.json`'s `warnings` or in refine's output, and
+never fails the run or the proposal.
+
+Snapshots hold your skill text as it is in your repository: **not redacted**. The directory can be
+deleted at any time; `wikiskill diff` then falls back to proposals' rendered copies, candidate runs'
+copied sources, and the source repository's git history, which it reads without checking anything
+out.
 
 ## The wiki: `wiki/`
 
@@ -265,6 +281,6 @@ A saved sample is refused as stale once the component's patterns have changed.
 - **Logs written before eval and note redaction existed are not rewritten.** Eval events and notes
   from those versions may hold secrets in the clear; delete the old `raw/` day directories if that
   matters.
-- Raw logs, unit directories and the wiki are never cleaned up automatically.
+- Raw logs, unit directories, source snapshots and the wiki are never cleaned up automatically.
 - `docs/design/architecture.md` §6 predates some of this; where the two disagree, this page and the
   schema are current.
