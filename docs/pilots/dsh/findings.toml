@@ -1,0 +1,29 @@
+# The DSH pilot as a study: its runs are bundled under runs/, and every table, figure and data file
+# is regenerated from them with `wikiskill findings tables` and `bin/figures`. See README "Studies".
+
+[study]
+name = "dsh-pilot"
+collection = "dsh-archive"
+models_file = "../../../examples/models.toml"
+
+[[runs]]
+id = "01M46QWP6CTEM5DN807VS7GQMW"
+role = "v1"
+label = "v1"
+
+[[runs]]
+id = "01M46VFM331Y2MXZ8DNPTY5R6J"
+role = "candidates"
+label = "p-002"
+
+[[tables]]
+name = "pilot"
+kind = "leaderboard"
+roles = ["v1"]
+
+[[tables]]
+name = "archive-doer-versions"
+kind = "version-board"
+roles = ["v1", "candidates"]
+component = "archive/archive-doer"
+baseline = "v1"
