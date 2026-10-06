@@ -314,7 +314,7 @@ def test_a_skill_only_session_normalises(backend):
 
 
 def test_the_settings_switch_off_what_claude_code_ships(backend):
-    settings = backend.settings_for(unit(), backend.layout.root)
+    settings = backend.settings_for(unit())
     assert settings["disableBundledSkills"] is True
     assert all(value is False for value in settings["enabledPlugins"].values())
     assert set(settings["enabledPlugins"]) == set(backend_mod.BUILTIN_PLUGINS)

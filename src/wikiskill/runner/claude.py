@@ -145,7 +145,7 @@ class ClaudeCodeBackend(Backend):
                     f"cannot run {self.executable!r}: {exc}. Install Claude Code, or pass "
                     "--claude with a path to it."
                 ) from exc
-            # "2.1.289 (Claude Code)"
+            # The first word of output like `2.1.289 (Claude Code)`.
             self._version = (done.stdout.split() or ["unknown"])[0]
         return self._version
 
@@ -193,7 +193,7 @@ class ClaudeCodeBackend(Backend):
         if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
             self._build_plugin(root)
         (config_dir / "settings.json").write_text(
-            json.dumps(self.settings_for(unit, root), indent=2) + "\n", encoding="utf-8"
+            json.dumps(self.settings_for(unit), indent=2) + "\n", encoding="utf-8"
         )
         return workdir
 
@@ -217,7 +217,7 @@ class ClaudeCodeBackend(Backend):
                 "would be identical to OFF"
             )
 
-    def settings_for(self, unit: Unit, root: Path) -> dict[str, Any]:
+    def settings_for(self, unit: Unit) -> dict[str, Any]:
         """The only settings a unit's Claude Code reads: `--setting-sources user` in its own dir."""
         deny: list[str] = list(DENIED_TOOLS)
         injected = _injected_skill(unit)
@@ -325,7 +325,7 @@ class ClaudeCodeBackend(Backend):
             return {"condition": unit.condition, "error": str(exc)}
         proof = {
             "condition": unit.condition,
-            "settings": self.settings_for(unit, root),
+            "settings": self.settings_for(unit),
             # The prompt and an injected skill's text are the task's, not the isolation's.
             "flags": [part for part in command[1:-2] if "\n" not in part],
             "env": sorted(

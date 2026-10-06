@@ -412,11 +412,6 @@ def _component_versions(collection: Collection | None) -> list[dict[str, Any]]:
     ]
 
 
-def load_results(layout: RunLayout) -> list[dict[str, Any]]:
-    """Read a finished run's results back, for scoring a run that was produced earlier."""
-    return layout.read_results()
-
-
 def load_manifest(layout: RunLayout) -> dict[str, Any]:
     if not layout.manifest.is_file():
         return {}

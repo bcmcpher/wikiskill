@@ -37,7 +37,7 @@ from .frontmatter import FrontmatterError
 from .runner.base import OFF, ROUTED
 from .score.route import UNSCORED, first_activation, same
 
-PROPOSED, REPLAYED = "proposed", "replayed"
+REPLAYED = "replayed"
 DECISIONS = {"accept": "accepted", "reject": "rejected", "withdraw": "withdrawn"}
 FINAL = tuple(DECISIONS.values())
 #: How far one task's pass rate may fall on one model before the gate stops recommending: one

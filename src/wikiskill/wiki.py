@@ -301,7 +301,7 @@ def apply(
         f"created {', '.join(applied.created) or 'none'}; "
         f"updated {', '.join(applied.updated) or 'none'}"
     )
-    _write_component(root, collection, component, f"- {now}: review by {maintainer}: {changes}")
+    _write_component(collection, component, f"- {now}: review by {maintainer}: {changes}")
     if shown:
         _advance(root, component, shown)
     runs_text = ", ".join(f"`{r}`" for r in runs) or "none"
@@ -372,7 +372,7 @@ def component_page(collection: str, component: str) -> Path:
     return wiki_root(collection) / COMPONENTS / f"{component.replace('/', '-')}.md"
 
 
-def _write_component(root: Path, collection: str, component: str, history_line: str) -> None:
+def _write_component(collection: str, component: str, history_line: str) -> None:
     """Regenerate a component's pattern table and append to its history.
 
     Created with the component's first pattern; a component with none has no page.
