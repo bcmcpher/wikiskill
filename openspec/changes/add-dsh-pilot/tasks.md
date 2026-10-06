@@ -103,12 +103,13 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 ## 4. Model sweep (archive-doer suite)
 
 Scope, 2026-10-06: three suites (archive-doer, bids-doer, gen-data-dict), each its own study
-(`docs/pilots/dsh`, `dsh-bids`, `dsh-curate`), on eight of the catalogue's models at 3 repeats,
+(`docs/pilots/dsh`, `dsh-bids`, `dsh-curate`), on seven of the catalogue's models at 3 repeats,
 listed in `pilots/dsh-sweep/sweep.sh`. `gpt-oss:120b` judges gen-data-dict and is not a model under
-test. The archive suite's hash changed with the `plugins` link (4c63a55), so v1 no longer pools
+test. `llama3.3` (70B dense) is left out for time: an estimated 8 hours or more a run, the slowest
+by far. The archive suite's hash changed with the `plugins` link (4c63a55), so v1 no longer pools
 into 4.3. Preflight: qwen2.5-coder:1.5b (answers in text), mistral:latest (timed out at 400 s) and
 olmo-3:32b (no tool calling) failed and were replaced by llama3.2:3b and llama3.1:8b; all 18
-catalogue models then passed.
+catalogue models then passed, and the sweep's seven again before launch.
 
 - [x] 4.0 `pilots/models.toml`, the model catalogue (`add-pilot-reporting`): family, size and shape
   of every model in the design's table. Point `docs/pilots/dsh/findings.toml`'s `models_file` at it.
@@ -123,8 +124,8 @@ catalogue models then passed.
   them in the report.
 - [x] 4.2a `eval --repeats N`, outside the suite hash, so the sweep runs 10 repeats on the unchanged
   suite and the 3-repeat v1 run still pools in. `run.json` records each task's repeats.
-- [ ] 4.3 One run per model that passed, OFF and INJECTED, smallest first, `llama3.3` last. The
-  suite file is unchanged, so its hash matches v1.
+- [ ] 4.3 One run per model that passed, OFF and INJECTED, smallest first. The archive suite's
+  hash no longer matches v1 (see the scope note).
 - [ ] 4.4 Thinking arm: `--thinking off` for the models that can think (from 4.1), same suite and
   repeats.
 - [ ] 4.5 Noise: rerun `gemma4` on the v1 settings on a different day. Use `wikiskill compare`
