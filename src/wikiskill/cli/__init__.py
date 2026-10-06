@@ -15,23 +15,23 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import __version__, adapters, logtools, paths
-from . import collection as collection_mod
-from . import compare as compare_mod
-from . import corrections as corrections_mod
-from . import gate as gate_mod
-from . import graph as graph_mod
-from . import guard as guard_mod
-from . import hooks as hooks_mod
-from . import install as install_mod
-from . import leaderboard as leaderboard_mod
-from . import refine as refine_mod
-from . import report as report_mod
-from . import review as review_mod
-from . import roles as roles_mod
-from . import suite as suite_mod
-from . import wiki as wiki_mod
-from .build import (
+from .. import __version__, adapters, logtools, paths
+from .. import collection as collection_mod
+from .. import compare as compare_mod
+from .. import corrections as corrections_mod
+from .. import gate as gate_mod
+from .. import graph as graph_mod
+from .. import guard as guard_mod
+from .. import hooks as hooks_mod
+from .. import install as install_mod
+from .. import leaderboard as leaderboard_mod
+from .. import refine as refine_mod
+from .. import report as report_mod
+from .. import review as review_mod
+from .. import roles as roles_mod
+from .. import suite as suite_mod
+from .. import wiki as wiki_mod
+from ..build import (
     HARNESSES,
     BuildError,
     build,
@@ -39,18 +39,18 @@ from .build import (
     dist_dir,
     unresolved_plugin_paths,
 )
-from .collection import Collection, ManifestError, Source
-from .errors import WikiskillError
-from .frontmatter import FrontmatterError, repaired_warning
-from .frontmatter import read as read_frontmatter
-from .install import SCOPES
-from .rawlog import RawLogError
-from .runner import base as runner_base
-from .runner import claude as claude_backend
-from .runner import opencode as opencode_backend
-from .runner import preflight as preflight_mod
-from .runner import run as run_mod
-from .suite import SuiteError
+from ..collection import Collection, ManifestError, Source
+from ..errors import WikiskillError
+from ..frontmatter import FrontmatterError, repaired_warning
+from ..frontmatter import read as read_frontmatter
+from ..install import SCOPES
+from ..rawlog import RawLogError
+from ..runner import base as runner_base
+from ..runner import claude as claude_backend
+from ..runner import opencode as opencode_backend
+from ..runner import preflight as preflight_mod
+from ..runner import run as run_mod
+from ..suite import SuiteError
 
 OK, FAILED, MISUSE = 0, 1, 2
 DEFAULT_MAX_OUTPUT_TOKENS = opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS
