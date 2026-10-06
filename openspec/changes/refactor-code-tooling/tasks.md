@@ -2,9 +2,9 @@
 
 Each slice merges on its own and passes `bin/check`.
 
-**Status, 2026-10-05.** Slice 1 and wave A (slices 2, 3, 4 and task 7.3) are merged and pushed,
-at `e90f64f`. `bin/check` passes: pytest 840, bun 216 (plugin) and 75 (guard), and pyright 0 errors
-with `runner/claude.py` and `runner/run.py` excluded.
+**Status, 2026-10-06.** Slice 1, wave A (slices 2, 3, 4 and task 7.3), the redaction fix and
+wave B (slice 5 and task 7.1) are merged and pushed. `bin/check` passes: pytest 870, bun 216
+(plugin) and 75 (guard), and pyright 0 errors with no file excluded. Next is wave C.
 
 **Decided before wave B (the user, 2026-10-06):**
 
@@ -227,15 +227,33 @@ one at a time, rebasing each onto `main`, then push once at the end of the wave.
 
 ## 5. Shared runner helpers (D6, D8 part two; M; after step 4 merges)
 
-- [ ] 5.1 Add `Backend.prepare_workdir(unit, root)` with the fixture-copy, setup and `git init`
+- [x] 5.1 Add `Backend.prepare_workdir(unit, root)` with the fixture-copy, setup and `git init`
   block. `OpenCodeBackend.prepare` keeps its seed step before it.
-- [ ] 5.2 Move `_split_model`, `_model_id`, `_string_field` and `_git_init`/`_run_setup` to
+  Done 2026-10-06, after 5.2, which it needs. It lives in `runner/base.py` and imports `common`
+  inside the method, because `common` imports `base` for `RunnerError` and `Unit`. `Backend` now
+  declares `suite_root`. `ClaudeCodeBackend.prepare` calls it after building its config directory.
+  Three tests: fixtures, setup and init in order over a stale workdir; no fixtures; a missing
+  fixture directory.
+- [x] 5.2 Move `_split_model`, `_model_id`, `_string_field` and `_git_init`/`_run_setup` to
   `runner/common.py`. Replace `opencode._bound` with `redact.bound`. Move `_default_guard_plugin` to
   `paths`. `runner/claude.py` and `review.py` import no private name from `runner/opencode.py`.
-- [ ] 5.3 Declare `run_options()` and `isolation_proof()` on `Backend` with defaults, and drop the
+  Done 2026-10-06. `runner/common.py` holds `split_model`, `model_id`, `string_field`, `run_setup`,
+  `SETUP_TIMEOUT_S` and `git_init`, public and called as `common.x`. `opencode._bare` and both
+  `_model_id` copies are gone. `split_model`/`model_id` stay in `common`, not on `names`: for a
+  name ending in a slash, `common.model_id("ollama/")` is `"ollama/"` and `names.model_id` gives
+  `""`; they agree on every other name, and a test pins the difference. `_default_guard_plugin` is
+  `paths.opencode_guard_plugin()`. `claude.py` imports only the public `BASE_DENY` from
+  `opencode`; `review.py` imports nothing from it. New `tests/test_runner_common.py`, 16 tests.
+- [x] 5.3 Declare `run_options()` and `isolation_proof()` on `Backend` with defaults, and drop the
   `getattr` calls at `run.py:362-367`.
-- [ ] 5.4 Fix the pyright errors in `runner/claude.py` and `runner/run.py:363`, and remove their
+  Done: `{}` and `None` by default; `run.py` calls them directly. One test in `test_run.py`.
+- [x] 5.4 Fix the pyright errors in `runner/claude.py` and `runner/run.py:363`, and remove their
   `exclude` from `[tool.pyright]`.
+  Done, with no `# pyright: ignore`. `run.py:363` went with 5.3. In `claude.py`: the deny list is
+  `list[str]`; `parent_tool_use_id` is read into a `str | None` local (3 errors); a `_call_input`
+  helper narrows a tool call's `input` to a dict (5 errors). The `exclude` and the stale comments
+  in `pyproject.toml` and `bin/check` are gone. After rebasing onto `main` with 7.1: pytest 870,
+  bun 216 and 75, pyright 0 errors.
 
 ## 6. Meta-role client (D7; M; after step 4 merges)
 
