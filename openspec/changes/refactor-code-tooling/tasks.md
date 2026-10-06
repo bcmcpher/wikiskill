@@ -246,8 +246,15 @@ one at a time, rebasing each onto `main`, then push once at the end of the wave.
 
 ## 7. Small cleanups (D10; S each; after step 4 merges)
 
-- [ ] 7.1 Add `compare.runs(collection)` and a public `compare.rate`. Use them in `review.py:114-126`,
+- [x] 7.1 Add `compare.runs(collection)` and a public `compare.rate`. Use them in `review.py:114-126`,
   `graph.py:191-195` and `gate.py:447`.
+  Done 2026-10-06. `compare.runs(collection)` loads every evals directory with a `run.json`,
+  oldest first, and gives `[]` when there is none. `compare.rate` is `_rate` renamed, with no alias
+  left. `review.component_runs` reverses the list to keep newest first. `graph.build` drops
+  `_all_runs` and still falls back to all runs for an empty `runs`. `gate._task_rate` calls the
+  public name. One difference: review now loads every finished run before filtering, so a broken
+  `run.json` may surface from a different run. Tests: a 12-case table for `rate`, plus one for
+  `runs`. `bin/check` after rebasing onto `main`: pytest 853, bun 216 and 75, pyright clean.
 - [ ] 7.2 Remove `run.load_results`, `gate.PROPOSED`, the unused `root` parameters (`wiki.py:374`,
   `runner/claude.py:240`) and the commented-out code at `runner/claude.py:155`.
 - [x] 7.3 Add `tests/fixtures/parity/redact.json` and `guard.json`, read by the pytest and bun
