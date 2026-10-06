@@ -11,11 +11,10 @@ import contextlib
 import json
 import os
 import sys
-from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .. import __version__, adapters, logtools, paths
+from .. import __version__, adapters, paths
 from .. import collection as collection_mod
 from .. import compare as compare_mod
 from .. import corrections as corrections_mod
@@ -37,12 +36,9 @@ from ..build import (
     build,
     build_collection,
     dist_dir,
-    unresolved_plugin_paths,
 )
-from ..collection import Collection, ManifestError, Source
+from ..collection import Collection, ManifestError
 from ..errors import WikiskillError
-from ..frontmatter import FrontmatterError, repaired_warning
-from ..frontmatter import read as read_frontmatter
 from ..install import SCOPES
 from ..rawlog import RawLogError
 from ..runner import base as runner_base
@@ -50,9 +46,9 @@ from ..runner import claude as claude_backend
 from ..runner import opencode as opencode_backend
 from ..runner import preflight as preflight_mod
 from ..runner import run as run_mod
-from ..suite import SuiteError
+from . import collection, log, suite
+from ._common import FAILED, MISUSE, OK
 
-OK, FAILED, MISUSE = 0, 1, 2
 DEFAULT_MAX_OUTPUT_TOKENS = opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS
 
 
@@ -61,267 +57,6 @@ DEFAULT_MAX_OUTPUT_TOKENS = opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS
 
 def _load(name: str) -> Collection:
     return collection_mod.load(name)
-
-
-def _detect_layout(directory: Path) -> str:
-    """Guess a source layout: components at the top level, or one level down per plugin."""
-    if any((directory / d).is_dir() for d in ("skills", "skill", "commands", "command")):
-        return "opencode"
-    if directory.is_dir():
-        for child in directory.iterdir():
-            if child.is_dir() and (
-                (child / ".claude-plugin").is_dir()
-                or any((child / d).is_dir() for d in ("skills", "agents", "commands"))
-            ):
-                return "claude-plugin"
-    return "opencode"
-
-
-def _print_components(components, watched_names: set[str]) -> None:
-    for kind in collection_mod.KINDS:
-        of_kind = [c for c in components if c.kind == kind]
-        if not of_kind:
-            continue
-        print(f"  {kind}s ({len(of_kind)}):")
-        for component in of_kind:
-            mark = "*" if component.name in watched_names else " "
-            print(f"    {mark} {component.name}  {component.path}")
-
-
-def _check_frontmatter(components) -> list[str]:
-    """Print frontmatter read only leniently or not at all, and return the failures.
-
-    Build reads every component's frontmatter, not only the watched ones, so a file it cannot read
-    would stop ROUTED for the whole collection. Check says so rather than a run, mid-way.
-    """
-    unreadable: list[str] = []
-    repaired: list[str] = []
-    for component in components:
-        try:
-            doc = read_frontmatter(component.path)
-        except (FrontmatterError, OSError, UnicodeDecodeError) as exc:
-            unreadable.append(str(exc))
-            continue
-        if doc.repaired:
-            repaired.append(repaired_warning(doc))
-    if repaired:
-        print("  frontmatter read leniently:")
-        for warning in repaired:
-            print(f"    ~ {warning}")
-    if unreadable:
-        print("  unreadable frontmatter:")
-        for problem in unreadable:
-            print(f"    ! {problem}")
-        return [f"{len(unreadable)} components have frontmatter build cannot read"]
-    return []
-
-
-def _check_plugin_paths(components) -> None:
-    """Print plugin-variable paths that resolve to nothing: a warning, as Claude Code misses too."""
-    problems: list[str] = []
-    for component in components:
-        if component.source.layout != "claude-plugin":
-            continue
-        plugin_dir = component.source.path / component.name.split("/", 1)[0]
-        skill_dir = component.path.parent if component.kind == "skill" else None
-        problems.extend(unresolved_plugin_paths(component.path, plugin_dir, skill_dir))
-    if problems:
-        print(f"  plugin paths that resolve to nothing ({len(problems)}):")
-        for problem in problems:
-            print(f"    ~ {problem}")
-
-
-# --------------------------------------------------------------------------- collection
-
-
-def cmd_collection_init(args: argparse.Namespace) -> int:
-    sources = []
-    for raw in args.source:
-        path = Path(raw).expanduser()
-        if not path.is_dir():
-            print(f"error: no such source directory: {path}", file=sys.stderr)
-            return FAILED
-        layout = args.layout or _detect_layout(path)
-        sources.append(Source(path=path.resolve(), layout=layout))
-
-    discovered = [c for source in sources for c in collection_mod.discover(source)]
-    discovered.sort(key=lambda c: (c.kind, c.name))
-    if not discovered:
-        print(
-            f"error: found no skills, agents or commands under "
-            f"{', '.join(str(s.path) for s in sources)}",
-            file=sys.stderr,
-        )
-        return FAILED
-
-    target = paths.manifest_path(args.name)
-    if target.exists() and not args.force:
-        print(f"error: {target} already exists; pass --force to overwrite", file=sys.stderr)
-        return FAILED
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        collection_mod.render_manifest(args.name, sources, discovered), encoding="utf-8"
-    )
-
-    print(f"wrote {target}")
-    print(f"discovered {len(discovered)} components:")
-    _print_components(discovered, set())
-    print()
-    print(f"Edit the watch list, then run: wikiskill collection check {args.name}")
-    return OK
-
-
-def cmd_collection_show(args: argparse.Namespace) -> int:
-    coll = _load(args.name)
-    if args.json:
-        print(json.dumps(coll.runtime_config(), indent=2))
-        return OK
-    print(f"collection {coll.name}  ({coll.manifest_path})")
-    for source in coll.sources:
-        selected = f"  plugins {', '.join(source.plugins)}" if source.plugins else ""
-        print(f"  source  {source.path}  [{source.layout}]{selected}")
-    for kind in collection_mod.KINDS:
-        patterns = coll.watch.get(kind, ())
-        if patterns:
-            print(f"  watch {kind}s  {', '.join(patterns)}")
-    for role_name in collection_mod.ROLES:
-        role = coll.roles.get(role_name)
-        if role:
-            endpoint = role.base_url or "harness default"
-            print(f"  role {role_name}  {role.model}  @ {endpoint}")
-    for harness, table in sorted(coll.aliases.items()):
-        for alias, resolved in sorted(table.items()):
-            print(f"  alias {harness}  {alias} -> {resolved}")
-    for harness, models in sorted(coll.targets.items()):
-        print(f"  targets {harness}  {', '.join(models)}")
-    print(f"  raw log  {paths.raw_dir(coll.name)}")
-    print(
-        f"  logging  buffer {coll.buffer_size} events, output limit "
-        f"{coll.output_limit_bytes} bytes, redact {'on' if coll.redact else 'off'}"
-    )
-    return OK
-
-
-def cmd_collection_check(args: argparse.Namespace) -> int:
-    coll = _load(args.name)
-    print(f"collection {coll.name}  ({coll.manifest_path})")
-
-    failures = []
-    for source in coll.sources:
-        if not source.path.is_dir():
-            failures.append(f"source directory does not exist: {source.path}")
-            print(f"  source  {source.path}  [{source.layout}]  MISSING")
-        else:
-            print(f"  source  {source.path}  [{source.layout}]  ok")
-
-    missing_plugins = coll.unresolved_plugins()
-    if missing_plugins:
-        print("  unresolved plugins:")
-        for entry in missing_plugins:
-            print(f"    ! {entry}")
-        failures.append(f"{len(missing_plugins)} selected plugins do not exist")
-
-    discovered = coll.discover()
-    watched = coll.watched(discovered)
-    print(f"  discovered {len(discovered)} components, {len(watched)} watched (*):")
-    _print_components(discovered, {c.name for c in watched})
-    failures.extend(_check_frontmatter(discovered))
-    _check_plugin_paths(discovered)
-
-    unresolved = coll.unresolved(discovered)
-    if unresolved:
-        print("  unresolved watch-list entries:")
-        for entry in unresolved:
-            print(f"    ! {entry}")
-        failures.append(f"{len(unresolved)} watch-list entries match nothing")
-
-    if args.sync:
-        runtime, published, sync_problems = collection_mod.publish_runtime_config(prefer=coll)
-        names = ", ".join(c.name for c in published)
-        print(f"  logger configuration written to {runtime} ({names})")
-        for problem in sync_problems:
-            print(f"  warning: {problem}")
-
-    if failures:
-        print()
-        for failure in failures:
-            print(f"error: {failure}", file=sys.stderr)
-        return FAILED
-    print("  ok")
-    return OK
-
-
-# --------------------------------------------------------------------------- log
-
-
-def cmd_log_validate(args: argparse.Namespace) -> int:
-    report = logtools.validate(args.name, raw_dir=args.raw_dir)
-    print(f"raw log {report.raw_dir}")
-    print(f"  {report.files} session logs, {report.events} events")
-    print(f"  {report.activations} component_activated events")
-    print(f"  {len(report.problems)} schema errors")
-    for problem in report.problems[: args.limit]:
-        print(f"    {problem}")
-    if len(report.problems) > args.limit:
-        print(f"    ... and {len(report.problems) - args.limit} more")
-    for refusal in report.refused:
-        print(f"  refused: {refusal}", file=sys.stderr)
-    return OK if report.ok else FAILED
-
-
-def cmd_log_stats(args: argparse.Namespace) -> int:
-    try:
-        coll: Collection | str = _load(args.name)
-    except ManifestError:
-        # Stats are useful even when the manifest has drifted; only the watched-path signal is lost.
-        coll = args.name
-    summary = logtools.stats(coll, raw_dir=args.raw_dir)
-    print(f"raw log {summary.raw_dir}")
-    print(f"  sessions  {summary.sessions}")
-    print(f"  events    {summary.events}")
-    print(f"  size      {summary.megabytes:.2f} MiB")
-    if summary.days:
-        print(f"  days      {summary.days[0]} .. {summary.days[-1]} ({len(summary.days)})")
-    for label, counter in (
-        ("type", summary.by_type),
-        ("model", summary.by_model),
-        ("component", summary.by_component),
-    ):
-        for key, value in counter.most_common():
-            print(f"  {label:9} {key}  {value}")
-    if summary.reads_without_activation:
-        print(
-            f"  {len(summary.reads_without_activation)} sessions touched a watched component's "
-            "source file without recording an activation:"
-        )
-        for session in summary.reads_without_activation:
-            print(f"    ? {session}")
-    for error in summary.errors:
-        print(f"  error: {error}", file=sys.stderr)
-    return FAILED if summary.errors else OK
-
-
-def cmd_log_tail(args: argparse.Namespace) -> int:
-    try:
-        for event in logtools.tail(
-            args.name, raw_dir=args.raw_dir, count=args.count, follow=args.follow
-        ):
-            if args.json:
-                print(json.dumps(event, separators=(",", ":")))
-            else:
-                component = event.get("component")
-                if not isinstance(component, dict):
-                    component = {}
-                label = f"{component.get('kind', '-')}:{component.get('name', '-')}"
-                # A hand-edited or truncated line still gets a row: tail is how a broken log is
-                # looked at, so it must not be the thing that refuses to read one.
-                print(
-                    f"{event.get('ts', '-')}  {event.get('type', '-')!s:20} {label:32} "
-                    f"{event.get('provider')}/{event.get('model')}"
-                )
-    except KeyboardInterrupt:
-        return OK
-    return OK
 
 
 # --------------------------------------------------------------------------- hook
@@ -417,39 +152,6 @@ def _log_scan_error(coll: Collection, exc: Exception) -> None:
         log.parent.mkdir(parents=True, exist_ok=True)
         with log.open("a", encoding="utf-8") as handle:
             handle.write(f"{datetime.now(UTC).isoformat()} corrections scan: {exc}\n")
-
-
-# --------------------------------------------------------------------------- suite
-
-
-def cmd_suite_check(args: argparse.Namespace) -> int:
-    failed = 0
-    for raw in args.file:
-        path = Path(raw)
-        try:
-            loaded = suite_mod.load(path)
-        except SuiteError as exc:
-            failed += 1
-            print(f"suite {exc.path or path}  FAILED")
-            for problem in exc.problems:
-                print(f"  ! {problem}")
-            continue
-        splits = Counter(task.split for task in loaded.tasks)
-        spread = ", ".join(f"{name} {splits[name]}" for name in suite_mod.SPLITS if splits[name])
-        print(f"suite {loaded.name}  ({loaded.path})")
-        print(f"  {len(loaded.tasks)} tasks  [{spread}]")
-        for task in loaded.tasks:
-            route = ", ".join(task.expect.names()) or "-"
-            print(
-                f"    {task.id:32} x{task.repeats}  route {route}  "
-                f"{len(task.verifiers)} verifiers{'  rubric' if task.rubric else ''}"
-            )
-        for warning in loaded.warnings:
-            print(f"  ? {warning}")
-        print("  ok" + (f", {len(loaded.warnings)} to look at" if loaded.warnings else ""))
-    if failed:
-        print(f"\n{failed} of {len(args.file)} suites failed", file=sys.stderr)
-    return FAILED if failed else OK
 
 
 # --------------------------------------------------------------------------- eval
@@ -1361,55 +1063,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"wikiskill {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    collection_cmd = sub.add_parser("collection", help="declare and check watched collections")
-    coll = collection_cmd.add_subparsers(dest="subcommand", required=True)
-
-    init = coll.add_parser("init", help="write a manifest for a source directory")
-    init.add_argument("name")
-    init.add_argument("--source", action="append", required=True, metavar="DIR")
-    init.add_argument("--layout", choices=collection_mod.LAYOUTS, default=None)
-    init.add_argument("--force", action="store_true", help="overwrite an existing manifest")
-    init.set_defaults(func=cmd_collection_init)
-
-    show = coll.add_parser("show", help="print a manifest as resolved")
-    show.add_argument("name")
-    show.add_argument("--json", action="store_true", help="print the logger's runtime view")
-    show.set_defaults(func=cmd_collection_show)
-
-    check = coll.add_parser("check", help="resolve sources and the watch list")
-    check.add_argument("name")
-    check.add_argument(
-        "--sync", action="store_true", help="also publish the logger's runtime configuration"
-    )
-    check.set_defaults(func=cmd_collection_check)
-
-    log = sub.add_parser("log", help="inspect the raw event log").add_subparsers(
-        dest="subcommand", required=True
-    )
-    for name, handler, helptext in (
-        ("validate", cmd_log_validate, "validate every log against the raw event schema"),
-        ("stats", cmd_log_stats, "summarise a collection's raw log"),
-        ("tail", cmd_log_tail, "print the most recent events"),
-    ):
-        node = log.add_parser(name, help=helptext)
-        node.add_argument("name", help="collection name")
-        node.add_argument(
-            "--raw-dir", type=Path, default=None, help="override the raw log location"
-        )
-        node.set_defaults(func=handler)
-    log.choices["validate"].add_argument("--limit", type=int, default=20)
-    log.choices["tail"].add_argument("-n", "--count", type=int, default=20)
-    log.choices["tail"].add_argument("-f", "--follow", action="store_true")
-    log.choices["tail"].add_argument("--json", action="store_true")
-
-    suite_cmd = sub.add_parser("suite", help="validate task suites").add_subparsers(
-        dest="subcommand", required=True
-    )
-    suite_check = suite_cmd.add_parser(
-        "check", help="validate a suite and flag prompts that name their own expected route"
-    )
-    suite_check.add_argument("file", nargs="+", help="task suite file")
-    suite_check.set_defaults(func=cmd_suite_check)
+    collection.register(sub)
+    log.register(sub)
+    suite.register(sub)
 
     _add_eval_parser(sub)
 

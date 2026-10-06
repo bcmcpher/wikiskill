@@ -75,3 +75,5 @@ known-first-party = ["wikiskill", "conftest"]
 # Tests embed manifest bodies and JSON as literals, where wrapping hurts readability, and
 # import inside a test when the import is part of what the test is describing.
 "tests/*" = ["PLR0915", "E501", "PLC0415"]
+# The CLI imports a command's modules inside its handler, so that a command loads only its own.
+"src/wikiskill/cli/*" = ["PLC0415"]
