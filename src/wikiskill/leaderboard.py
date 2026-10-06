@@ -196,6 +196,25 @@ class Leaderboard:
 
 def pool(runs: list[LoadedRun]) -> Leaderboard:
     """Pool runs of one suite, refusing any that measured something else."""
+    check_suite(runs)
+    first = runs[0]
+    board = Leaderboard(
+        suite=first.suite,
+        suite_hash=first.suite_hash,
+        runs=list(runs),
+        components=components(runs),
+    )
+    board.warnings += run_warnings(runs)
+    for run in runs:
+        contexts = _contexts(run)
+        labels = entrant_labels(run, several=len(board.harnesses) > 1)
+        for result in run.results:
+            _add(board, run, result, contexts, labels)
+    return board
+
+
+def check_suite(runs: list[LoadedRun]) -> None:
+    """Refuse runs of different suites, or of different content of one suite."""
     if not runs:
         raise LeaderboardError("no runs to pool")
     first = runs[0]
@@ -211,41 +230,40 @@ def pool(runs: list[LoadedRun]) -> Leaderboard:
                 f"{first.run_id}): its prompts or verifiers differ, so its results are another "
                 "experiment"
             )
-    board = Leaderboard(
-        suite=first.suite,
-        suite_hash=first.suite_hash,
-        runs=list(runs),
-        components=_components(runs),
-    )
-    if not first.suite_hash:
-        board.warnings.append("no run recorded a suite_hash, so the suite content is unverified")
-    for harness in board.harnesses:
+
+
+def run_warnings(runs: list[LoadedRun]) -> list[str]:
+    """What pooling these runs leaves unverified or mixed, without refusing them."""
+    warnings = []
+    if not runs[0].suite_hash:
+        warnings.append("no run recorded a suite_hash, so the suite content is unverified")
+    for harness in sorted({harness_of(run) for run in runs}):
         versions = {
             run.manifest.get("harness_version") for run in runs if harness_of(run) == harness
         }
         if len(versions) > 1:
-            board.warnings.append(
+            warnings.append(
                 f"the runs used different {harness} versions: "
                 + ", ".join(sorted(str(v) for v in versions))
             )
-
     caps = {(run.manifest.get("options") or {}).get("max_output_tokens") for run in runs}
     if len(caps) > 1:
-        board.warnings.append(
+        warnings.append(
             "the runs capped a model turn differently: "
             + ", ".join(sorted(str(cap) for cap in caps))
             + " output tokens"
         )
+    return warnings
 
-    several = len(board.harnesses) > 1
-    for run in runs:
-        contexts = _contexts(run)
-        served = _thinking_label(run)
-        harness = harness_of(run)
-        label = served + (f" [{harness}]" if several else "")
-        for result in run.results:
-            _add(board, run, result, contexts, (served, label, harness))
-    return board
+
+def entrant_labels(run: LoadedRun, *, several: bool) -> tuple[str, str, str]:
+    """The thinking suffix, the entrant suffix and the harness for one run's units.
+
+    The harness is named in the entrant only when the runs pooled used more than one.
+    """
+    thinking = _thinking_label(run)
+    harness = harness_of(run)
+    return thinking, thinking + (f" [{harness}]" if several else ""), harness
 
 
 def _thinking_label(run: LoadedRun) -> str:
@@ -254,19 +272,30 @@ def _thinking_label(run: LoadedRun) -> str:
     return f" (thinking {thinking})" if thinking in ("on", "off") else ""
 
 
-def _components(runs: list[LoadedRun]) -> dict[str, str | None]:
-    """Every component under test and its one version, or a refusal naming the runs that differ."""
+def components(runs: list[LoadedRun], *, vary: str | None = None) -> dict[str, str | None]:
+    """Every component under test and its one version, or a refusal naming the runs that differ.
+
+    ``vary`` is the one component whose versions may differ, for a board ranking its versions; it
+    is left out of what is returned.
+    """
     seen: dict[str, tuple[str | None, str]] = {}
     for run in runs:
         for name, digest in run.hashes().items():
+            if name == vary:
+                continue
             if name not in seen:
                 seen[name] = (digest, run.run_id)
                 continue
             known, where = seen[name]
             if known != digest:
+                hint = (
+                    f"Only {vary} may differ on this board."
+                    if vary
+                    else "Pool runs of one version; `wikiskill compare` is for two."
+                )
                 raise LeaderboardError(
                     f"{name} differs between runs: {_short(known)} in {where}, {_short(digest)} in "
-                    f"{run.run_id}. Pool runs of one version; `wikiskill compare` is for two."
+                    f"{run.run_id}. {hint}"
                 )
     return {name: digest for name, (digest, _) in sorted(seen.items())}
 

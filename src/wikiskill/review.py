@@ -179,8 +179,12 @@ def digest(
     signals: int = DEFAULT_SIGNALS,
     clean: int = DEFAULT_CLEAN,
     resample: bool = False,
+    model: str | None = None,
 ) -> Digest:
     """The maintainer's whole input for one component, within ``budget`` characters.
+
+    ``model`` keeps only eval units and live sessions run on that model, and the prompt says so.
+    A live session whose model the logger could not tell is left out then.
 
     Raises `NothingToReview` when every piece of evidence has been reviewed before, and
     `ReviewError` when there never was any.
@@ -193,12 +197,21 @@ def digest(
 
     runs = list(runs) if runs is not None else component_runs(collection.name, component)
     root = raw_root or paths.raw_dir(collection.name)
+    if model:
+        runs = [
+            replace(run, results=tuple(r for r in run.results if _same_model(r["model"], model)))
+            for run in runs
+        ]
+        runs = [run for run in runs if run.results]
     events = _unit_events(root, {run.run_id for run in runs})
-    candidates = _eval_candidates(component, runs, events) + _live_candidates(component, root)
+    candidates = _eval_candidates(component, runs, events)
+    live = _live_candidates(component, root)
+    if model:
+        live = [c for c in live if _same_model(c.evidence.model, model)]
+    candidates += live
     if not candidates:
-        raise ReviewError(
-            f"nothing to review for {component}: no eval run or live session recorded it"
-        )
+        where = f"eval run or live session on {model}" if model else "eval run or live session"
+        raise ReviewError(f"nothing to review for {component}: no {where} recorded it")
     if not resample:
         candidates = _unprocessed(candidates, *wiki.processed(collection.name, component))
         if not candidates:
@@ -209,6 +222,8 @@ def digest(
 
     existing = wiki.patterns(collection.name, component)
     header = _header(component, source_text, existing)
+    if model:
+        header += f"Evidence here is restricted to eval units and live sessions run on {model}.\n\n"
     result = Digest(
         component=component,
         text="",
@@ -359,6 +374,16 @@ def _eval_candidates(
                 )
             )
     return found
+
+
+def _same_model(recorded: str, wanted: str) -> bool:
+    """Whether ``wanted`` names ``recorded``, with or without its provider on either side.
+
+    `qwen3:1.7b` names `ollama/qwen3:1.7b`, and `meta/llama-3` names `openrouter/meta/llama-3`:
+    a provider is only ever dropped from the full name, never from a bare id that has a slash.
+    """
+    recorded, wanted = recorded.lower(), wanted.lower()
+    return wanted in (recorded, names.model_id(recorded)) or recorded == names.model_id(wanted)
 
 
 def _eval_rank(result: dict[str, Any]) -> int:
@@ -637,6 +662,7 @@ def review(
     clean: int = DEFAULT_CLEAN,
     resample: bool = False,
     sample: Digest | None = None,
+    model: str | None = None,
 ) -> Outcome:
     """Show the maintainer the evidence, validate its reply, and apply it or log the failure.
 
@@ -652,6 +678,7 @@ def review(
         signals=signals,
         clean=clean,
         resample=resample,
+        model=model,
     )
     existing = {slug: doc.meta for slug, doc in wiki.patterns(collection.name, component).items()}
     taken = set(wiki.patterns(collection.name))

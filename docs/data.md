@@ -195,6 +195,7 @@ Other outputs under `evals/`:
 | `evals/compare/<runA>_vs_<runB>/compare.{md,json}` | `wikiskill compare` |
 | `evals/leaderboard/<suite>-<id>/leaderboard.{md,json}` | `wikiskill leaderboard` |
 | `evals/diff/<component>/<a7>_vs_<b7>/diff.{md,json}`, `text.diff` | `wikiskill diff` ("/" and ":" in names become "-"; `text.diff` only when both texts were found) |
+| `evals/versions/<component>/<suite>-<id>-<condition>-base-<b7>[-critical-<c7>]/board.{md,json}` | `wikiskill leaderboard --by-version` ("/" and ":" in names become "-"; the JSON keeps every unit behind each figure, with its run id) |
 
 ## Source snapshots: `sources/`
 

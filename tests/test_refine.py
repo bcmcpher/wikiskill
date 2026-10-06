@@ -113,6 +113,7 @@ def test_a_patch_is_written_checked_and_never_applied(repo_collection):
     meta = json.loads((proposal.directory / "meta.json").read_text())
     assert meta["patterns"] == ["invents-commit-message"]
     assert meta["source_hash"] and meta["status"] == "proposed"
+    assert meta["evidence_model"] is None, "it cites no evidence, so names no model"
     assert "Nothing has been applied" in (proposal.directory / "preview.md").read_text()
     assert git(paths.wiki_dir("dsh"), "log", "-1", "--format=%s").startswith("propose p-001")
 
@@ -413,3 +414,21 @@ def test_a_prepared_prompt_goes_stale_when_the_component_changes(evaluated, tmp_
     args = ["refine", DOER, "--collection", "dsh", "--prompt", prompt_id, "--reply-file"]
     assert main([*args, str(reply)]) == 1
     assert "changed after prompt" in capsys.readouterr().err
+
+
+def test_a_proposal_records_the_one_model_its_evidence_ran_on():
+    def cited(label, model, ref):
+        return wiki.Evidence(
+            id=label, component=DOER, model=model, harness="opencode", source_hash="h", ref=ref
+        )
+
+    unit = {"run_id": "R", "task_id": "t", "condition": "injected", "repeat": 0}
+    one = [cited("E1", "ollama/qwen3:1.7b", unit), cited("E2", "qwen3:1.7b", unit)]
+    assert refine.evidence_model(one) == "ollama/qwen3:1.7b"
+    mixed = [*one, cited("E3", "ollama/gemma4", unit)]
+    assert refine.evidence_model(mixed) is None
+    live = [*one, cited("E4", "ollama/qwen3:1.7b", {"session_id": "s"})]
+    assert refine.evidence_model(live) == "ollama/qwen3:1.7b", "a live session records its model"
+    unknown = [*one, cited("E5", "unknown", {"session_id": "s"})]
+    assert refine.evidence_model(unknown) is None, "an unrecorded model could be any"
+    assert refine.evidence_model([]) is None

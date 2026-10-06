@@ -85,6 +85,27 @@ A version is `current`, a hash prefix of 7 or more hex digits, a proposal (`p-00
 finished runs of the two versions on the same suite; `--run-a`/`--run-b` choose them. The report is
 printed and saved under `evals/diff/`.
 
+With more than two versions, rank them across models instead. `leaderboard --by-version` pools
+runs that differ only in that component's version:
+
+```bash
+wikiskill leaderboard <run-id>... --collection data-science-harness \
+  --by-version archive/archive-doer --critical critical.yaml
+```
+
+For each model it gives every version's pass rate with its interval, and the best version with
+its direction against the baseline (`current` unless `--baseline` names another). Overall, each
+version's mean counts every model equally, over the models that ran every version.
+- A version that regresses any one model is never named best overall. A regression is a
+  clearly lower interval on the model, or any one task falling by more than a third.
+- A version that fails a check listed in `--critical` even once is never named best at all. The
+  file lists checks as `{task: <id or *>, verifier: <0-based index>}`.
+- OFF does not load the component, so one OFF run per model serves every version.
+
+The board is saved under `evals/versions/`. It ranks and never decides: a winner still goes
+through `proposal replay` and `proposal decide`. `wikiskill review --model <model>` reviews only
+one model's eval units and live sessions, so a proposal can target that model.
+
 ## What it records, and what it will not
 
 - Only sessions that activate a **watched** skill, agent or command are logged. A session that never

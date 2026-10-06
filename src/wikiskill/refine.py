@@ -391,6 +391,18 @@ def leak_problems(added: str, found: Leaks) -> list[str]:
     return problems
 
 
+def evidence_model(cited: Iterable[wiki.Evidence]) -> str | None:
+    """The one model all the cited evidence ran on, as a `review --model` sample yields; else None.
+
+    Evidence whose model was not recorded (`unknown`) could be any model's, so it rules one out.
+    """
+    found = list(cited)
+    if not found or any(not item.model or item.model == "unknown" for item in found):
+        return None
+    ids = {names.model_id(item.model).lower() for item in found}
+    return found[0].model if len(ids) == 1 else None
+
+
 def model_names(model: str) -> set[str]:
     """The names a model goes by: `ollama/qwen3:1.7b`, `qwen3:1.7b`, and the family `qwen3`."""
     bare = names.model_id(model)
@@ -669,6 +681,7 @@ def _write(
         "patterns": proposal.patterns,
         "evidence": {label: item.ref for label, item in cited.items()},
         "models": list(reply.get("models") or []),
+        "evidence_model": evidence_model(cited.values()),
         "reason": proposal.reason,
         "proposer": proposer,
         "prompt": found.sample_id,
@@ -734,6 +747,11 @@ def _preview(
         for i, e in enumerate(reply["edits"], 1)
     ]
     scope = ", ".join(meta["models"]) or "every model"
+    source = (
+        [f"**Evidence from:** {meta['evidence_model']} only", ""]
+        if meta.get("evidence_model")
+        else []
+    )
     return "\n".join(
         [
             f"# {proposal_id}: {meta['component']}",
@@ -746,6 +764,7 @@ def _preview(
             "",
             f"**For:** {scope}",
             "",
+            *source,
             "**Edits:**",
             "",
             *edits,

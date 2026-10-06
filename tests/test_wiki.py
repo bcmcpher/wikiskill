@@ -607,3 +607,85 @@ def test_failures_the_component_took_part_in_come_before_off_failures(doer_colle
 
     assert found.evidence["E1"].ref["condition"] == "injected"
     assert sum(1 for e in found.evidence.values() if e.ref["task_id"] == "save") == 2
+
+
+def test_a_review_for_one_model_shows_only_its_units(doer_collection):
+    evals = paths.evals_dir("dsh") / RUN / "results.jsonl"
+    other = {
+        "run_id": RUN,
+        "task_id": "save",
+        "model": "ollama/qwen3:1.7b",
+        "condition": "injected",
+        "repeat": 0,
+        "outcome": "completed",
+        "passed": False,
+        "verifiers": [{"kind": "command", "passed": False, "detail": "a commit"}],
+        "expected": {"primary": "datalad-doer", "agents": []},
+    }
+    with evals.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(other) + "\n")
+    live_session("ses-live", ("note", {"text": "wrong message"}))
+
+    found = review.digest(doer_collection, DOER, model="qwen3:1.7b")
+
+    assert {e.model for e in found.evidence.values()} == {"ollama/qwen3:1.7b"}
+    assert all("run_id" in e.ref for e in found.evidence.values()), "the live session ran gemma4"
+    assert "restricted to eval units and live sessions run on qwen3:1.7b" in found.text
+    everything = review.digest(doer_collection, DOER)
+    assert any("run_id" not in e.ref for e in everything.evidence.values())
+
+
+def test_a_review_for_a_model_with_no_units_is_refused(doer_collection):
+    with pytest.raises(review.ReviewError, match="no eval run or live session on gemma4"):
+        review.digest(doer_collection, DOER, model="gemma4")
+
+
+def test_a_review_for_one_model_keeps_that_models_live_sessions(doer_collection):
+    live_session("ses-gemma", ("note", {"text": "wrong message"}), model="gemma4")
+    live_session("ses-qwen", ("note", {"text": "also wrong"}), model="qwen3:1.7b")
+
+    found = review.digest(doer_collection, DOER, model="gemma4")
+
+    live = [e for e in found.evidence.values() if "run_id" not in e.ref]
+    assert [e.ref["session_id"] for e in live] == ["ses-gemma"]
+    assert all(e.model.endswith("gemma4") for e in found.evidence.values())
+
+
+@pytest.mark.parametrize(
+    ("recorded", "wanted", "same"),
+    [
+        ("ollama/qwen3:1.7b", "qwen3:1.7b", True),
+        ("ollama/qwen3:1.7b", "OLLAMA/qwen3:1.7b", True),
+        ("qwen3:1.7b", "ollama/qwen3:1.7b", True),
+        ("openrouter/meta/llama-3", "meta/llama-3", True),
+        ("openrouter/meta/llama-3", "llama-3", False),
+        ("ollama/qwen3:1.7b", "qwen3:30b-a3b", False),
+    ],
+)
+def test_a_model_is_named_with_or_without_its_provider(recorded, wanted, same):
+    assert review._same_model(recorded, wanted) is same
+
+
+def test_cli_review_refuses_a_model_for_a_stored_sample(doer_collection, capsys):
+    code = main(
+        [
+            "review",
+            DOER,
+            "--collection",
+            "dsh",
+            "--sample",
+            "s",
+            "--reply-file",
+            "r",
+            "--model",
+            "m",
+        ]
+    )
+    assert code == 2
+    assert "--sample keeps the evidence it was taken with" in capsys.readouterr().err
+
+
+def test_cli_sample_takes_a_model(doer_collection, capsys):
+    code = main(["sample", DOER, "--collection", "dsh", "--model", "big-pickle"])
+    assert code == 0
+    assert "sample " in capsys.readouterr().out

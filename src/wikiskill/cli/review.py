@@ -66,6 +66,11 @@ def _add_sampling_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--resample", action="store_true", help="include evidence earlier reviews were shown"
     )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="only eval units and live sessions run on this model",
+    )
 
 
 def _sampling(args: argparse.Namespace) -> dict:
@@ -75,6 +80,7 @@ def _sampling(args: argparse.Namespace) -> dict:
         "signals": args.signals,
         "clean": args.clean,
         "resample": args.resample,
+        "model": args.model,
     }
 
 
@@ -113,6 +119,11 @@ def cmd_review(args: argparse.Namespace) -> int:
     runs = [compare_mod.load_run(coll.name, run) for run in args.run] if args.run else None
     if args.sample and not args.reply_file:
         return misuse("--sample needs --reply-file")
+    if args.sample and args.model:
+        return misuse(
+            "--model chooses evidence when a sample is taken; --sample keeps the evidence it was "
+            "taken with. Take a new one with `wikiskill sample --model`"
+        )
     try:
         sample = review_mod.load_sample(coll, args.sample) if args.sample else None
         if sample and sample.component != args.component:
