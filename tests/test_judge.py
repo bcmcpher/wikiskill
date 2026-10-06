@@ -11,6 +11,7 @@ import json
 import pytest
 
 from wikiskill import report as report_mod
+from wikiskill import roles
 from wikiskill import rubric as rubric_mod
 from wikiskill.runner.preflight import Endpoint
 from wikiskill.score import judge as judge_mod
@@ -58,7 +59,7 @@ def replying(monkeypatch, *bodies, status=200):
         content = queue.pop(0) if len(queue) > 1 else queue[0]
         return status, {"choices": [{"message": {"content": content}}]}
 
-    monkeypatch.setattr(judge_mod, "request_json", fake)
+    monkeypatch.setattr(roles, "request_json", fake)
     return sent
 
 

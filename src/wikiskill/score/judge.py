@@ -25,10 +25,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import names
+from .. import names, roles
 from ..errors import WikiskillError
 from ..rubric import Dimension, Rubric
-from ..runner.preflight import Endpoint, request_json
+from ..runner.preflight import Endpoint
 
 #: A judge reads; it does not explore. Enough of the workdir to score an artifact, not so much that
 #: a large tree pushes the rubric out of the context window.
@@ -241,19 +241,9 @@ def ask_once(
     timeout_s: int = DEFAULT_TIMEOUT_S,
 ) -> Opinion:
     """One judge's opinion. A judge that cannot answer is recorded, not raised over."""
-    payload = {
-        "model": names.bare(model),  # the last segment, as the endpoint serves it
-        "messages": prompt_for(rubric, final_text=final_text, workdir=workdir),
-        "temperature": 0,
-        "stream": False,
-    }
+    messages = prompt_for(rubric, final_text=final_text, workdir=workdir)
     try:
-        status, body = request_json(
-            f"{endpoint.root}/chat/completions",
-            payload=payload,
-            api_key=endpoint.api_key,
-            timeout=timeout_s,
-        )
+        status, body = roles.chat(endpoint, model, messages, timeout=timeout_s)
     except OSError as exc:
         return Opinion(model=model, error=f"the judge endpoint is unreachable: {exc}")
     if status != 200:
