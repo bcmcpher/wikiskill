@@ -6,20 +6,17 @@ Each slice merges on its own and passes `bin/check`.
 at `e90f64f`. `bin/check` passes: pytest 840, bun 216 (plugin) and 75 (guard), and pyright 0 errors
 with `runner/claude.py` and `runner/run.py` excluded.
 
-**Before wave B, the user decides:**
+**Decided before wave B (the user, 2026-10-06):**
 
 1. **The redaction leak.** `redact.py` leaves a secret unredacted when it directly follows a
-   non-ASCII letter (`ésk-AAAA…`): Python's `\b` is Unicode-aware, JavaScript's is not. This is
-   recorded as `known_divergence` in `tests/fixtures/parity/redact.json`. Recommended: a small
-   separate fix that makes Python match TypeScript, then turn the case into an ordinary one.
-2. **The other four divergences** in the parity fixtures: nested markers in TypeScript's env
-   redaction, `bound()` length outside the BMP, and the step budgets `"1e2"` and `"0x10"`. Decide
-   which side is right for each, or keep them recorded.
-3. **The per-side redaction and guard tests** that the parity fixtures now cover. Removing them
-   needs the user's approval; the auto-mode classifier refused it.
+   non-ASCII letter (`ésk-AAAA…`): Python's `\b` is Unicode-aware, JavaScript's is not. Fixed
+   first, on its own: Python matches TypeScript, and the parity case becomes an ordinary one.
+2. **The other four divergences** in the parity fixtures (nested markers in TypeScript's env
+   redaction, `bound()` length outside the BMP, the step budgets `"1e2"` and `"0x10"`) stay
+   recorded as `known_divergence`.
+3. **The per-side redaction and guard tests** that the parity fixtures now cover are kept.
 4. **Git in agent worktrees.** The rtk hook rewrites `git` to `rtk git`, and the worktree guard
-   then refuses it. Every wave A agent hit this; one could not commit at all. Fix it before wave B,
-   or have agents call `/usr/bin/git`.
+   then refuses it. Wave agents call `/usr/bin/git`.
 5. **Out of scope here, for later:** `[logging] retention_days` and a suite task's `followups` are
    validated but do nothing. Either build them or have the check commands warn.
 
