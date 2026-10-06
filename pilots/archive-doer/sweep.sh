@@ -53,12 +53,12 @@ DRY_RUN=${DRY_RUN:-}
 # The design's order: smallest and fastest first, so each finished run is a complete cell set.
 # gpt-oss:120b is MoE and decodes faster than llama3.3, a 70B dense model, which runs last.
 ORDER=(
-  qwen2.5-coder:1.5b
   qwen3:1.7b
+  llama3.2:3b
   granite4.1:3b
   ministral-3:3b
-  mistral:latest
   gemma4:latest
+  llama3.1:8b
   granite4.1:8b
   gpt-oss:20b
   mistral-small3.2:24b
@@ -68,7 +68,6 @@ ORDER=(
   qwen3:30b-a3b
   qwen3-coder:30b
   gemma4:31b
-  olmo-3:32b
   nemotron-3.5-lightning:latest
   gpt-oss:120b
   llama3.3:latest

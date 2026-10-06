@@ -5,12 +5,10 @@
 # Sizes are billions of parameters from `ollama show` (2026-10-06, Ollama 0.34.2). Every model is
 # Q4_K_M except gpt-oss, which is MXFP4. Each entry's comment gives the context Ollama reports and the
 # capabilities it lists; preflight records the context actually served in each run's `run.json`.
-# `olmo-3:32b` lists no `tools` capability, so it is expected to fail preflight's tool-call probe.
-
-[models."qwen2.5-coder:1.5b"] # 32768, tools
-family = "qwen"
-size_b = 1.5
-shape = "dense"
+#
+# Dropped after preflight on 2026-10-06: `qwen2.5-coder:1.5b` answers the tool-call probe with text,
+# `mistral:latest` does not answer it within 400s, and `olmo-3:32b` cannot be given tools.
+# `llama3.2:3b` and `llama3.1:8b` replace the first two; OLMo has no tool-calling model to replace it.
 
 [models."qwen3:1.7b"] # 40960, tools thinking
 family = "qwen"
@@ -52,11 +50,6 @@ family = "mistral"
 size_b = 3.8
 shape = "dense"
 
-[models."mistral:latest"] # 32768, tools
-family = "mistral"
-size_b = 7.2
-shape = "dense"
-
 [models."mistral-small3.2:24b"] # 131072, tools
 family = "mistral"
 size_b = 24.0
@@ -87,15 +80,20 @@ family = "glm"
 size_b = 29.9
 shape = "moe"
 
-[models."olmo-3:32b"] # 65536, thinking
-family = "olmo"
-size_b = 32.2
-shape = "dense"
-
 [models."nemotron-3.5-lightning:latest"] # 1048576, tools thinking
 family = "nemotron"
 size_b = 32.9
 shape = "hybrid-moe"
+
+[models."llama3.2:3b"] # 131072, tools
+family = "llama"
+size_b = 3.2
+shape = "dense"
+
+[models."llama3.1:8b"] # 131072, tools
+family = "llama"
+size_b = 8.0
+shape = "dense"
 
 [models."llama3.3:latest"] # 131072, tools
 family = "llama"
