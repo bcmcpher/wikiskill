@@ -7,131 +7,33 @@ be read by a person and its exit codes are meaningful: 0 success, 1 a reported f
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 from .. import __version__, paths
 from .. import collection as collection_mod
 from .. import compare as compare_mod
-from .. import corrections as corrections_mod
 from .. import gate as gate_mod
 from .. import graph as graph_mod
-from .. import guard as guard_mod
-from .. import hooks as hooks_mod
 from .. import leaderboard as leaderboard_mod
 from .. import refine as refine_mod
 from .. import review as review_mod
 from .. import roles as roles_mod
 from .. import wiki as wiki_mod
-from ..collection import Collection, ManifestError
+from ..collection import Collection
 from ..errors import WikiskillError
-from ..rawlog import RawLogError
-from . import build, collection, eval, install, log, suite
+from . import build, collection, corrections, eval, hook, install, log, note, suite
 from ._common import FAILED, MISUSE, OK
+from .hook import cmd_guard, cmd_hook
+
+__all__ = ["FAILED", "MISUSE", "OK", "build_parser", "cmd_guard", "cmd_hook", "main"]
 
 # --------------------------------------------------------------------------- helpers
 
 
 def _load(name: str) -> Collection:
     return collection_mod.load(name)
-
-
-# --------------------------------------------------------------------------- hook
-
-
-def cmd_hook(args: argparse.Namespace) -> int:
-    """Claude Code runs this per hook event. Silent and always 0, whatever happens inside."""
-    return hooks_mod.run(args.event or "", sys.stdin.read())
-
-
-def cmd_guard(_args: argparse.Namespace) -> int:
-    """An evaluation's `PreToolUse` hook: prints a deny decision for a refused call."""
-    return guard_mod.main()
-
-
-# --------------------------------------------------------------------------- note
-
-
-def _note_collections(name: str | None) -> list[Collection]:
-    if name:
-        return [_load(name)]
-    found = []
-    for manifest in sorted(paths.collections_dir().glob("*.toml")):
-        try:
-            found.append(_load(manifest.stem))
-        except ManifestError:
-            continue
-    return found
-
-
-def cmd_note(args: argparse.Namespace) -> int:
-    text = " ".join(args.text)
-    collections = _note_collections(args.collection)
-    if not collections:
-        print("error: no collection manifests to attach a note to", file=sys.stderr)
-        return FAILED
-    # Without --collection, the note goes to every collection logging the session, as the logger
-    # writes every other event to each of them.
-    written, problems = [], []
-    for coll in collections:
-        try:
-            note = corrections_mod.write_note(
-                coll, text, session=args.session, component=args.component
-            )
-        except corrections_mod.NoteError as exc:
-            problems.append(f"{coll.name}: {exc}")
-            continue
-        written.append((coll, note))
-    if not written:
-        for problem in problems:
-            print(f"error: {problem}", file=sys.stderr)
-        return FAILED
-    for coll, note in written:
-        component = note.event.get("component") or {}
-        label = f"{component['kind']}:{component['name']}" if component else "no component"
-        print(f"note  {coll.name}  {note.event['session_id']}  {label}")
-        for warning in note.warnings:
-            print(f"  warning: {warning}", file=sys.stderr)
-    return OK
-
-
-def cmd_corrections_scan(args: argparse.Namespace) -> int:
-    """Record edits to files components wrote. `--quiet` is how the loggers run it: in the
-    background, at session start, where nothing may be printed and nothing may fail."""
-    found, problems = [], []
-    for coll in _note_collections(args.collection):
-        try:
-            events = corrections_mod.scan(paths.raw_dir(coll.name), redact_diffs=coll.redact)
-        except (OSError, RawLogError) as exc:
-            problems.append(f"{coll.name}: {exc}")
-            if args.quiet:
-                _log_scan_error(coll, exc)
-            continue
-        found.extend((coll, event) for event in events)
-    if args.quiet:
-        return OK
-    for coll, event in found:
-        component = event["component"]
-        print(
-            f"output_edit  {coll.name}  {component['kind']}:{component['name']}  "
-            f"{event['payload']['path']}"
-        )
-    for problem in problems:
-        print(f"error: {problem}", file=sys.stderr)
-    if not found and not problems:
-        print("no edits to produced files")
-    return FAILED if problems else OK
-
-
-def _log_scan_error(coll: Collection, exc: Exception) -> None:
-    with contextlib.suppress(OSError):
-        log = paths.logger_error_log(coll.name)
-        log.parent.mkdir(parents=True, exist_ok=True)
-        with log.open("a", encoding="utf-8") as handle:
-            handle.write(f"{datetime.now(UTC).isoformat()} corrections scan: {exc}\n")
 
 
 # --------------------------------------------------------------------------- parser
@@ -567,56 +469,6 @@ def _add_sampling_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_hook_parser(sub) -> None:
-    hook = sub.add_parser(
-        "hook", help="(Claude Code) log one hook event read from stdin; always exits 0, silently"
-    )
-    hook.add_argument("event", nargs="?", default="", help="e.g. PostToolUse")
-    hook.set_defaults(func=cmd_hook)
-    guard = sub.add_parser(
-        "guard",
-        help="(evaluation, Claude Code) refuse a tool call a task denies; reads a PreToolUse event",
-    )
-    guard.set_defaults(func=cmd_guard)
-
-
-def _add_note_parser(sub) -> None:
-    note = sub.add_parser(
-        "note", help="record an explicit note on what a skill or agent got wrong, in its session"
-    )
-    note.add_argument("text", nargs="+", help="the note, as you would say it")
-    note.add_argument(
-        "--component",
-        default=None,
-        help="the component it is about, e.g. preregister or agent:datalad-doer "
-        "(default: the session's last activated)",
-    )
-    note.add_argument(
-        "--session",
-        default=None,
-        help="the session it is about (default: the most recent logged one in this directory)",
-    )
-    note.add_argument(
-        "--collection", default=None, help="only this collection (default: every one logging it)"
-    )
-    note.set_defaults(func=cmd_note)
-
-
-def _add_corrections_parser(sub) -> None:
-    corr = sub.add_parser("corrections", help="find correction signals outside a session")
-    corr_sub = corr.add_subparsers(dest="corrections_command", required=True)
-    scan = corr_sub.add_parser(
-        "scan", help="record edits made to files a watched component wrote, since it wrote them"
-    )
-    scan.add_argument(
-        "--collection", default=None, help="only this collection (default: every one)"
-    )
-    scan.add_argument(
-        "--quiet", action="store_true", help="print nothing and always succeed (for the loggers)"
-    )
-    scan.set_defaults(func=cmd_corrections_scan)
-
-
 def _add_compare_parser(sub) -> None:
     cmp = sub.add_parser(
         "compare", help="compare two runs of one suite across versions of a component"
@@ -671,10 +523,10 @@ def build_parser() -> argparse.ArgumentParser:
     build.register(sub)
     install.register(sub)
 
+    hook.register(sub)
+    note.register(sub)
+    corrections.register(sub)
     for add_parser in (
-        _add_hook_parser,
-        _add_note_parser,
-        _add_corrections_parser,
         _add_compare_parser,
         _add_leaderboard_parser,
         _add_review_parser,
