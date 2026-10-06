@@ -297,6 +297,14 @@ class Backend(ABC):
     def normalize(self, trajectory: Trajectory) -> list[dict[str, Any]]:
         """Turn a trajectory into raw events carrying `origin: eval` and the unit's provenance."""
 
+    def run_options(self) -> dict[str, Any]:
+        """What changes a model's behaviour beyond the model itself, recorded in `run.json`."""
+        return {}
+
+    def isolation_proof(self, unit: Unit) -> dict[str, Any] | None:
+        """What a unit of this condition runs under, for `run.json`. `None` when not recorded."""
+        return None
+
     def prepare_workdir(self, unit: Unit, root: Path) -> Path:
         """Build ``root/work`` in the task's starting state: its fixtures, its setup, `git init`.
 

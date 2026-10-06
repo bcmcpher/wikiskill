@@ -244,6 +244,22 @@ def test_the_manifest_records_how_many_lanes_ran(xdg, three, layout):
     assert run_mod.load_manifest(run.layout)["workers"] == 2
 
 
+def test_a_backend_without_options_or_proofs_records_the_defaults(xdg, three, layout):
+    run = run_mod.run_suite(
+        three,
+        CountingBackend(layout, writes="DONE.md"),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+    )
+
+    manifest = run_mod.load_manifest(run.layout)
+    assert manifest["options"] == {}
+    assert manifest["isolation"] == {OFF: None}
+
+
 def test_the_manifest_records_the_suite_hash(xdg, tmp_path, layout):
     path = tmp_path / "three.yaml"
     path.write_text(THREE, encoding="utf-8")

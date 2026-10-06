@@ -197,7 +197,7 @@ def run_suite(
         first = next((unit for unit in units if unit.condition == condition), None)
         if first is not None:
             report(f"isolation {condition}")
-            proofs[condition] = _isolation_proof(backend, first)
+            proofs[condition] = backend.isolation_proof(first)
 
     keeping = threading.Lock()
 
@@ -358,16 +358,6 @@ def _write_events(backend: Backend, trajectory: Trajectory, raw_root: Path) -> i
     return written
 
 
-def _run_options(backend: Backend) -> dict[str, Any]:
-    options = getattr(backend, "run_options", None)
-    return options() if callable(options) else {}
-
-
-def _isolation_proof(backend: Backend, unit: Unit) -> Any:
-    prove = getattr(backend, "isolation_proof", None)
-    return prove(unit) if callable(prove) else None
-
-
 def _manifest(
     run: RunResult,
     *,
@@ -400,7 +390,7 @@ def _manifest(
         "preflight": {model: result.as_dict() for model, result in run.preflight.items()},
         "isolation": proofs,
         # A model's output cap and thinking setting change what it does as much as its weights do.
-        "options": _run_options(backend),
+        "options": backend.run_options(),
         "workers": run.workers,
         "duration_s": duration_s,
         "outcomes": run.counts(),
