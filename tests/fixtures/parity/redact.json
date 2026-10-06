@@ -248,12 +248,7 @@
       "name": "a key preceded by a non-ASCII letter",
       "text": "ésk-AAAABBBBCCCCDDDDEEEEFFFF",
       "env": {},
-      "known_divergence": "\\b is Unicode-aware in Python and ASCII-only in JavaScript: after a non-ASCII letter Python sees no word boundary and keeps the key, TypeScript redacts it. Python is the leakier side.",
-      "python": {
-        "text": "ésk-AAAABBBBCCCCDDDDEEEEFFFF",
-        "redactions": []
-      },
-      "typescript": {
+      "expected": {
         "text": "é[REDACTED:api_key]",
         "redactions": [
           {

@@ -109,7 +109,12 @@ def test_the_two_pattern_tables_are_the_same():
         for kind, literal, flags, group in _ts_patterns(REDACT_TS.read_text(encoding="utf-8"))
     ]
     py = [
-        (kind, _normalised(p.pattern), "i" if p.flags & re.IGNORECASE else "", group)
+        (
+            kind,
+            _normalised(p.pattern.replace(redact.ASCII_BOUNDARY, r"\b")),
+            "i" if p.flags & re.IGNORECASE else "",
+            group,
+        )
         for kind, p, group in redact.PATTERNS
     ]
     assert len(ts) == len(redact.PATTERNS) == 10

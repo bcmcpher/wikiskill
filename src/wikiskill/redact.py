@@ -41,23 +41,33 @@ ENV_ALLOW = frozenset(
     }
 )
 
+#: JavaScript's `\b` without the `u` flag: a boundary between an ASCII word character and anything
+#: else. Python's is Unicode-aware, so after `é` it saw no boundary and kept the key that follows.
+ASCII_BOUNDARY = r"(?:(?<![A-Za-z0-9_])(?=[A-Za-z0-9_])|(?<=[A-Za-z0-9_])(?![A-Za-z0-9_]))"
+
+
+def _js(source: str, flags: int = 0) -> re.Pattern[str]:
+    """Compile a `redact.ts` pattern so that `\\b` means what it means there."""
+    return re.compile(source.replace(r"\b", ASCII_BOUNDARY), flags)
+
+
 #: ``(kind, pattern, group)``: the group holding the secret, 0 for the whole match.
 PATTERNS: tuple[tuple[str, re.Pattern[str], int], ...] = (
     (
         "private_key",
-        re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+        _js(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
         0,
     ),
-    ("api_key", re.compile(r"\b(?:sk|rk|pk)-[A-Za-z0-9_-]{16,}\b"), 0),
-    ("api_key", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{16,}\b"), 0),
-    ("api_key", re.compile(r"\bAKIA[0-9A-Z]{16}\b"), 0),
-    ("api_key", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{16,}\b"), 0),
-    ("api_key", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"), 0),
-    ("token", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"), 0),
-    ("token", re.compile(r"\b[Bb]earer\s+([A-Za-z0-9._~+/=-]{20,})"), 1),
+    ("api_key", _js(r"\b(?:sk|rk|pk)-[A-Za-z0-9_-]{16,}\b"), 0),
+    ("api_key", _js(r"\bsk-ant-[A-Za-z0-9_-]{16,}\b"), 0),
+    ("api_key", _js(r"\bAKIA[0-9A-Z]{16}\b"), 0),
+    ("api_key", _js(r"\bgh[pousr]_[A-Za-z0-9]{16,}\b"), 0),
+    ("api_key", _js(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"), 0),
+    ("token", _js(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"), 0),
+    ("token", _js(r"\b[Bb]earer\s+([A-Za-z0-9._~+/=-]{20,})"), 1),
     (
         "password",
-        re.compile(
+        _js(
             r"\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)"
             r"[\"']?\s*[:=]\s*[\"']?([^\s\"',;]{6,})",
             re.IGNORECASE,
@@ -66,7 +76,7 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], int], ...] = (
     ),
     (
         "url_credentials",
-        re.compile(r"\b([a-z][a-z0-9+.-]*)://[^\s/:@]+:([^\s/@]+)@", re.IGNORECASE),
+        _js(r"\b([a-z][a-z0-9+.-]*)://[^\s/:@]+:([^\s/@]+)@", re.IGNORECASE),
         2,
     ),
 )
