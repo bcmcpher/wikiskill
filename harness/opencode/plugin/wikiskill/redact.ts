@@ -148,6 +148,21 @@ export function merge(redactions: Redaction[]): Redaction[] {
     .sort((a, b) => a.kind.localeCompare(b.kind))
 }
 
+/** Characters kept of a short free-text field: a delegation's description, an activation's input. */
+export const SUMMARY_CHARS = 500
+
+/** A short field redacted, then cut, so no cut can leave the first part of a secret; null if empty. */
+export function summary(
+  text: string | null | undefined,
+  envValues: string[] = [],
+  enabled = true,
+  limit = SUMMARY_CHARS,
+): { text: string | null; redactions: Redaction[] } {
+  if (!text) return { text: null, redactions: [] }
+  const { text: clean, redactions } = enabled ? redact(text, envValues) : { text, redactions: [] }
+  return { text: clean.slice(0, limit) || null, redactions }
+}
+
 export interface BoundedOutput {
   text: string
   length: number

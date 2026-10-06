@@ -160,6 +160,24 @@ def merge(redactions: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return _entries(counts)
 
 
+#: Characters kept of a short free-text field: a delegation's description, an activation's input.
+SUMMARY_CHARS = 500
+
+
+def summary(
+    text: str | None,
+    env_values: Iterable[str] = (),
+    *,
+    enabled: bool = True,
+    limit: int = SUMMARY_CHARS,
+) -> tuple[str | None, list[dict[str, Any]]]:
+    """A short field redacted, then cut, so no cut leaves part of a secret; None when empty."""
+    if not text:
+        return None, []
+    clean, found = redact(text, env_values) if enabled else (text, [])
+    return clean[:limit] or None, found
+
+
 @dataclass(frozen=True)
 class Bounded:
     text: str

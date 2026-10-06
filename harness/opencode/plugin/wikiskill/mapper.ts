@@ -6,7 +6,7 @@
  * environment snapshot arrive as arguments. That is what makes the fixtures in ./test meaningful.
  */
 
-import { bound, merge, redact, redactValue } from "./redact"
+import { bound, merge, redact, redactValue, summary } from "./redact"
 import { timestamp, ulid } from "./ulid"
 import type {
   ComponentKind,
@@ -224,6 +224,13 @@ export function mapToolCall(
     redactions.push(...result.redactions)
   }
 
+  let error = call.error ?? null
+  if (options.redactEnabled && error) {
+    const result = redact(error, options.envValues)
+    error = result.text
+    redactions.push(...result.redactions)
+  }
+
   return makeEvent(
     identity,
     "tool_call",
@@ -238,7 +245,7 @@ export function mapToolCall(
       output_length: raw.length,
       output_truncated: limited.truncated,
       output_hash: null,
-      error: call.error ?? null,
+      error,
       duration_ms: call.durationMs ?? null,
       ...(call.producedFiles?.length ? { produced_files: call.producedFiles } : {}),
     },
@@ -326,8 +333,11 @@ export function mapActivation(
   sourceHash: string | null,
   identity: Identity,
   inputSummary: string | null,
+  options: MapperOptions,
   now = Date.now(),
 ): RawEvent {
+  // The call's own text, so it is redacted before it is cut.
+  const short = summary(inputSummary, options.envValues, options.redactEnabled)
   const component: ComponentRef = {
     kind: hint.kind,
     name: hint.name,
@@ -339,9 +349,9 @@ export function mapActivation(
     {
       trigger: hint.trigger,
       source_path: hint.sourcePath,
-      input_summary: inputSummary,
+      input_summary: short.text,
     },
-    [],
+    short.redactions,
     now,
   )
 }
@@ -362,6 +372,7 @@ export function isDelegation(call: ToolCallInfo): boolean {
 export function mapDelegation(
   call: ToolCallInfo,
   identity: Identity,
+  options: MapperOptions,
   now = Date.now(),
 ): RawEvent | null {
   if (!isDelegation(call)) return null
@@ -370,15 +381,20 @@ export function mapDelegation(
   const subagent = stringField(args, "subagent_type", "subagentType", "agent", "name")
   if (!subagent) return null
   const child = stringField(metadata, "sessionID", "sessionId", "session_id", "childSessionID")
+  const description = summary(
+    stringField(args, "description", "prompt"),
+    options.envValues,
+    options.redactEnabled,
+  )
   return makeEvent(
     identity,
     "delegation",
     {
       subagent_type: subagent,
       child_session_id: child ?? null,
-      description: stringField(args, "description", "prompt")?.slice(0, 500) ?? null,
+      description: description.text,
     },
-    [],
+    description.redactions,
     now,
   )
 }

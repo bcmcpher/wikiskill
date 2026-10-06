@@ -118,11 +118,17 @@ An example line, wrapped here for reading:
 
 ### Redaction, truncation, and what is never recorded
 
-- **Redaction** (`[logging] redact`, on by default) replaces environment values and secret-shaped
-  strings with `[REDACTED:<kind>]`. The kinds are `env_value`, `api_key`, `token`, `private_key`,
+- **Redaction** (`[logging] redact`, on by default) covers every event in `raw/`: live sessions,
+  evaluation runs and notes. It replaces environment values and secret-shaped strings with
+  `[REDACTED:<kind>]` in every free-text field (assistant text, your turns, note text, tool input,
+  output and error, delegation descriptions, activation input summaries, error messages), before
+  anything is cut to size, so a truncated field never holds the first half of a secret. The kinds are `env_value`, `api_key`, `token`, `private_key`,
   `password` and `url_credentials`. Environment values shorter than 8 characters and allow-listed
   variables (`PATH`, `HOME`, `XDG_*` and the like) are kept. Tool inputs are redacted to a nesting
-  depth of 8; anything deeper becomes `[TRUNCATED:depth]`.
+  depth of 8; anything deeper becomes `[TRUNCATED:depth]`. The environment checked is the
+  process's own: the hook's or plugin's for a live session, `wikiskill note`'s for a note, and for
+  an evaluation unit the environment its harness ran in, including the suite's `env`. With
+  `redact = false` nothing is redacted, live or eval.
 - **Truncation**: tool output and assistant text longer than `[logging] output_limit_bytes` (default
   16 KB) are cut, and the original length is kept.
 - **Never recorded:**
@@ -252,10 +258,13 @@ A saved sample is refused as stale once the component's patterns have changed.
 
 ## Things to be aware of
 
-- **Eval-run events in `raw/` are truncated but not redacted**, and neither are unit transcripts
-  under `evals/`. An eval runs in a sandbox with its own config, but a secret that a task's fixtures
-  or setup put into the workdir can appear there.
-- **`wikiskill note` text is stored as you typed it**, without redaction.
+- **Unit transcripts under `evals/` are not redacted.** Their events in `raw/` are, but the
+  harness's own records (`exports/`, `stream.jsonl`, `run.ndjson`) are kept as written. An eval
+  runs in a sandbox with its own config, but a secret that a task's fixtures or setup put into the
+  workdir can appear there.
+- **Logs written before eval and note redaction existed are not rewritten.** Eval events and notes
+  from those versions may hold secrets in the clear; delete the old `raw/` day directories if that
+  matters.
 - Raw logs, unit directories and the wiki are never cleaned up automatically.
 - `docs/design/architecture.md` §6 predates some of this; where the two disagree, this page and the
   schema are current.

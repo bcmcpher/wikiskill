@@ -232,11 +232,19 @@ def write_note(
     component: str | None = None,
     cwd: Path | None = None,
     raw_dir: Path | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> Note:
-    """Append a `note` event to the log of the session it is about."""
+    """Append a `note` event to the log of the session it is about.
+
+    The text is redacted as other logged text is, against ``env`` (this process's environment by
+    default), unless the collection turns redaction off.
+    """
     text = text.strip()
     if not text:
         raise NoteError("a note needs some text")
+    redactions: list[dict[str, Any]] = []
+    if collection.redact:
+        text, redactions = redact(text, env_secrets(os.environ if env is None else env))
     root = Path(raw_dir) if raw_dir is not None else paths.raw_dir(collection.name)
     cwd = Path(cwd) if cwd is not None else Path.cwd()
     warnings: list[str] = []
@@ -262,6 +270,8 @@ def write_note(
         "confidence": "explicit",
         "payload": {"text": text, "attributed_by": attributed_by, "cwd": str(cwd)},
     }
+    if redactions:
+        event["redactions"] = redactions
     written = rawlog.RawLogWriter(path).append(event)
     return Note(event=written, path=path, warnings=warnings)
 

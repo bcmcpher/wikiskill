@@ -227,7 +227,7 @@ describe("activation detection", () => {
 
   test("an activation records the component version that ran", () => {
     const hint = detectActivation(call(tools.skill), watchedName, watchedPath)!
-    const event = mapActivation(hint, "sha256:" + "a".repeat(64), identity(), "freeze it", NOW)
+    const event = mapActivation(hint, "sha256:" + "a".repeat(64), identity(), "freeze it", DEFAULT_OPTIONS, NOW)
     expect(event.type).toBe("component_activated")
     expect(event.component).toEqual({
       kind: "skill",
@@ -239,20 +239,41 @@ describe("activation detection", () => {
 
   test("an unreadable component file still produces an activation", () => {
     const hint = detectActivation(call(tools.skill), watchedName, watchedPath)!
-    expect(mapActivation(hint, null, identity(), null, NOW).component?.source_hash).toBeNull()
+    expect(mapActivation(hint, null, identity(), null, DEFAULT_OPTIONS, NOW).component?.source_hash).toBeNull()
   })
 })
 
 describe("delegation", () => {
   test("a task call records the child session it spawned", () => {
-    const event = mapDelegation(call(tools.task), identity(), NOW)
+    const event = mapDelegation(call(tools.task), identity(), DEFAULT_OPTIONS, NOW)
     expect(event?.type).toBe("delegation")
     expect(event?.payload.subagent_type).toBe("datalad-doer")
     expect(event?.payload.child_session_id).toBe("ses_9c21bb3310ceqT8mzzR4d91xKW")
   })
 
+  test("a delegation's description is redacted before it is cut", () => {
+    const task = call(tools.task)
+    const leaky = { ...task, args: { ...task.args, description: "deploy with password=hunter2hunter2" } }
+    const event = mapDelegation(leaky, identity(), DEFAULT_OPTIONS, NOW)
+    expect(event?.payload.description).toBe("deploy with password=[REDACTED:password]")
+    expect(event?.redactions).toEqual([{ kind: "password", count: 1 }])
+    const off = mapDelegation(leaky, identity(), { ...DEFAULT_OPTIONS, redactEnabled: false }, NOW)
+    expect(off?.payload.description).toBe("deploy with password=hunter2hunter2")
+  })
+
+  test("an activation's input summary and a tool's error are redacted", () => {
+    const hint = detectActivation(call(tools.skill), watchedName, watchedPath)!
+    const key = "sk-ant-api03-AAAABBBBCCCCDDDDEEEE"
+    const activation = mapActivation(hint, null, identity(), `use ${key}`, DEFAULT_OPTIONS, NOW)
+    expect(activation.payload.input_summary).toBe("use [REDACTED:api_key]")
+    expect(activation.redactions).toEqual([{ kind: "api_key", count: 1 }])
+    const failed = mapToolCall({ tool: "bash", args: {}, error: `bad ${key}` }, identity(), DEFAULT_OPTIONS, NOW)
+    expect(failed.payload.error).toBe("bad [REDACTED:api_key]")
+    expect(failed.redactions).toEqual([{ kind: "api_key", count: 1 }])
+  })
+
   test("a non-task call is not a delegation", () => {
-    expect(mapDelegation(call(tools.bash_with_secret), identity(), NOW)).toBeNull()
+    expect(mapDelegation(call(tools.bash_with_secret), identity(), DEFAULT_OPTIONS, NOW)).toBeNull()
   })
 
   test("a child's events are attributed to its root and parent", () => {

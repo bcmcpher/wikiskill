@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, guard, names, paths, rawlog, redact
+from .. import RAW_SCHEMA_VERSION, build, guard, names, paths, rawlog
 from ..collection import Collection
 from ..hooks import qualified
 from . import common
@@ -107,6 +107,7 @@ class ClaudeCodeBackend(Backend):
         min_context: int = MIN_CONTEXT_TOKENS,
         probe_timeout: int | None = None,
         output_limit_bytes: int = 16 * 1024,
+        redact: bool = True,
         foreground_agents: bool = False,
     ) -> None:
         self.collection = collection
@@ -117,6 +118,7 @@ class ClaudeCodeBackend(Backend):
         self.min_context = min_context
         self.probe_timeout = probe_timeout
         self.output_limit_bytes = output_limit_bytes
+        self.redact = redact
         #: Subagents run in the background when the model asks for it, as they would for a user.
         #: Forcing them into the foreground is a different harness behaviour, so it is recorded.
         self.foreground_agents = foreground_agents
@@ -432,6 +434,13 @@ class ClaudeCodeBackend(Backend):
         """Raw events for one trajectory, in stream order, root and subagent sessions alike."""
         return _Normaliser(self, trajectory).events()
 
+    def unit_env(self, unit: Unit) -> dict[str, str]:
+        """The environment the unit's harness ran in, whose values its events must not show."""
+        try:
+            return self.env_for(unit, self.layout.unit_dir(unit))
+        except (RunnerError, OSError):
+            return {**os.environ, **unit.task.resolved_env()}
+
     def in_collection(self, kind: str, name: str) -> bool:
         """During an evaluation every component of the collection counts, watched or not."""
         if self.collection is None:
@@ -452,6 +461,9 @@ class _Normaliser:
         self.trajectory = trajectory
         self.unit = trajectory.unit
         self.provider, self.model = common.split_model(self.unit.model)
+        self.scrub = common.Scrubber.of(
+            backend.redact, backend.unit_env(self.unit), backend.output_limit_bytes
+        )
         stream = (trajectory.sessions[0] if trajectory.sessions else {}).get("stream") or []
         self.stream: list[dict[str, Any]] = stream
         self.root = trajectory.session_id or session_of(stream) or ""
@@ -465,8 +477,14 @@ class _Normaliser:
         self.pending: dict[str, tuple[dict[str, Any], str]] = {}
         self.ts = rawlog.now_ts()
 
-    def make(self, event_type: str, payload: dict[str, Any], session: str) -> dict[str, Any]:
-        return {
+    def make(
+        self,
+        event_type: str,
+        payload: dict[str, Any],
+        session: str,
+        redactions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        event = {
             "schema_version": RAW_SCHEMA_VERSION,
             "event_id": rawlog.new_event_id(),
             "ts": self.ts,
@@ -484,9 +502,18 @@ class _Normaliser:
             "type": event_type,
             "payload": payload,
         }
+        if redactions:
+            event["redactions"] = redactions
+        return event
 
-    def emit(self, event_type: str, payload: dict[str, Any], session: str) -> None:
-        self.out.append(self.make(event_type, payload, session))
+    def emit(
+        self,
+        event_type: str,
+        payload: dict[str, Any],
+        session: str,
+        redactions: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.out.append(self.make(event_type, payload, session, redactions))
 
     def begin(self, session: str, payload: dict[str, Any]) -> None:
         if session not in self.started:
@@ -537,15 +564,16 @@ class _Normaliser:
         for block in blocks:
             if block.get("type") == "text" and block.get("text"):
                 text = str(block["text"])
-                bounded = redact.bound(text, self.backend.output_limit_bytes)
+                clean, truncated, found = self.scrub.text(text)
                 self.emit(
                     "assistant_turn",
                     {
-                        "text": bounded.text,
+                        "text": clean,
                         "text_length": len(text),
-                        "finish_reason": "truncated_by_logger" if bounded.truncated else None,
+                        "finish_reason": "truncated_by_logger" if truncated else None,
                     },
                     session,
+                    found,
                 )
             elif block.get("type") == "tool_use" and block.get("id"):
                 self.pending[str(block["id"])] = (block, self.ts)
@@ -590,18 +618,23 @@ class _Normaliser:
                 "name": target[1],
                 "source_hash": rawlog.file_hash(source) if source else None,
             }
+            summary, found = self.scrub.value(
+                common.string_field(args, "description", "prompt", "args") or None
+            )
             self.emit(
                 "component_activated",
                 {
                     "trigger": "skill_tool" if target[0] == "skill" else "task_tool",
                     "source_path": source,
-                    "input_summary": (
-                        common.string_field(args, "description", "prompt", "args") or None
-                    ),
+                    "input_summary": summary,
                 },
                 session,
+                found,
             )
         if name.lower() in _AGENT_TOOLS and not failed:
+            description, found = self.scrub.value(
+                common.string_field(args, "description", "prompt")
+            )
             self.emit(
                 "delegation",
                 {
@@ -609,28 +642,32 @@ class _Normaliser:
                         common.string_field(args, "subagent_type") or "unknown"
                     ),
                     "child_session_id": self.children.get(str(use.get("id"))),
-                    "description": common.string_field(args, "description", "prompt"),
+                    "description": description,
                 },
                 session,
+                found,
             )
 
         self.ts = answered
-        bounded = redact.bound(output, self.backend.output_limit_bytes)
+        clean, truncated, out_found = self.scrub.text(output)
+        clean_input, in_found = self.scrub.value(args or None)
+        error, error_found = self.scrub.value(output) if failed else (None, [])
         self.emit(
             "tool_call",
             {
                 "tool": name,
                 "call_id": use.get("id"),
                 "ok": not failed,
-                "input": args or None,
-                "output": bounded.text,
+                "input": clean_input,
+                "output": clean,
                 "output_length": len(output),
-                "output_truncated": bounded.truncated,
+                "output_truncated": truncated,
                 "output_hash": None,
-                "error": output if failed else None,
+                "error": error,
                 "duration_ms": None,
             },
             session,
+            common.merged(out_found, in_found, error_found),
         )
 
 

@@ -203,7 +203,10 @@ export const wikiskillLogger = async () => {
     for (const collection of watching) {
       for (const event of registry.activate(sessionId, collection)) write(collection, event)
       const identity = registry.identity(sessionId, collection.collection)
-      write(collection, mapActivation(hint, hashFor(collection), identity, inputSummary, now))
+      write(
+        collection,
+        mapActivation(hint, hashFor(collection), identity, inputSummary, optionsFor(collection), now),
+      )
     }
     // The previous window's turns decide whether this is a repeat, so it is read as it is replaced.
     const limit = Math.max(0, ...watching.map((collection) => collection.follow_up_turns))
@@ -469,8 +472,8 @@ export const wikiskillLogger = async () => {
 
         const hint = detectActivation(call, anyWatchesName, anyWatchedPath)
         if (hint) {
-          const summary =
-            stringField(call.args ?? {}, "description", "prompt", "query")?.slice(0, 500) ?? null
+          // Redacted and cut per collection, in `mapActivation`.
+          const summary = stringField(call.args ?? {}, "description", "prompt", "query") ?? null
           startLogging(sessionId, hint, summary, now)
         }
 
@@ -486,7 +489,12 @@ export const wikiskillLogger = async () => {
         // order; every tool call, delegating or not, is then recorded as itself.
         if (isDelegation(call)) {
           emit(sessionId, (collection) =>
-            mapDelegation(call, registry.identity(sessionId, collection.collection), now),
+            mapDelegation(
+              call,
+              registry.identity(sessionId, collection.collection),
+              optionsFor(collection),
+              now,
+            ),
           )
         }
         if (toolStates.claim(call.callID)) {

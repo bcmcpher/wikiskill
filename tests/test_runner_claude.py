@@ -507,3 +507,119 @@ def test_injected_fails_when_the_denied_skill_was_loaded_anyway():
     assert backend_mod.injection_failed(injected, loaded)
     assert backend_mod.injection_failed(injected, refused) is None
     assert backend_mod.injection_failed(unit(), loaded) is None
+
+
+# --------------------------------------------------------------------------- redaction
+
+KEY = "ghp_" + "A" * 36
+SUITE_SECRET = "s3cr3t-value-123"
+
+
+def leaky_stream():
+    """The recorded subagent stream, with secrets in every free-text field an event copies."""
+    events = stream()
+    for event in events:
+        content = backend_mod._message(event).get("content")
+        for block in content if isinstance(content, list) else []:
+            if isinstance(block, dict) and block.get("id") == "call_7zx8v67c":
+                block["input"]["description"] = "deploy with password=hunter2hunter2"
+    session = backend_mod.session_of(events)
+
+    def said(role, *blocks):
+        return {
+            "type": role,
+            "session_id": session,
+            "parent_tool_use_id": None,
+            "message": {"role": role, "content": list(blocks)},
+        }
+
+    bash = {"type": "tool_use", "id": "call_leak1", "name": "Bash"}
+    events[-1:-1] = [
+        said("assistant", {**bash, "input": {"command": f"echo {KEY}"}}),
+        said("user", {"type": "tool_result", "tool_use_id": "call_leak1", "content": KEY}),
+        said("assistant", {**bash, "id": "call_leak2", "input": {"command": "false"}}),
+        said(
+            "user",
+            {
+                "type": "tool_result",
+                "tool_use_id": "call_leak2",
+                "content": f"failed near {KEY}",
+                "is_error": True,
+            },
+        ),
+        said("assistant", {"type": "text", "text": f"The token is {SUITE_SECRET}."}),
+    ]
+    return events
+
+
+def leaky_trajectory(events):
+    from wikiskill.suite import Route, Task
+
+    task = Task(
+        id="count",
+        prompt="How many words does notes.txt have?",
+        split="val",
+        expect=Route(skill="capture/word-count", agents=("capture/counter",)),
+        env=(("DATASET_TOKEN", SUITE_SECRET),),
+    )
+    return runner_base.Trajectory(
+        unit=runner_base.Unit(
+            run_id=RUN_ID,
+            suite="toy",
+            task=task,
+            model="ollama/qwen3:30b-a3b",
+            condition="routed",
+            repeat=0,
+        ),
+        outcome="completed",
+        sessions=[{"stream": events}],
+        session_id=backend_mod.session_of(events),
+    )
+
+
+def test_eval_events_are_redacted_with_the_units_environment(backend):
+    events = backend.normalize(leaky_trajectory(leaky_stream()))
+    written = json.dumps(events)
+
+    assert KEY not in written and SUITE_SECRET not in written and "hunter2" not in written
+    by_call = {e["payload"]["call_id"]: e for e in events if e["type"] == "tool_call"}
+    ok, failed = by_call["call_leak1"], by_call["call_leak2"]
+    assert ok["payload"]["output"] == "[REDACTED:api_key]"
+    assert ok["payload"]["input"] == {"command": "echo [REDACTED:api_key]"}
+    assert ok["payload"]["output_length"] == len(KEY)
+    assert ok["redactions"] == [{"kind": "api_key", "count": 2}]
+    assert failed["payload"]["error"] == "failed near [REDACTED:api_key]"
+
+    turn = [e for e in events if e["type"] == "assistant_turn"][-1]
+    assert turn["payload"]["text"] == "The token is [REDACTED:env_value]."
+
+    delegation = [e for e in events if e["type"] == "delegation"][-1]
+    assert delegation["payload"]["description"] == "deploy with password=[REDACTED:password]"
+    activation = [e for e in events if e["type"] == "component_activated"][-1]
+    assert activation["payload"]["input_summary"] == "deploy with password=[REDACTED:password]"
+    for event in events:
+        assert rawlog.schema_errors(event) == [], event
+
+
+def test_eval_redaction_can_be_turned_off(tmp_path, capture):
+    backend = make_backend(tmp_path, capture, redact=False)
+    events = backend.normalize(leaky_trajectory(leaky_stream()))
+
+    by_call = {e["payload"]["call_id"]: e for e in events if e["type"] == "tool_call"}
+    assert by_call["call_leak1"]["payload"]["output"] == KEY
+    assert not any("redactions" in event for event in events)
+
+
+def test_normalising_leaves_the_units_stream_as_it_was(backend):
+    events_in = leaky_stream()
+    trajectory_ = leaky_trajectory(events_in)
+    saved = backend.layout.unit_dir(trajectory_.unit) / "stream.jsonl"
+    saved.parent.mkdir(parents=True, exist_ok=True)
+    saved.write_text("\n".join(json.dumps(e) for e in events_in), encoding="utf-8")
+    before = json.dumps(events_in)
+
+    events = backend.normalize(trajectory_)
+
+    assert json.dumps(events_in) == before
+    assert KEY in saved.read_text(encoding="utf-8")
+    assert KEY not in json.dumps(events)

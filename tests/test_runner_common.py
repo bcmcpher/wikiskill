@@ -138,3 +138,46 @@ def test_prepare_workdir_without_fixtures_starts_empty(tmp_path):
 def test_prepare_workdir_refuses_a_missing_fixture_directory(tmp_path):
     with pytest.raises(runner_base.RunnerError, match="names a fixture directory that is not"):
         Stub(tmp_path).prepare_workdir(with_fixtures(unit(), "absent"), tmp_path)
+
+
+# --------------------------------------------------------------------------- redaction
+
+KEY = "ghp_" + "A" * 36
+
+
+def test_scrubber_redacts_a_key_and_an_environment_value():
+    scrub = common.Scrubber.of(True, {"DATASET_TOKEN": "s3cr3t-value-123"}, 1024)
+    text, truncated, found = scrub.text(f"token {KEY} and s3cr3t-value-123")
+
+    assert text == "token [REDACTED:api_key] and [REDACTED:env_value]"
+    assert not truncated
+    assert {entry["kind"] for entry in found} == {"api_key", "env_value"}
+
+
+def test_scrubber_redacts_before_it_bounds():
+    scrub = common.Scrubber.of(True, {}, 20)
+    text, truncated, found = scrub.text("x" * 9 + " " + KEY)
+
+    assert truncated
+    assert "ghp_" not in text and text.startswith("x" * 9 + " [REDACTED")
+    assert found == [{"kind": "api_key", "count": 1}]
+
+
+def test_a_disabled_scrubber_only_bounds():
+    scrub = common.Scrubber.of(False, {"DATASET_TOKEN": "s3cr3t-value-123"}, 1024)
+
+    assert scrub.secrets == ()
+    assert scrub.text(f"{KEY} s3cr3t-value-123") == (f"{KEY} s3cr3t-value-123", False, [])
+    assert scrub.value({"k": KEY}) == ({"k": KEY}, [])
+
+
+def test_scrubber_redacts_every_string_in_a_nested_input():
+    scrub = common.Scrubber.of(True, {}, 1024)
+    clean, found = scrub.value({"command": f"echo {KEY}", "env": [{"v": KEY}], "n": 3})
+
+    assert clean == {
+        "command": "echo [REDACTED:api_key]",
+        "env": [{"v": "[REDACTED:api_key]"}],
+        "n": 3,
+    }
+    assert common.merged(found) == [{"kind": "api_key", "count": 2}]

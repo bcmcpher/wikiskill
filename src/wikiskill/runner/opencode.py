@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, names, paths, rawlog, redact
+from .. import RAW_SCHEMA_VERSION, build, names, paths, rawlog
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
@@ -117,6 +117,7 @@ class OpenCodeBackend(Backend):
         min_context: int = MIN_CONTEXT_TOKENS,
         probe_timeout: int | None = None,
         output_limit_bytes: int = 16 * 1024,
+        redact: bool = True,
         guard_plugin: Path | None = None,
         max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
         thinking: str = "default",
@@ -133,6 +134,7 @@ class OpenCodeBackend(Backend):
         #: `None` keeps each path's own default: a direct HTTP probe and a harness probe differ.
         self.probe_timeout = probe_timeout
         self.output_limit_bytes = output_limit_bytes
+        self.redact = redact
         self.guard_plugin = guard_plugin or paths.opencode_guard_plugin()
         self.max_output_tokens = max_output_tokens
         self.thinking = thinking
@@ -867,6 +869,7 @@ class OpenCodeBackend(Backend):
         from the raw log per task, condition and repeat without a side file.
         """
         unit = trajectory.unit
+        scrub = common.Scrubber.of(self.redact, self._unit_env(unit), self.output_limit_bytes)
         provider, model = common.split_model(unit.model)
         root_session = trajectory.session_id or ""
         collection = self.collection.name if self.collection else unit.suite
@@ -886,9 +889,10 @@ class OpenCodeBackend(Backend):
                 session_id: str = session_id,
                 parent_id: str | None = parent_id,
                 component: dict[str, Any] | None = None,
+                redactions: list[dict[str, Any]] | None = None,
                 info: dict[str, Any] = info,
             ) -> dict[str, Any]:
-                return {
+                event = {
                     "schema_version": RAW_SCHEMA_VERSION,
                     "event_id": rawlog.new_event_id(),
                     "ts": ts,
@@ -906,6 +910,9 @@ class OpenCodeBackend(Backend):
                     "type": event_type,
                     "payload": payload,
                 }
+                if redactions:
+                    event["redactions"] = redactions
+                return event
 
             created = _ts((info.get("time") or {}).get("created"))
             events.append(
@@ -926,7 +933,7 @@ class OpenCodeBackend(Backend):
                 message_ts = _ts((message_info.get("time") or {}).get("created"))
                 for part in message.get("parts") or []:
                     for event, activated in self._part_events(
-                        part, role, message_ts, make, component
+                        part, role, message_ts, make, component, scrub=scrub
                     ):
                         if activated is not None:
                             component = activated
@@ -936,12 +943,14 @@ class OpenCodeBackend(Backend):
                     message_text = common.string_field(error.get("data") or {}, "message") or str(
                         error.get("name") or "error"
                     )
+                    message_text, found = scrub.value(message_text)
                     events.append(
                         make(
                             "error",
                             {"message": message_text, "where": "session", "fatal": True},
                             message_ts,
                             component=component,
+                            redactions=found,
                         )
                     )
 
@@ -956,27 +965,36 @@ class OpenCodeBackend(Backend):
             )
         return events
 
-    def _part_events(self, part, role, message_ts, make, component):
+    def _unit_env(self, unit: Unit) -> dict[str, str]:
+        """The environment the unit's harness ran in, whose values its events must not show."""
+        try:
+            return self.env_for(unit, self.layout.unit_dir(unit))
+        except (RunnerError, OSError):
+            # The unit's directory is gone or its config no longer builds; its own variables count.
+            return {**os.environ, **unit.task.resolved_env()}
+
+    def _part_events(self, part, role, message_ts, make, component, *, scrub):
         """Events for one part, each with the component it should be attributed to."""
         kind = part.get("type")
         produced: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
 
         if kind == "text" and role == "assistant":
             text = part.get("text") or ""
-            bounded = redact.bound(text, self.output_limit_bytes)
+            clean, truncated, found = scrub.text(text)
             produced.append(
                 (
                     make(
                         "assistant_turn",
                         {
-                            "text": bounded.text,
+                            "text": clean,
                             "text_length": len(text),
-                            "finish_reason": "truncated_by_logger" if bounded.truncated else None,
+                            "finish_reason": "truncated_by_logger" if truncated else None,
                         },
                         _ts((part.get("time") or {}).get("end"))
                         if part.get("time")
                         else message_ts,
                         component=component,
+                        redactions=found,
                     ),
                     None,
                 )
@@ -1005,10 +1023,10 @@ class OpenCodeBackend(Backend):
                 )
             )
         elif kind == "tool":
-            produced.extend(self._tool_events(part, message_ts, make, component))
+            produced.extend(self._tool_events(part, message_ts, make, component, scrub))
         return produced
 
-    def _tool_events(self, part, message_ts, make, component):
+    def _tool_events(self, part, message_ts, make, component, scrub):
         """An activation, a delegation and the call itself, in the order they happened."""
         state = part.get("state") or {}
         status = state.get("status")
@@ -1025,6 +1043,9 @@ class OpenCodeBackend(Backend):
         hint = self._activation(tool, args, metadata)
         if hint:
             activated = {"kind": hint[0], "name": hint[1], "source_hash": hint[2]}
+            summary, found = scrub.value(
+                common.string_field(args, "description", "prompt", "query") or None
+            )
             produced.append(
                 (
                     make(
@@ -1032,12 +1053,11 @@ class OpenCodeBackend(Backend):
                         {
                             "trigger": hint[3],
                             "source_path": hint[4],
-                            "input_summary": (
-                                common.string_field(args, "description", "prompt", "query") or None
-                            ),
+                            "input_summary": summary,
                         },
                         ts,
                         component=activated,
+                        redactions=found,
                     ),
                     activated,
                 )
@@ -1045,6 +1065,7 @@ class OpenCodeBackend(Backend):
             component = activated
 
         if tool in _TASK_TOOLS:
+            description, found = scrub.value(common.string_field(args, "description", "prompt"))
             produced.append(
                 (
                     make(
@@ -1057,10 +1078,11 @@ class OpenCodeBackend(Backend):
                             "child_session_id": common.string_field(
                                 metadata, "sessionID", "sessionId", "session_id"
                             ),
-                            "description": common.string_field(args, "description", "prompt"),
+                            "description": description,
                         },
                         ts,
                         component=component,
+                        redactions=found,
                     ),
                     None,
                 )
@@ -1068,7 +1090,9 @@ class OpenCodeBackend(Backend):
 
         output_value = state.get("output")
         raw_output = output_value if isinstance(output_value, str) else ""
-        bounded = redact.bound(raw_output, self.output_limit_bytes)
+        output, truncated, out_found = scrub.text(raw_output)
+        clean_input, in_found = scrub.value(args or None)
+        error, error_found = scrub.value(state.get("error") if status == "error" else None)
         start, end = times.get("start"), times.get("end")
         duration = int(end - start) if isinstance(start, int) and isinstance(end, int) else None
         produced.append(
@@ -1079,16 +1103,17 @@ class OpenCodeBackend(Backend):
                         "tool": str(part.get("tool") or "unknown"),
                         "call_id": part.get("callID"),
                         "ok": status == "completed",
-                        "input": args or None,
-                        "output": bounded.text,
+                        "input": clean_input,
+                        "output": output,
                         "output_length": len(raw_output),
-                        "output_truncated": bounded.truncated,
+                        "output_truncated": truncated,
                         "output_hash": None,
-                        "error": state.get("error") if status == "error" else None,
+                        "error": error,
                         "duration_ms": duration,
                     },
                     ts,
                     component=component,
+                    redactions=common.merged(out_found, in_found, error_found),
                 ),
                 activated,
             )

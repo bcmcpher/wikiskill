@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { bound, envSecrets, redact, redactValue } from "../wikiskill/redact"
+import { bound, envSecrets, redact, redactValue, summary } from "../wikiskill/redact"
 
 const FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "tests/fixtures/parity", "redact.json")
 const fixture = JSON.parse(readFileSync(FIXTURE, "utf8"))
@@ -38,5 +38,11 @@ describe("redactValue", () => {
 describe("bound", () => {
   test.each(fixture.bound.map((c: any) => [c.name, c]))("%s", (_name, c: any) => {
     expect(bound(textOf(c.text), c.limit)).toEqual(expected(c))
+  })
+})
+
+describe("summary", () => {
+  test.each(fixture.summary.map((c: any) => [c.name, c]))("%s", (_name, c: any) => {
+    expect(summary(c.text, envSecrets(c.env), c.enabled, c.limit)).toEqual(expected(c))
   })
 })

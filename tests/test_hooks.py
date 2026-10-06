@@ -375,3 +375,34 @@ def test_events_from_one_hook_sort_in_the_order_they_were_written(world):
     replay(world, "session")
     events = logged(world)
     assert [e["event_id"] for e in events] == sorted(e["event_id"] for e in events)
+
+
+# --------------------------------------------------------------------------- redaction
+
+
+def test_a_delegations_description_and_a_tools_error_are_redacted(world):
+    key = "sk-ant-api03-AAAABBBBCCCCDDDDEEEE"
+    clock = time.time()
+    for payload in payloads(world, "session"):
+        clock += 1
+        if payload.get("tool_name") == "Agent":
+            payload["tool_input"]["description"] = "deploy with password=hunter2hunter2"
+        hooks.handle(
+            payload["hook_event_name"], payload, env=NO_ENV, configs=[world["config"]], now=clock
+        )
+    failure = {**_write_call(world, world["skill"].parent / "x.py", "x"), "error": f"bad {key}"}
+    hooks.handle("PostToolUseFailure", failure, env=NO_ENV, configs=[world["config"]])
+    events = logged(world)
+
+    [delegation] = of(events, "delegation")
+    assert delegation["payload"]["description"] == "deploy with password=[REDACTED:password]"
+    assert delegation["redactions"] == [{"kind": "password", "count": 1}]
+    activation = next(
+        e for e in of(events, "component_activated") if e["component"]["kind"] == "agent"
+    )
+    assert activation["payload"]["input_summary"] == "deploy with password=[REDACTED:password]"
+    [failed] = [e for e in of(events, "tool_call") if not e["payload"]["ok"]]
+    assert failed["payload"]["error"] == "bad [REDACTED:api_key]"
+    assert "hunter2" not in json.dumps(events) and key not in json.dumps(events)
+    for event in events:
+        assert rawlog.schema_errors(event) == [], event

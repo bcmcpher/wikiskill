@@ -5,9 +5,12 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
+from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .. import redact
 from .base import RunnerError, Unit
 
 #: One setup command's budget. Setup builds a starting state; it is not where work happens.
@@ -34,6 +37,39 @@ def string_field(source: dict[str, Any], *keys: str) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
+
+
+@dataclass(frozen=True)
+class Scrubber:
+    """Redaction and the size bound for one unit's events, as live logging applies them.
+
+    Redaction comes first, so a secret the bound would cut cannot survive as its first half.
+    """
+
+    enabled: bool
+    secrets: tuple[str, ...]
+    limit: int
+
+    @classmethod
+    def of(cls, enabled: bool, env: dict[str, str], limit: int) -> Scrubber:
+        return cls(enabled, tuple(redact.env_secrets(env)) if enabled else (), limit)
+
+    def text(self, raw: str) -> tuple[str, bool, list[dict[str, Any]]]:
+        """``(text, truncated, redactions)`` for a free-text field that has a size bound."""
+        clean, redactions = self.value(raw)
+        bounded = redact.bound(clean, self.limit)
+        return bounded.text, bounded.truncated, redactions
+
+    def value(self, obj: Any) -> tuple[Any, list[dict[str, Any]]]:
+        """``obj`` with every string in it redacted, and what was found."""
+        if not self.enabled:
+            return obj, []
+        return redact.redact_value(obj, self.secrets)
+
+
+def merged(*found: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Several fields' redactions as one event's list."""
+    return redact.merge(entry for entries in found for entry in entries)
 
 
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:

@@ -291,6 +291,8 @@ def cmd_eval(args: argparse.Namespace) -> int:
 def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):
     """The backend for `--harness`, configured from the command line."""
     limit = coll.output_limit_bytes if coll else 16 * 1024
+    # A run without a collection redacts: that is the safe side.
+    scrub = coll.redact if coll else True
     if args.harness == "claude-code":
         from ..runner import claude as claude_backend
 
@@ -303,6 +305,7 @@ def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, l
             min_context=args.min_context,
             probe_timeout=args.probe_timeout,
             output_limit_bytes=limit,
+            redact=scrub,
             foreground_agents=args.foreground_agents,
         )
     from ..runner import opencode as opencode_backend
@@ -316,6 +319,7 @@ def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, l
         min_context=args.min_context,
         probe_timeout=args.probe_timeout,
         output_limit_bytes=limit,
+        redact=scrub,
         max_output_tokens=args.max_output_tokens,
         thinking=args.thinking,
         seed_cache=not args.no_seed_cache,

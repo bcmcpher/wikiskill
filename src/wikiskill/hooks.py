@@ -36,7 +36,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from . import corrections, names, paths, rawlog
-from .redact import bound, env_secrets, merge, redact, redact_value
+from .redact import bound, env_secrets, merge, redact, redact_value, summary
 
 HARNESS = "claude-code"
 
@@ -379,7 +379,10 @@ class Logger:
         agent_id: str | None = None,
         source_path: str | None = None,
     ) -> dict[str, Any] | None:
-        """Begin logging for every collection watching this component; the component, if any."""
+        """Begin logging for every collection watching this component; the component, if any.
+
+        ``summary`` is the call's own text, redacted and cut per collection here.
+        """
         watching = []
         component = None
         for config in self.configs:
@@ -393,14 +396,16 @@ class Logger:
                 "source_hash": rawlog.file_hash(path) if path else None,
             }
             self.activate(config)
+            short, found = self.summary(config, summary)
             self.write(
                 config,
                 self.event(
                     config,
                     "component_activated",
-                    {"trigger": trigger, "source_path": path, "input_summary": summary},
+                    {"trigger": trigger, "source_path": path, "input_summary": short},
                     agent_id=agent_id,
                     component=component,
+                    redactions=found,
                 ),
             )
             watching.append((config, component))
@@ -504,6 +509,12 @@ class Logger:
         limited = bound(clean, int(config.get("output_limit_bytes") or 16 * 1024))
         return limited.text, limited.truncated, redactions
 
+    def summary(
+        self, config: dict[str, Any], text: str | None
+    ) -> tuple[str | None, list[dict[str, Any]]]:
+        """A short field, redacted as the collection asks and then cut."""
+        return summary(text, self.secrets, enabled=config.get("redact", True))
+
 
 # --------------------------------------------------------------------------- handlers
 
@@ -560,7 +571,7 @@ def on_user_prompt(log: Logger, payload: dict[str, Any]) -> None:
         # A slash command is the user invoking something, not reacting to it: it may activate a
         # watched command, but it is not a follow-up and does not count against the window.
         command, _, arguments = prompt[1:].partition(" ")
-        log.start("command", command, "command", summary=arguments.strip()[:500] or None)
+        log.start("command", command, "command", summary=arguments.strip() or None)
         return
     if not log.logging():
         return
@@ -601,26 +612,33 @@ def on_tool(log: Logger, payload: dict[str, Any], *, failed: bool) -> None:
     if tool in SKILL_TOOLS and args.get("skill"):
         log.start("skill", str(args["skill"]), "skill_tool", agent_id=agent_id)
     elif tool in AGENT_TOOLS and args.get("subagent_type"):
-        summary = str(args.get("description") or args.get("prompt") or "")[:500] or None
         agent = log.start(
-            "agent", str(args["subagent_type"]), "task_tool", summary=summary, agent_id=agent_id
+            "agent",
+            str(args["subagent_type"]),
+            "task_tool",
+            summary=str(args.get("description") or args.get("prompt") or "") or None,
+            agent_id=agent_id,
         )
         child = response.get("agentId") if isinstance(response, dict) else None
         if agent and child:
             # A background agent's own calls arrive after this one, and are the agent's work.
             log.state["agents"][child] = agent
-        log.emit(
-            lambda config: log.event(
+
+        def delegation(config: dict[str, Any]) -> Event:
+            description, found = log.summary(config, str(args.get("description") or ""))
+            return log.event(
                 config,
                 "delegation",
                 {
                     "subagent_type": qualified(str(args["subagent_type"])),
                     "child_session_id": child,
-                    "description": str(args.get("description") or "")[:500] or None,
+                    "description": description,
                 },
                 agent_id=agent_id,
+                redactions=found,
             )
-        )
+
+        log.emit(delegation)
     elif tool in READ_TOOLS:
         candidate = str(args.get("file_path") or "")
         for config in log.configs:
@@ -644,9 +662,13 @@ def on_tool(log: Logger, payload: dict[str, Any], *, failed: bool) -> None:
         text, truncated, redactions = log.text(config, output)
         found: list[dict[str, Any]] = list(redactions)
         clean_input: Any = args
+        clean_error = error
         if config.get("redact", True):
             clean_input, more = redact_value(args, log.secrets)
             found.extend(more)
+            if error is not None:
+                clean_error, more = redact(error, log.secrets)
+                found.extend(more)
         return log.event(
             config,
             "tool_call",
@@ -659,7 +681,7 @@ def on_tool(log: Logger, payload: dict[str, Any], *, failed: bool) -> None:
                 "output_length": len(output),
                 "output_truncated": truncated,
                 "output_hash": None,
-                "error": error,
+                "error": clean_error,
                 "duration_ms": payload.get("duration_ms"),
                 **({"produced_files": produced} if produced else {}),
             },

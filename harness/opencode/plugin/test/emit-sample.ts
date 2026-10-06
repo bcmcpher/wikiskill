@@ -55,10 +55,10 @@ const skill = { kind: skillHint.kind, name: skillHint.name, source_hash: hash }
 
 const emitted: (RawEvent | null)[] = [
   mapSessionStart(events["session.created"].properties.info, root, NOW),
-  mapActivation(skillHint, hash, root, "freeze the motion-QC comparison", NOW),
-  mapActivation(readHint, hash, root, null, NOW),
-  mapActivation(commandHint, null, root, "dsh", NOW),
-  mapDelegation(call(tools.task), root, NOW),
+  mapActivation(skillHint, hash, root, "freeze the motion-QC comparison", options, NOW),
+  mapActivation(readHint, hash, root, null, options, NOW),
+  mapActivation(commandHint, null, root, "dsh", options, NOW),
+  mapDelegation(call(tools.task), root, options, NOW),
   mapToolCall(call(tools.task), root, options, NOW),
   mapToolCall(call(tools.bash_with_secret), child, options, NOW),
   mapToolCall({ tool: "write", args: {}, output: "", error: "ENOENT" }, root, options, NOW),

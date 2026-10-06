@@ -963,3 +963,125 @@ def test_a_failed_export_reports_the_harness_own_words(backend, tmp_path):
 
     assert "exited 3" in str(caught.value)
     assert "no such session" in str(caught.value)
+
+
+# --------------------------------------------------------------------------- redaction
+
+KEY = "ghp_" + "A" * 36
+SUITE_SECRET = "s3cr3t-value-123"
+
+
+def leaky_session():
+    """The recorded root session, with secrets in every free-text field an event copies."""
+    import copy
+
+    session = copy.deepcopy(load("session-root.json"))
+    parts = session["messages"][1]["parts"]
+    parts[1]["state"]["input"]["description"] = "deploy with password=hunter2hunter2"
+    parts.append(
+        {
+            "type": "tool",
+            "callID": "call_bash_1",
+            "tool": "bash",
+            "state": {
+                "status": "completed",
+                "input": {"command": f"echo {KEY}"},
+                "output": f"{KEY}\n",
+                "time": {"start": 1789755751000, "end": 1789755752000},
+            },
+        }
+    )
+    parts.append(
+        {
+            "type": "tool",
+            "callID": "call_bash_2",
+            "tool": "bash",
+            "state": {
+                "status": "error",
+                "input": {"command": "false"},
+                "error": f"failed near {KEY}",
+                "time": {"start": 1789755752000, "end": 1789755753000},
+            },
+        }
+    )
+    parts.append({"type": "text", "text": f"The token is {SUITE_SECRET}."})
+    return session
+
+
+def leaky_trajectory(session):
+    from wikiskill.suite import Route, Task
+
+    task = Task(
+        id="release",
+        prompt="Cut version 1.0.",
+        split="val",
+        expect=Route(skill="dataset-release", agents=("datalad-doer",)),
+        env=(("DATASET_TOKEN", SUITE_SECRET),),
+    )
+    return runner_base.Trajectory(
+        unit=runner_base.Unit(
+            run_id=RUN_ID,
+            suite="toy",
+            task=task,
+            model="ollama/qwen2.5-coder:1.5b",
+            condition="routed",
+            repeat=0,
+        ),
+        outcome="completed",
+        sessions=[session],
+        session_id="ses_root0000000000000000001",
+    )
+
+
+def calls(events, tool):
+    return [e for e in events if e["type"] == "tool_call" and e["payload"]["tool"] == tool]
+
+
+def test_eval_events_are_redacted_with_the_units_environment(backend):
+    events = backend.normalize(leaky_trajectory(leaky_session()))
+    written = json.dumps(events)
+
+    assert KEY not in written and SUITE_SECRET not in written and "hunter2" not in written
+    ok, failed = calls(events, "bash")
+    assert ok["payload"]["output"] == "[REDACTED:api_key]\n"
+    assert ok["payload"]["input"] == {"command": "echo [REDACTED:api_key]"}
+    assert ok["payload"]["output_length"] == len(KEY) + 1
+    assert ok["redactions"] == [{"kind": "api_key", "count": 2}]
+    assert failed["payload"]["error"] == "failed near [REDACTED:api_key]"
+
+    turn = [e for e in events if e["type"] == "assistant_turn"][-1]
+    assert turn["payload"]["text"] == "The token is [REDACTED:env_value]."
+    assert turn["redactions"] == [{"kind": "env_value", "count": 1}]
+
+    delegation = next(e for e in events if e["type"] == "delegation")
+    assert delegation["payload"]["description"] == "deploy with password=[REDACTED:password]"
+    assert delegation["redactions"] == [{"kind": "password", "count": 1}]
+    activation = [e for e in events if e["type"] == "component_activated"][-1]
+    assert activation["payload"]["input_summary"] == "deploy with password=[REDACTED:password]"
+    for event in events:
+        assert rawlog.schema_errors(event) == [], event
+
+
+def test_eval_redaction_can_be_turned_off(backend):
+    backend.redact = False
+    events = backend.normalize(leaky_trajectory(leaky_session()))
+
+    ok, _ = calls(events, "bash")
+    assert ok["payload"]["output"] == f"{KEY}\n"
+    assert not any("redactions" in event for event in events)
+    assert SUITE_SECRET in json.dumps(events)
+
+
+def test_normalising_leaves_the_units_transcripts_as_they_were(backend):
+    session = leaky_session()
+    trajectory_ = leaky_trajectory(session)
+    export = backend.layout.unit_dir(trajectory_.unit) / "exports" / "session.json"
+    export.parent.mkdir(parents=True, exist_ok=True)
+    export.write_text(json.dumps(session), encoding="utf-8")
+    before = json.dumps(session)
+
+    events = backend.normalize(trajectory_)
+
+    assert json.dumps(session) == before, "the harness's own record is never rewritten"
+    assert KEY in export.read_text(encoding="utf-8")
+    assert KEY not in json.dumps(events)

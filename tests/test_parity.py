@@ -70,6 +70,14 @@ def test_bound(case):
     } == expected(case)
 
 
+@cases(REDACT, "summary")
+def test_summary(case):
+    text, found = redact.summary(
+        case["text"], redact.env_secrets(case["env"]), enabled=case["enabled"], limit=case["limit"]
+    )
+    assert {"text": text, "redactions": found} == expected(case)
+
+
 def _ts_patterns(source: str) -> list[tuple[str, str, str, int]]:
     """``(kind, source, flags, group)`` for each entry of `redact.ts`'s PATTERNS, read as text."""
     block = source[source.index("const PATTERNS") :]

@@ -538,3 +538,44 @@ def test_the_cli_scans_every_collection(dsh, script, capsys):
     script.write_text("edited twice\n", encoding="utf-8")
     assert cli.main(["corrections", "scan"]) == cli.OK
     assert "skill:govern/preregister" in capsys.readouterr().out
+
+
+NOTE_KEY = "sk-ant-api03-AAAABBBBCCCCDDDDEEEE"
+
+
+def test_a_note_is_redacted_before_it_is_stored(dsh, raw):
+    path = log_session(raw, activated())
+    note = corrections.write_note(
+        dsh,
+        f"it printed {NOTE_KEY} and s3cr3t-value-123",
+        session=ROOT,
+        raw_dir=raw,
+        env={"DATASET_TOKEN": "s3cr3t-value-123"},
+    )
+
+    stored = list(rawlog.read_events(path))[-1]
+    assert stored["payload"]["text"] == "it printed [REDACTED:api_key] and [REDACTED:env_value]"
+    assert stored["redactions"] == [
+        {"kind": "api_key", "count": 1},
+        {"kind": "env_value", "count": 1},
+    ]
+    assert note.event["redactions"] == stored["redactions"]
+    assert rawlog.validate_file(path) == []
+
+
+def test_a_note_without_secrets_lists_no_redactions(dsh, raw):
+    log_session(raw, activated())
+    note = corrections.write_note(dsh, "wrong axis scale", session=ROOT, raw_dir=raw, env={})
+
+    assert "redactions" not in note.event
+
+
+def test_a_note_is_kept_as_typed_when_redaction_is_off(dsh, raw):
+    import dataclasses
+
+    log_session(raw, activated())
+    plain = dataclasses.replace(dsh, redact=False)
+    note = corrections.write_note(plain, f"it printed {NOTE_KEY}", session=ROOT, raw_dir=raw)
+
+    assert note.event["payload"]["text"] == f"it printed {NOTE_KEY}"
+    assert "redactions" not in note.event

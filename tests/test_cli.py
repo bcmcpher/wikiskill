@@ -502,3 +502,26 @@ def test_eval_refuses_thinking_without_an_endpoint(xdg, tmp_path, capsys):
     code = main(["eval", "--suite", str(suite), "--models", "opencode/x", "--thinking", "off"])
     assert code == 2
     assert "--thinking needs --base-url" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- eval backend
+
+
+@pytest.mark.parametrize("harness", ["opencode", "claude-code"])
+@pytest.mark.parametrize("redact", [True, False])
+def test_eval_hands_the_collections_redaction_switch_to_the_backend(
+    xdg, plugin_source, tmp_path, harness, redact
+):
+    from wikiskill.cli import build_parser
+    from wikiskill.cli import eval as eval_cli
+    from wikiskill.runner import base as runner_base
+
+    logging = "" if redact else "[logging]\nredact = false\n"
+    write_manifest(xdg, "dsh", manifest_for(plugin_source) + logging)
+    coll = collection_mod.load("dsh")
+    args = build_parser().parse_args(["eval", "--suite", "s.toml", "--harness", harness])
+    layout = runner_base.RunLayout.create("dsh", "01ABCDEFGHJKMNPQRSTVWXYZ01", base=tmp_path)
+
+    backend = eval_cli._eval_backend(args, coll, None, layout, tmp_path)
+    assert backend.redact is redact
+    assert eval_cli._eval_backend(args, None, None, layout, tmp_path).redact is True

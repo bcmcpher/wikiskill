@@ -1,5 +1,5 @@
 {
-  "$comment": "Redaction cases both loggers must agree on, read by tests/test_parity.py and harness/opencode/plugin/test/parity.test.ts. A case has either `expected`, shared by both, or `known_divergence` (the reason) with each side's current output under `python` and `typescript`. `env` is an environment snapshot, passed through env_secrets first. A text given as {repeat, times} is that string repeated.",
+  "$comment": "Redaction cases both loggers must agree on, read by tests/test_parity.py and harness/opencode/plugin/test/parity.test.ts. A case has either `expected`, shared by both, or `known_divergence` (the reason) with each side's current output under `python` and `typescript`. `env` is an environment snapshot, passed through env_secrets first. A text given as {repeat, times} is that string repeated. `summary` is a short free-text field (a delegation description, an activation's input summary, a tool error): redacted when `enabled`, then cut to `limit` characters, and null when empty.",
   "redact": [
     {
       "name": "anthropic key",
@@ -573,6 +573,96 @@
         "text": "abcde",
         "length": 5,
         "truncated": false
+      }
+    }
+  ],
+  "summary": [
+    {
+      "name": "password in a description",
+      "text": "deploy with password=hunter2hunter2",
+      "env": {},
+      "enabled": true,
+      "limit": 500,
+      "expected": {
+        "text": "deploy with password=[REDACTED:password]",
+        "redactions": [
+          {
+            "kind": "password",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "key in an error",
+      "text": "failed near sk-ant-api03-AAAABBBBCCCCDDDDEEEE here",
+      "env": {},
+      "enabled": true,
+      "limit": 500,
+      "expected": {
+        "text": "failed near [REDACTED:api_key] here",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "env value in a summary",
+      "text": "count rows in s3cr3t-value-123",
+      "env": {
+        "DATASET_TOKEN": "s3cr3t-value-123"
+      },
+      "enabled": true,
+      "limit": 500,
+      "expected": {
+        "text": "count rows in [REDACTED:env_value]",
+        "redactions": [
+          {
+            "kind": "env_value",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "cut after redaction, so no part of a key survives",
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx sk-ant-api03-AAAABBBBCCCCDDDDEEEE",
+      "env": {},
+      "enabled": true,
+      "limit": 500,
+      "expected": {
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [REDACTED",
+        "redactions": [
+          {
+            "kind": "api_key",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "redaction off still cuts",
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx sk-ant-api03-AAAABBBBCCCCDDDDEEEE",
+      "env": {},
+      "enabled": false,
+      "limit": 500,
+      "expected": {
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx sk-a",
+        "redactions": []
+      }
+    },
+    {
+      "name": "empty is null",
+      "text": "",
+      "env": {},
+      "enabled": true,
+      "limit": 500,
+      "expected": {
+        "text": null,
+        "redactions": []
       }
     }
   ]
