@@ -29,19 +29,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, guard, paths, rawlog
+from .. import RAW_SCHEMA_VERSION, build, guard, names, paths, rawlog, redact
 from ..collection import Collection
 from ..hooks import qualified
+from . import common
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
-from .opencode import (
-    BASE_DENY,
-    _bare,
-    _bound,
-    _git_init,
-    _run_setup,
-    _split_model,
-    _string_field,
-)
+from .opencode import BASE_DENY
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, messages_check
 
 #: Plugins Claude Code loads from a fresh config directory. Switched off by name; anything newer is
@@ -165,7 +158,7 @@ class ClaudeCodeBackend(Backend):
         if self.endpoint is not None:
             return messages_check(
                 self.endpoint,
-                _model_id(model),
+                common.model_id(model),
                 min_context=self.min_context,
                 **({"probe_timeout": self.probe_timeout} if self.probe_timeout else {}),
             )
@@ -207,8 +200,8 @@ class ClaudeCodeBackend(Backend):
                     f"task {unit.task.id!r} names a fixture directory that is not there: {fixtures}"
                 )
             workdir.mkdir(parents=True)
-        _run_setup(unit, workdir, root)
-        _git_init(workdir)
+        common.run_setup(unit, workdir, root)
+        common.git_init(workdir)
 
         if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
             self._build_plugin(root)
@@ -285,7 +278,7 @@ class ClaudeCodeBackend(Backend):
         )
         if self.foreground_agents:
             env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] = "1"
-        model_id = _model_id(unit.model)
+        model_id = common.model_id(unit.model)
         if self.endpoint is not None:
             env["ANTHROPIC_BASE_URL"] = self.endpoint.native_root
             env["ANTHROPIC_AUTH_TOKEN"] = self.endpoint.api_key or "wikiskill"
@@ -306,7 +299,7 @@ class ClaudeCodeBackend(Backend):
             "stream-json",
             "--verbose",
             "--model",
-            _model_id(unit.model),
+            common.model_id(unit.model),
             "--setting-sources",
             "user",
             "--strict-mcp-config",
@@ -456,9 +449,9 @@ class ClaudeCodeBackend(Backend):
         """During an evaluation every component of the collection counts, watched or not."""
         if self.collection is None:
             return False
-        bare = _bare(name)
+        bare = names.bare(name)
         return any(
-            component.kind == kind and _bare(component.name) == bare
+            component.kind == kind and names.bare(component.name) == bare
             for component in self.collection.discover()
         )
 
@@ -471,7 +464,7 @@ class _Normaliser:
         self.backend = backend
         self.trajectory = trajectory
         self.unit = trajectory.unit
-        self.provider, self.model = _split_model(self.unit.model)
+        self.provider, self.model = common.split_model(self.unit.model)
         stream = (trajectory.sessions[0] if trajectory.sessions else {}).get("stream") or []
         self.stream: list[dict[str, Any]] = stream
         self.root = trajectory.session_id or session_of(stream) or ""
@@ -515,7 +508,7 @@ class _Normaliser:
 
     def events(self) -> list[dict[str, Any]]:
         for event in self.stream:
-            self.ts = _string_field(event, "timestamp") or self.ts
+            self.ts = common.string_field(event, "timestamp") or self.ts
             kind = event.get("type")
             if kind == "system" and event.get("subtype") == "init":
                 self.begin(self.root, {"cwd": event.get("cwd"), "title": None, "agent": None})
@@ -556,13 +549,13 @@ class _Normaliser:
         for block in blocks:
             if block.get("type") == "text" and block.get("text"):
                 text = str(block["text"])
-                limited, truncated = _bound(text, self.backend.output_limit_bytes)
+                bounded = redact.bound(text, self.backend.output_limit_bytes)
                 self.emit(
                     "assistant_turn",
                     {
-                        "text": limited,
+                        "text": bounded.text,
                         "text_length": len(text),
-                        "finish_reason": "truncated_by_logger" if truncated else None,
+                        "finish_reason": "truncated_by_logger" if bounded.truncated else None,
                     },
                     session,
                 )
@@ -614,7 +607,9 @@ class _Normaliser:
                 {
                     "trigger": "skill_tool" if target[0] == "skill" else "task_tool",
                     "source_path": source,
-                    "input_summary": _string_field(args, "description", "prompt", "args") or None,
+                    "input_summary": (
+                        common.string_field(args, "description", "prompt", "args") or None
+                    ),
                 },
                 session,
             )
@@ -622,15 +617,17 @@ class _Normaliser:
             self.emit(
                 "delegation",
                 {
-                    "subagent_type": qualified(_string_field(args, "subagent_type") or "unknown"),
+                    "subagent_type": qualified(
+                        common.string_field(args, "subagent_type") or "unknown"
+                    ),
                     "child_session_id": self.children.get(str(use.get("id"))),
-                    "description": _string_field(args, "description", "prompt"),
+                    "description": common.string_field(args, "description", "prompt"),
                 },
                 session,
             )
 
         self.ts = answered
-        limited, truncated = _bound(output, self.backend.output_limit_bytes)
+        bounded = redact.bound(output, self.backend.output_limit_bytes)
         self.emit(
             "tool_call",
             {
@@ -638,9 +635,9 @@ class _Normaliser:
                 "call_id": use.get("id"),
                 "ok": not failed,
                 "input": args or None,
-                "output": limited,
+                "output": bounded.text,
                 "output_length": len(output),
-                "output_truncated": truncated,
+                "output_truncated": bounded.truncated,
                 "output_hash": None,
                 "error": output if failed else None,
                 "duration_ms": None,
@@ -750,7 +747,7 @@ def injection_failed(unit: Unit, found: list[dict[str, Any]]) -> str | None:
         entry
         for entry in found
         if entry["kind"] == "skill"
-        and _bare(entry["name"]) == injected
+        and names.bare(entry["name"]) == injected
         and not entry.get("blocked")
     ]
     if loaded:
@@ -802,10 +799,10 @@ def _calls(stream: list[dict[str, Any]]):
 def _activation_name(tool: str, args: dict[str, Any]) -> tuple[str, str] | None:
     """``(kind, plugin/name)`` for a Skill or Agent call. Claude Code writes `plugin:name`."""
     if tool in _SKILL_TOOLS:
-        name = _string_field(args, "skill", "name", "command")
+        name = common.string_field(args, "skill", "name", "command")
         return ("skill", qualified(name.lstrip("/"))) if name else None
     if tool in _AGENT_TOOLS:
-        name = _string_field(args, "subagent_type")
+        name = common.string_field(args, "subagent_type")
         return ("agent", qualified(name)) if name else None
     return None
 
@@ -964,23 +961,18 @@ def _ended_badly(result: dict[str, Any]) -> tuple[str, str] | None:
 # --------------------------------------------------------------------------- helpers
 
 
-def _model_id(model: str) -> str:
-    """`ollama/gemma4:latest` → `gemma4:latest`, as `--model` takes it."""
-    return _split_model(model)[1]
-
-
 def _injected_skill(unit: Unit) -> str:
     expect = unit.task.expect
     if unit.condition != INJECTED or not expect.skill:
         return ""
-    return _bare(expect.skill)
+    return names.bare(expect.skill)
 
 
 def _injected_agent(unit: Unit) -> str:
     expect = unit.task.expect
     if unit.condition != INJECTED or expect.skill:
         return ""
-    return _bare(expect.agent)
+    return names.bare(expect.agent)
 
 
 __all__ = ["ClaudeCodeBackend", "activations", "classify", "parse_stream"]

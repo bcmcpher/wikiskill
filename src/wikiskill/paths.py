@@ -98,6 +98,12 @@ def packaged_data(kind: str) -> Path:
     return here.parent.parent / in_checkout
 
 
+def opencode_guard_plugin() -> Path | None:
+    """The OpenCode guard plugin, whether running from a checkout or an installed wheel."""
+    found = packaged_data("opencode-guard") / "wikiskill-guard.ts"
+    return found if found.is_file() else None
+
+
 def schema_path() -> Path:
     """The raw event schema, whether running from a checkout or an installed wheel."""
     found = packaged_data("schema")

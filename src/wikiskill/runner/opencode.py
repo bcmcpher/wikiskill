@@ -13,7 +13,6 @@ spawned — which is what becomes raw events.
 
 from __future__ import annotations
 
-import contextlib
 import fnmatch
 import json
 import os
@@ -23,10 +22,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, names, paths, rawlog
+from .. import RAW_SCHEMA_VERSION, build, names, paths, rawlog, redact
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
+from . import common
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, check
 from .preflight import PROBE_TIMEOUT_S as HTTP_PROBE_TIMEOUT_S
@@ -101,21 +101,6 @@ def _ts(ms: int | float | None) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(when)) + f".{int((when % 1) * 1000):03d}Z"
 
 
-def _string_field(source: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = source.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return None
-
-
-def _bound(text: str, limit: int) -> tuple[str, bool]:
-    encoded = text.encode("utf-8")
-    if len(encoded) <= limit:
-        return text, False
-    return encoded[:limit].decode("utf-8", "ignore"), True
-
-
 class OpenCodeBackend(Backend):
     """Runs a unit in a fresh, isolated headless OpenCode session."""
 
@@ -148,7 +133,7 @@ class OpenCodeBackend(Backend):
         #: `None` keeps each path's own default: a direct HTTP probe and a harness probe differ.
         self.probe_timeout = probe_timeout
         self.output_limit_bytes = output_limit_bytes
-        self.guard_plugin = guard_plugin or _default_guard_plugin()
+        self.guard_plugin = guard_plugin or paths.opencode_guard_plugin()
         self.max_output_tokens = max_output_tokens
         self.thinking = thinking
         self.seed_cache = seed_cache
@@ -203,7 +188,7 @@ class OpenCodeBackend(Backend):
         if self.endpoint is not None:
             result = check(
                 self.endpoint,
-                _model_id(model),
+                common.model_id(model),
                 min_context=self.min_context,
                 probe_timeout=self.probe_timeout or HTTP_PROBE_TIMEOUT_S,
                 reasoning_effort=THINKING_EFFORT[self.thinking],
@@ -231,7 +216,7 @@ class OpenCodeBackend(Backend):
         listed = self._harness_models(env)
         details["models_listed"] = len(listed)
         if listed and model not in listed:
-            provider_id = _split_model(model)[0]
+            provider_id = common.split_model(model)[0]
             near = ", ".join(sorted(m for m in listed if m.startswith(f"{provider_id}/"))[:3])
             hint = f" This provider offers: {near}." if near else ""
             return PreflightResult(
@@ -300,7 +285,7 @@ class OpenCodeBackend(Backend):
         if workdir.exists():
             shutil.rmtree(workdir)
         workdir.mkdir(parents=True)
-        _git_init(workdir)
+        common.git_init(workdir)
         try:
             done = subprocess.run(
                 [
@@ -351,10 +336,10 @@ class OpenCodeBackend(Backend):
                     f"task {unit.task.id!r} names a fixture directory that is not there: {fixtures}"
                 )
             workdir.mkdir(parents=True)
-        _run_setup(unit, workdir, root)
+        common.run_setup(unit, workdir, root)
         # After setup, so a command that makes its own repository (`datalad create`) finds an
         # ordinary directory; on an existing repository this is a harmless re-initialisation.
-        _git_init(workdir)
+        common.git_init(workdir)
 
         if unit.condition in (ROUTED, INJECTED) and self.collection is not None:
             # INJECTED installs too: the point is to compare routing against content with the same
@@ -511,7 +496,7 @@ class OpenCodeBackend(Backend):
         """
         if root is None or _injected_agent(unit):
             return
-        name = _bare(unit.task.expect.primary)
+        name = names.bare(unit.task.expect.primary)
         if not name:
             return
         text = root / "config" / "opencode" / "skills" / name / "SKILL.md"
@@ -535,7 +520,7 @@ class OpenCodeBackend(Backend):
         credential and routing OpenCode supplies for its own models with a bare OpenAI-compatible
         endpoint, and the isolation the rest of this config buys is unaffected either way.
         """
-        provider_id, model_id = _split_model(model)
+        provider_id, model_id = common.split_model(model)
         config: dict[str, Any] = {
             "$schema": "https://opencode.ai/config.json",
             "autoupdate": False,
@@ -584,7 +569,7 @@ class OpenCodeBackend(Backend):
         decide when to compact. The server's own figure from preflight is the true one; the minimum
         preflight demands stands in when there is none.
         """
-        model_id = _model_id(model)
+        model_id = common.model_id(model)
         context = self._served_context.get(model) or self.min_context or MIN_CONTEXT_TOKENS
         block: dict[str, Any] = {
             "name": model_id,
@@ -897,7 +882,7 @@ class OpenCodeBackend(Backend):
         from the raw log per task, condition and repeat without a side file.
         """
         unit = trajectory.unit
-        provider, model = _split_model(unit.model)
+        provider, model = common.split_model(unit.model)
         root_session = trajectory.session_id or ""
         collection = self.collection.name if self.collection else unit.suite
         events: list[dict[str, Any]] = []
@@ -963,7 +948,7 @@ class OpenCodeBackend(Backend):
                         events.append(event)
                 error = message_info.get("error")
                 if isinstance(error, dict):
-                    message_text = _string_field(error.get("data") or {}, "message") or str(
+                    message_text = common.string_field(error.get("data") or {}, "message") or str(
                         error.get("name") or "error"
                     )
                     events.append(
@@ -993,15 +978,15 @@ class OpenCodeBackend(Backend):
 
         if kind == "text" and role == "assistant":
             text = part.get("text") or ""
-            limited, truncated = _bound(text, self.output_limit_bytes)
+            bounded = redact.bound(text, self.output_limit_bytes)
             produced.append(
                 (
                     make(
                         "assistant_turn",
                         {
-                            "text": limited,
+                            "text": bounded.text,
                             "text_length": len(text),
-                            "finish_reason": "truncated_by_logger" if truncated else None,
+                            "finish_reason": "truncated_by_logger" if bounded.truncated else None,
                         },
                         _ts((part.get("time") or {}).get("end"))
                         if part.get("time")
@@ -1063,7 +1048,7 @@ class OpenCodeBackend(Backend):
                             "trigger": hint[3],
                             "source_path": hint[4],
                             "input_summary": (
-                                _string_field(args, "description", "prompt", "query") or None
+                                common.string_field(args, "description", "prompt", "query") or None
                             ),
                         },
                         ts,
@@ -1080,14 +1065,14 @@ class OpenCodeBackend(Backend):
                     make(
                         "delegation",
                         {
-                            "subagent_type": _string_field(
+                            "subagent_type": common.string_field(
                                 args, "subagent_type", "subagentType", "agent", "name"
                             )
                             or "unknown",
-                            "child_session_id": _string_field(
+                            "child_session_id": common.string_field(
                                 metadata, "sessionID", "sessionId", "session_id"
                             ),
-                            "description": _string_field(args, "description", "prompt"),
+                            "description": common.string_field(args, "description", "prompt"),
                         },
                         ts,
                         component=component,
@@ -1098,7 +1083,7 @@ class OpenCodeBackend(Backend):
 
         output_value = state.get("output")
         raw_output = output_value if isinstance(output_value, str) else ""
-        limited, truncated = _bound(raw_output, self.output_limit_bytes)
+        bounded = redact.bound(raw_output, self.output_limit_bytes)
         start, end = times.get("start"), times.get("end")
         duration = int(end - start) if isinstance(start, int) and isinstance(end, int) else None
         produced.append(
@@ -1110,9 +1095,9 @@ class OpenCodeBackend(Backend):
                         "call_id": part.get("callID"),
                         "ok": status == "completed",
                         "input": args or None,
-                        "output": limited,
+                        "output": bounded.text,
                         "output_length": len(raw_output),
-                        "output_truncated": truncated,
+                        "output_truncated": bounded.truncated,
                         "output_hash": None,
                         "error": state.get("error") if status == "error" else None,
                         "duration_ms": duration,
@@ -1128,9 +1113,9 @@ class OpenCodeBackend(Backend):
     def _activation(self, tool, args, metadata):
         """``(kind, name, source_hash, trigger, source_path)`` when a call activated a component."""
         if tool in _SKILL_TOOLS:
-            name = _string_field(args, "name", "skill", "skill_name")
+            name = common.string_field(args, "name", "skill", "skill_name")
             if name and self._watched("skill", name):
-                directory = _string_field(metadata, "dir", "directory", "path")
+                directory = common.string_field(metadata, "dir", "directory", "path")
                 source = f"{directory}/SKILL.md" if directory else None
                 return (
                     "skill",
@@ -1140,9 +1125,9 @@ class OpenCodeBackend(Backend):
                     source,
                 )
         elif tool in _TASK_TOOLS:
-            name = _string_field(args, "subagent_type", "subagentType", "agent", "name")
+            name = common.string_field(args, "subagent_type", "subagentType", "agent", "name")
             if name and self._watched("agent", name):
-                source = _string_field(metadata, "path", "agentPath", "file")
+                source = common.string_field(metadata, "path", "agentPath", "file")
                 return (
                     "agent",
                     name,
@@ -1210,7 +1195,7 @@ def _child_session_ids(session: dict[str, Any]) -> list[str]:
             if part.get("type") != "tool":
                 continue
             metadata = (part.get("state") or {}).get("metadata") or {}
-            child = _string_field(metadata, "sessionID", "sessionId", "session_id")
+            child = common.string_field(metadata, "sessionID", "sessionId", "session_id")
             if child and child != parent:
                 found.append(child)
     return found
@@ -1245,11 +1230,11 @@ def activations(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
             args = state.get("input") or {}
             entry: dict[str, Any] | None = None
             if tool in _SKILL_TOOLS:
-                name = _string_field(args, "name", "skill", "skill_name")
+                name = common.string_field(args, "name", "skill", "skill_name")
                 if name:
                     entry = {"kind": "skill", "name": name}
             elif tool in _TASK_TOOLS:
-                name = _string_field(args, "subagent_type", "subagentType", "agent", "name")
+                name = common.string_field(args, "subagent_type", "subagentType", "agent", "name")
                 if name:
                     entry = {"kind": "agent", "name": name}
             if entry is None:
@@ -1329,7 +1314,9 @@ def classify(
         if event.get("type") != "error":
             continue
         data = (event.get("error") or {}).get("data") or {}
-        error_text = _string_field(data, "message") or str((event.get("error") or {}).get("name"))
+        error_text = common.string_field(data, "message") or str(
+            (event.get("error") or {}).get("name")
+        )
 
     tool_parts = [
         part for _, parts in _iter_parts(sessions) for part in parts if part.get("type") == "tool"
@@ -1353,11 +1340,6 @@ def classify(
 
 
 # --------------------------------------------------------------------------- helpers
-
-
-def _bare(name: str | None) -> str:
-    """The component half of a `<plugin>/<component>` name. Built trees use the bare name."""
-    return names.bare(name)
 
 
 def _promote_to_primary(root: Path, agent: str) -> None:
@@ -1405,7 +1387,7 @@ def _injected_agent(unit: Unit) -> str:
     expect = unit.task.expect
     if unit.condition != INJECTED or expect.skill:
         return ""
-    return _bare(expect.agent)
+    return names.bare(expect.agent)
 
 
 def installed_skills(root: Path) -> list[str]:
@@ -1436,15 +1418,6 @@ def available_skills(names: list[str], rules: list[dict[str, Any]]) -> list[str]
         if action != "deny":
             allowed.append(name)
     return allowed
-
-
-def _split_model(model: str) -> tuple[str, str]:
-    provider, _, rest = model.partition("/")
-    return (provider, rest) if rest else ("unknown", model)
-
-
-def _model_id(model: str) -> str:
-    return _split_model(model)[1]
 
 
 def _probe_failure(message: str) -> list[dict[str, Any]]:
@@ -1533,7 +1506,7 @@ def catalog_context(catalog: dict[str, Any], model: str) -> tuple[int | None, st
     Unlike Ollama, a hosted provider's context is a property of the model rather than of a server
     setting, so the catalog is the authority and there is no local override to consult.
     """
-    provider_id, model_id = _split_model(model)
+    provider_id, model_id = common.split_model(model)
     entry = ((catalog.get(provider_id) or {}).get("models") or {}).get(model_id)
     if not isinstance(entry, dict):
         return None, "unknown"
@@ -1554,70 +1527,6 @@ def _merge_tree(staged: Path, target: Path) -> int:
         shutil.copy2(path, destination)
         copied += 1
     return copied
-
-
-#: One setup command's budget. Setup builds a starting state; it is not where work happens.
-SETUP_TIMEOUT_S = 300
-
-
-def _run_setup(unit: Unit, workdir: Path, root: Path) -> None:
-    """Run a task's setup commands in its workdir, logging each to `setup.log`.
-
-    A command that fails raises `RunnerError`, which the caller records as `infra_error`: a unit
-    that never reached its starting state says nothing about the model.
-    """
-    if not unit.task.setup:
-        return
-    env = {**os.environ, **unit.task.resolved_env()}
-    with (root / "setup.log").open("w", encoding="utf-8") as log:
-        for command in unit.task.setup:
-            log.write(f"$ {command}\n")
-            try:
-                done = subprocess.run(
-                    command,
-                    shell=True,
-                    cwd=workdir,
-                    stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    text=True,
-                    errors="replace",
-                    timeout=SETUP_TIMEOUT_S,
-                    env=env,
-                    check=False,
-                )
-            except subprocess.TimeoutExpired as exc:
-                raise RunnerError(
-                    f"setup `{command}` for task {unit.task.id!r} did not finish within "
-                    f"{SETUP_TIMEOUT_S}s"
-                ) from exc
-            except OSError as exc:
-                raise RunnerError(f"setup `{command}` could not be started: {exc}") from exc
-            log.write(done.stdout + done.stderr)
-            if done.returncode != 0:
-                tail = (done.stderr or done.stdout).strip().splitlines()[-3:]
-                raise RunnerError(
-                    f"setup `{command}` for task {unit.task.id!r} exited {done.returncode}"
-                    + (f": {' / '.join(tail)}" if tail else "")
-                )
-
-
-def _git_init(workdir: Path) -> None:
-    """A workdir is a git repo so the harness can snapshot it, and so verifiers can diff it."""
-    # A run without git still works; only the harness's own snapshotting is lost.
-    with contextlib.suppress(OSError, subprocess.SubprocessError):
-        subprocess.run(
-            ["git", "init", "--quiet", str(workdir)],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            timeout=60,
-            check=False,
-        )
-
-
-def _default_guard_plugin() -> Path | None:
-    """The guard plugin, whether running from a checkout or an installed wheel."""
-    found = paths.packaged_data("opencode-guard") / "wikiskill-guard.ts"
-    return found if found.is_file() else None
 
 
 __all__ = ["BASE_DENY", "OFF", "ROUTED", "OpenCodeBackend", "classify"]

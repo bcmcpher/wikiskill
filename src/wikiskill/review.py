@@ -34,7 +34,6 @@ from .collection import Collection
 from .errors import WikiskillError
 from .frontmatter import read as read_frontmatter
 from .runner.base import INFRA_OUTCOMES, OFF, new_run_id
-from .runner.opencode import _default_guard_plugin
 from .runner.preflight import Endpoint, request_json
 
 DEFAULT_BUDGET = 15_000
@@ -687,7 +686,7 @@ def harness_asker(
     tool is switched off (`FreeTierError`, checked on 2026-09-22). So `bash` stays declared and the
     evaluation guard refuses every command instead, and without the guard nothing is run at all.
     """
-    guard = guard or _default_guard_plugin()
+    guard = guard or paths.opencode_guard_plugin()
     if guard is None or not guard.is_file():
         raise ReviewError(
             "the evaluation guard plugin is missing, so no role is run through the harness"
