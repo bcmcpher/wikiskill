@@ -25,7 +25,8 @@ REPO = Path(__file__).resolve().parent.parent
 TAKEN = [["hook"], ["hook", "PostToolUse"], ["hook", ""], ["guard"]]
 LEFT_TO_THE_PARSER = [
     [],
-    ["--version"],
+    ["--version", "extra"],
+    ["log", "--version"],
     ["hook", "--help"],
     ["hook", "-h"],
     ["hook", "Stop", "extra"],
@@ -47,6 +48,27 @@ def test_the_fast_path_takes_what_the_parser_would_send_to_the_same_handler(argv
 @pytest.mark.parametrize("argv", LEFT_TO_THE_PARSER)
 def test_everything_else_goes_through_the_parser(argv):
     assert entry.fast_path(argv) is None
+
+
+def test_version_prints_what_the_parser_would(capsys):
+    with pytest.raises(SystemExit) as exited:
+        build_parser().parse_args(["--version"])
+    assert exited.value.code == 0
+    expected = capsys.readouterr().out
+    assert entry.fast_path(["--version"]) == ("version", "")
+    assert entry.main(["--version"]) == 0
+    assert capsys.readouterr().out == expected
+
+
+def test_version_never_imports_the_cli():
+    code = (
+        "import sys\n"
+        "from wikiskill.entry import main\n"
+        "main(['--version'])\n"
+        "print('wikiskill.cli' in sys.modules)\n"
+    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert done.stdout.splitlines()[-1] == "False"
 
 
 def test_hook_dispatches_its_event_and_stdin(monkeypatch):
