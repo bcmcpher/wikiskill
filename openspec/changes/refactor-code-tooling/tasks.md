@@ -3,9 +3,10 @@
 Each slice merges on its own and passes `bin/check`.
 
 **Status, 2026-10-06.** Slice 1, wave A (slices 2, 3, 4 and task 7.3), the redaction fix and
-waves B (slice 5, task 7.1) and C (slice 6, task 7.2) are merged and pushed. `bin/check` passes:
-pytest 879, bun 216 (plugin) and 75 (guard), and pyright 0 errors with no file excluded. Next is
-wave D, optional and awaiting the user's go-ahead.
+waves B (slice 5, task 7.1), C (slice 6, task 7.2) and D (slice 8) are merged and pushed. Every
+task is done. `bin/check` passes: pytest 880, bun 216 (plugin) and 75 (guard), and pyright 0 errors
+with no file excluded. Follow-up, outside this change: `wikiskill --version` still builds the whole
+parser (see 8.4).
 
 **Decided before wave B (the user, 2026-10-06):**
 
@@ -308,14 +309,41 @@ one at a time, rebasing each onto `main`, then push once at the end of the wave.
 
 ## 8. CLI package (D9; L; last, optional)
 
-- [ ] 8.1 Record `--help` for every subcommand as a temporary fixture.
-- [ ] 8.2 Split `cli.py` into `cli/__init__.py` (main, exit codes, errors, the fast path),
+- [x] 8.1 Record `--help` for every subcommand as a temporary fixture.
+  Done 2026-10-06: 34 commands (the top level, every subcommand and nested subcommand), recorded from
+  the old `cli.py` with `COLUMNS=80` and `NO_COLOR=1`, plus a test of subcommand order.
+- [x] 8.2 Split `cli.py` into `cli/__init__.py` (main, exit codes, errors, the fast path),
   `cli/_common.py` (`misuse()`, the shared `--collection`) and one `cli/<group>.py` per command
   group with `register()` and its handlers. Import heavy modules inside handlers.
-- [ ] 8.3 Check that `--help` matches the fixture for every subcommand. Then delete the fixture.
-- [ ] 8.4 Measure `wikiskill --version` and `wikiskill hook` time again.
+  Done: `cli.py` moved with `git mv` to `cli/__init__.py` (82 lines: `main`, `build_parser`, the
+  error handling, `GROUPS`; it re-exports `OK`, `FAILED`, `MISUSE`, `cmd_hook` and `cmd_guard`).
+  `_common.py` holds the exit codes, `misuse()`, `add_collection_argument()`, `load`,
+  `collection_for` and `named_or_every`. There are 15 group modules: collection, log, suite, eval,
+  build, install, hook (with guard), note, corrections, compare, leaderboard, review (with sample),
+  refine, proposal and graph. Handlers import lazily, with `PLC0415` ignored per-file for `cli/*`.
+  The seven bare `return MISUSE` sites go through `misuse()`, with the same text and code. No test
+  patched `wikiskill.cli.*`, so none needed changing. New test: importing `wikiskill.cli` loads no
+  command module (checked to fail when a top-level import is added).
+- [x] 8.3 Check that `--help` matches the fixture for every subcommand. Then delete the fixture.
+  Done: all 34 matched byte for byte at every commit before the fixture was deleted. A one-off check
+  of 24 misuse and error cases gave the same stdout, stderr and exit code before and after.
+- [x] 8.4 Measure `wikiskill --version` and `wikiskill hook` time again.
+  Done. Medians of 21 interleaved runs, on a machine slower than at §2.4, so compare the columns
+  with each other:
+
+  | | before | after |
+  |---|---|---|
+  | `wikiskill --version` | 208.7 ms | 199.6 ms |
+  | `wikiskill hook Stop` | 112.2 ms | 114.0 ms (noise is about ±5%) |
+  | `wikiskill guard` | 33.9 ms | 33.7 ms |
+  | `import wikiskill.cli` (`-X importtime`) | 173.0 ms | 18.2 ms |
+
+  `--version` barely moves, because building the parser imports the modules its defaults and
+  choices come from (`suite.SPLITS` pulls in jsonschema, for one). That is about 80 ms. The fix is
+  either a `--version` shortcut in `cli.main`, or moving those constants into light modules. It is
+  left for a follow-up.
 
 ## 9. Verify
 
-- [ ] 9.1 Each slice: `bin/check` passes, and the test count does not drop.
-- [ ] 9.2 `openspec validate refactor-code-tooling --strict --no-interactive`.
+- [x] 9.1 Each slice: `bin/check` passes, and the test count does not drop.
+- [x] 9.2 `openspec validate refactor-code-tooling --strict --no-interactive`.
