@@ -1,14 +1,14 @@
 ## Purpose
 
-Defines the data-science-harness pilot: running that collection's routing probe through wikiskill on open
-models, reporting in the terms of its own evaluation protocol, and logging its real use — all without
-modifying data-science-harness.
+Defines the data-science-harness pilot: running that collection's components and routing probe through
+wikiskill on open models, across model families and sizes, and reporting in the terms of its own
+evaluation protocol — all without modifying data-science-harness.
 
 ## ADDED Requirements
 
 ### Requirement: The pilot never modifies data-science-harness
 
-Building, evaluating, logging, and refining data-science-harness components MUST NOT write to the
+Building, evaluating, and refining data-science-harness components MUST NOT write to the
 data-science-harness repository. Refinements MUST be delivered as patches.
 
 #### Scenario: Full pilot run
@@ -35,17 +35,57 @@ The report MUST give pass rates with intervals per model and condition.
 - **THEN** `wikiskill proposal replay` reports it against v1, and `skill-impact.md` records the
   decision
 
-### Requirement: The routing probe, when run, uses its declared control
+### Requirement: A hand-written patch passes the same gate
 
-When the pilot runs the data-science-harness routing suite, it MUST use the OFF condition as the
-protocol's harness-off control. It MUST report `route@1`, `route@k`, and `capability@k` per model, as
-the probe fixture defines them.
+A patch the pilot writes by hand MUST be submitted as a proposal and evaluated as a candidate run,
+replayed against v1 and decided, exactly as a generated proposal is. It MUST NOT be handed to the
+data-science-harness maintainer unless that decision accepted it, and it MUST be handed over with
+its comparison.
 
-#### Scenario: Two open models
+#### Scenario: The readiness-path patch
 
-- **WHEN** the reported routing run completes on two open models
+- **WHEN** a hand-written patch to `archive-doer.md` is evaluated and replayed
+- **THEN** `skill-impact.md` records the decision, and the report shows `wikiskill diff` of v1
+  against the candidate
+
+### Requirement: Models are compared across families and sizes
+
+The pilot MUST preflight every model the server offers. It MUST report every model that passed, with
+pass rates and intervals per model and condition, and MUST list every model that failed with its
+reason. The repeats MUST be chosen before the first run and stated in the report. Runs of one model
+with different thinking settings MUST be reported as separate entrants. The report MUST state the
+run-to-run spread of two runs of one version on one model, beside any difference the pilot reports
+between versions or models.
+
+#### Scenario: A model fails preflight
+
+- **WHEN** a served model does not return a structured tool call
+- **THEN** the report lists it with that reason, and no rate is reported for it
+
+#### Scenario: Thinking on and off
+
+- **WHEN** one model runs the suite at `--thinking default` and at `--thinking off`
+- **THEN** the report shows two rows for it, one per setting, never one pooled rate
+
+### Requirement: The routing probe uses its declared control
+
+The pilot MUST run the data-science-harness routing suite on models from at least three families.
+It MUST use the OFF condition as the protocol's harness-off control and ROUTED as harness-on. It MUST
+report `route@1`, `route@k`, and `capability@k` per model, as the probe fixture defines them.
+`handoff@k` MUST be scored by three judges, reporting each judge's identity and label beside the
+majority. A judge from the same family as the model that made a delegation MUST be marked.
+
+#### Scenario: Three open model families
+
+- **WHEN** the routing run completes on models from three families
 - **THEN** the pilot report gives each metric per model under OFF and ROUTED, and names OFF as the
   control
+
+#### Scenario: A judge scores its own family
+
+- **WHEN** `gpt-oss:120b` judges a delegation made by `gpt-oss:120b`
+- **THEN** its label is marked, and the majority of the other two judges is reported beside the
+  three-judge majority
 
 ### Requirement: Mutating operations are blocked during pilot runs
 
@@ -61,10 +101,15 @@ set `DATALAD_AUTOSAVE=0`.
 ### Requirement: Unrun probes and runs are stated
 
 The pilot report MUST name every data-science-harness probe not executed and every planned run not
-completed, with reasons. It MUST NOT present smoke-run results as the reported run.
+completed, with reasons. It MUST NOT present smoke-run results as the reported run, and MUST NOT
+present the rates of an unfinished run as complete.
 
-#### Scenario: Only the smoke run completed
+#### Scenario: A model's run does not finish
 
-- **WHEN** no remote endpoint was available for the reported run
-- **THEN** the report labels its figures as smoke results, and lists the reported run and the
-  provenance, reproducibility, and cost probes as unrun
+- **WHEN** a model passes preflight but its sweep run does not finish
+- **THEN** the report lists that model's run as unrun with the reason, and gives no rates for it
+
+#### Scenario: Probes outside this change
+
+- **WHEN** the report is written
+- **THEN** it lists the provenance, reproducibility, and cost probes as unrun, with reasons

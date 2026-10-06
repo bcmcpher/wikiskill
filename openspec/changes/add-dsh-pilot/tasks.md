@@ -1,19 +1,17 @@
 ## 0. Minimal working core
 
-One unit through the whole loop, and a DSH pilot report (1.x, 2.x, 4.1). `add-minimal-loop` built
-the loop and ran review and refine live on `datalad/datalad-doer`, but that unit was deleted upstream
-before its v1/v2 comparison, so its 6.0c, 6.1, 6.2 and 8.4 move here: the first unit's 2.3–2.4 run
-is Milestone A's v1/v2 comparison.
+Done: one unit through the whole loop, and a DSH pilot report (1.x, 2.x, 4.1). `add-minimal-loop`
+built the loop and ran review and refine live on `datalad/datalad-doer`. That unit was deleted
+upstream before its v1/v2 comparison, so its 6.0c, 6.1, 6.2 and 8.4 moved here: the first unit's
+2.3–2.4 run is Milestone A's v1/v2 comparison.
 
-Deferred:
-- the routing probe over the whole collection (3.x), which is optional until per-unit pilots show
-  the loop works on DSH
-- passive logging (5.x), until the loop is in regular use
-- Phase 2 (6.x)
+Sections 1–2 used DSH at `c6f6079` (`main`), OpenCode 1.18.34, and Ollama 0.34.2 on a GB10. The
+models were `ollama/gemma4:latest` and `ollama/qwen3:30b-a3b`, with `--thinking default`. The
+maintainer and proposer were `qwen3:30b-a3b` at a 40960-token context. The report is
+`docs/pilots/dsh.md`.
 
-All runs used DSH at `c6f6079` (`main`), OpenCode 1.18.34, and Ollama 0.34.2 on a GB10. The models
-were `ollama/gemma4:latest` and `ollama/qwen3:30b-a3b`, with `--thinking default`. The maintainer
-and proposer were `qwen3:30b-a3b` at a 40960-token context. The report is `docs/pilots/dsh.md`.
+Rewritten 2026-10-06 for a broader check across models (sections 3–7). Passive use (old 5.x) and
+Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 
 ## 1. Choose units
 
@@ -86,50 +84,82 @@ and proposer were `qwen3:30b-a3b` at a 40960-token context. The report is `docs/
     - `mint-without-token` on gemma4 fell from 1/3 to 0/3, within tolerance.
   - **p-002 was rejected** and recorded in `skill-impact.md`.
 
-## 3. Routing probe (optional)
+## 3. Readiness-path candidate
 
-Deferred: optional by design, and not needed for Milestone A. The archive doer is delegated by
-planners, so routing to it is a question about planners, which this probe is for.
+- [ ] 3.1 Work out a reference to `archive-cli/scripts/check-readiness.sh` from `archive-doer.md`
+  that resolves both in a DSH checkout and after `bin/install.sh` and `wikiskill build`. The doer
+  and the script are in different plugins, so `${CLAUDE_PLUGIN_ROOT}` alone is not enough. Record
+  what each installer lays down.
+- [ ] 3.2 Write the patch by hand as a proposer reply. Submit it with `wikiskill refine
+  archive/archive-doer --prepare` and `--reply-file`, citing v1 units where the script was not
+  found. `collection check` passes on the candidate with no new unresolved-path warning.
+- [ ] 3.3 `eval --proposal` with v1's suite, models, conditions and repeats. Check in the
+  transcripts that the readiness script now runs.
+- [ ] 3.4 `proposal replay` against v1, `proposal decide`, and `wikiskill diff` of v1 against the
+  candidate for the report.
+- [ ] 3.5 If accepted, hand the patch and its comparison to the DSH maintainer. Sending it is the
+  user's call.
 
-- [ ] 3.1 `pilots/dsh/routing.suite.yaml` reading `bench/tasks/routing-lifecycle.yaml`, with guard
-  rules and `env: { DATALAD_AUTOSAVE: "0" }`.
-- [ ] 3.2 Smoke run: one model, OFF and ROUTED, k=3.
-- [ ] 3.3 Reported run: at least two open models from different families plus INJECTED, with the judge
-  from a third family for `handoff@k`.
+## 4. Model sweep (archive-doer suite)
 
-## 4. Report
+- [ ] 4.1 Preflight every model in the design's table, at `--thinking default`. Record per model:
+  pass or the failure reason, and the served context. Fill in the size and shape of the added models
+  from `ollama show`, and which ones the server says can think.
+- [ ] 4.2 Fix the repeats before the first run (design: 10 per task, n = 60 per cell) and record
+  them in the report.
+- [ ] 4.3 One run per model that passed, OFF and INJECTED, smallest first, `llama3.3` last. The
+  suite file is unchanged, so its hash matches v1.
+- [ ] 4.4 Thinking arm: `--thinking off` for the models that can think (from 4.1), same suite and
+  repeats.
+- [ ] 4.5 Noise: rerun `gemma4` on the v1 settings on a different day. Use `wikiskill compare`
+  for the run-to-run spread.
+- [ ] 4.6 `wikiskill leaderboard` over every sweep run and v1. Answer the design's six questions
+  from the per-model table.
+- [ ] 4.7 Ceiling check. If two or more models are at the ceiling under INJECTED, write harder tasks
+  in a new suite file, check them by hand (as 2.2), and run them on the top models.
 
-- [x] 4.1 `docs/pilots/dsh.md`, written in the protocol's terms:
+## 5. Routing probe
+
+- [ ] 5.1 `pilots/dsh/dsh.toml` over the whole of DSH. `collection check --sync` passes, and the
+  flat-name mapping is printed with no collision.
+- [ ] 5.2 `pilots/dsh/routing.suite.yaml` from every task of `bench/tasks/routing-lifecycle.yaml`:
+  - `expected_skill` as the route, and `expected_delegates_to` as the delegates
+  - guard rules, and `env: { DATALAD_AUTOSAVE: "0" }`
+  - `suite check` passes, and no prompt names its expected component
+- [ ] 5.3 A three-judge handoff rubric for `handoff@k`, scored against the parameters each doer
+  states it requires. Judges: `gpt-oss:120b`, `llama3.3` and `nemotron-3.5-lightning`.
+- [ ] 5.4 Smoke run: `gemma4`, OFF and ROUTED, k=3. Read the transcripts: routes are detected and
+  delegations are captured.
+- [ ] 5.5 Reported run: the models that finished the sweep, from at least three families. Run OFF,
+  ROUTED and INJECTED, k=3, with the handoff judges.
+- [ ] 5.6 Per planner task, compare ROUTED with INJECTED to separate routing loss from content
+  value.
+
+## 6. Report
+
+- [x] 6.1 `docs/pilots/dsh.md`, written in the protocol's terms (was 4.1):
   - the control named
   - per unit and per model: pass rates with intervals, the direction, and tool choice
   - the proposals and the decisions on them
   - unrun probes and runs, with reasons
-- [ ] 4.2 Hand accepted patches to the data-science-harness maintainer, with their comparisons.
-  Deferred: no patch was accepted. `docs/pilots/dsh.md` notes one untested finding for the
-  maintainer: the doer's repository-relative `archive-cli` paths do not resolve outside a DSH
-  checkout. Sending it is the user's call.
-
-## 5. Passive use
-
-Deferred until Milestone C, as the roadmap sets out.
-
-- [ ] 5.1 Install the logger for a unit's collection in OpenCode and use it in a real session.
-- [ ] 5.2 After a week of use, run `wikiskill review` on that unit and record what live sessions add
-  beyond the evals.
-
-## 6. Phase 2 (deferred)
-
-- [ ] 6.1 Specify the sandbox: fake Zenodo/OSF credentials, local git siblings, and a synthetic BIDS
-  dataset. (Blocked: not started until the per-unit pilots report.)
-- [ ] 6.2 Map `schemas/validate-ledger.py` and `tests/e2e-smoke.sh` assertions to command verifiers.
+- [ ] 6.2 Add the readiness candidate, with its diff and decision.
+- [ ] 6.3 Add the sweep: models that failed preflight, repeats, per-model and thinking tables, the
+  run-to-run spread, and answers to the six questions.
+- [ ] 6.4 Add the routing probe: `route@1`, `route@k`, `capability@k` and `handoff@k` per model,
+  with per-judge labels and the routing-loss breakdown.
+- [ ] 6.5 Record `datalad/datalad-doer` as retired: its doer was deleted upstream, and
+  `pilots/datalad-doer/` is kept for the record and not run. Update the unrun list: provenance,
+  reproducibility and cost probes, passive use, and any model or run that did not finish.
 
 ## 7. Verify
 
 - [x] 7.1 `wikiskill suite check` passes for every pilot suite, with no prompt naming its expected
   component. `pilots/archive-doer/suite.yaml` and `pilots/datalad-doer/suite.yaml` both print `ok`.
   No archive prompt names the doer, a skill or the readiness check.
+- [ ] 7.1b The same for `pilots/dsh/routing.suite.yaml` and any harder archive suite from 4.7.
 - [x] 7.2 `git -C ~/Projects/claude/data-science-harness status --porcelain` is unchanged by every
   step, apart from patches the user applied. Checked before the candidate run and after the
   decision: `status --porcelain` was empty, HEAD stayed at `c6f6079`, and no file outside the VCS
   directory changed after the pilot began.
-- [x] 7.3 `openspec validate add-dsh-pilot --strict --no-interactive`.
+- [ ] 7.2b The same check after sections 3–5.
+- [ ] 7.3 `openspec validate add-dsh-pilot --strict --no-interactive`.
