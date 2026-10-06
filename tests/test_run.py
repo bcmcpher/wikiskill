@@ -276,6 +276,51 @@ def test_the_manifest_records_the_suite_hash(xdg, tmp_path, layout):
     assert run_mod.load_manifest(run.layout)["suite_hash"] == rawlog.content_hash(path.read_bytes())
 
 
+def test_eval_repeats_overrides_the_suites_and_keeps_its_hash(xdg, tmp_path, monkeypatch):
+    from wikiskill.cli import eval as eval_cli
+    from wikiskill.cli import main
+
+    path = tmp_path / "suite.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+    made: list[FakeBackend] = []
+
+    def fake(args, coll, endpoint, layout, root):
+        made.append(FakeBackend(layout, writes="DONE.md"))
+        return made[0]
+
+    monkeypatch.setattr(eval_cli, "_eval_backend", fake)
+    code = main(
+        [
+            "eval",
+            "--suite",
+            str(path),
+            "--models",
+            "fake/model",
+            "--condition",
+            "off",
+            "--repeats",
+            "3",
+        ]
+    )
+
+    assert code == 0
+    (backend,) = made
+    manifest = run_mod.load_manifest(backend.layout)
+    assert sorted(backend.executed) == ["control"] * 3, "the suite says 1; the flag says 3"
+    assert manifest["repeats"] == {"control": 3}
+    assert manifest["suite_hash"] == rawlog.content_hash(path.read_bytes())
+
+
+def test_eval_refuses_fewer_than_one_repeat(xdg, tmp_path, capsys):
+    from wikiskill.cli import main
+
+    path = tmp_path / "suite.yaml"
+    path.write_text(SUITE, encoding="utf-8")
+
+    assert main(["eval", "--suite", str(path), "--models", "fake/model", "--repeats", "0"]) == 2
+    assert "--repeats must be at least 1" in capsys.readouterr().err
+
+
 # --------------------------------------------------------------------------- injected
 
 

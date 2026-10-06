@@ -65,6 +65,9 @@ MCP servers, and a guard plugin refusing the commands the task denies. Results l
 `results.jsonl`, `report.json` and `report.md`, and the trajectories are appended to the raw log with
 `origin: eval`.
 
+`--repeats N` runs every task N times in place of the suite's repeats. The suite hash is the
+file's alone, so a run at more repeats still pools with earlier runs of the same suite.
+
 Before any task runs, each model is preflighted for reachability, tool calling and context window.
 A model that fails is skipped with an actionable message rather than scoring zero — on a CPU-only
 laptop with Ollama's 4096-token default, that is the usual outcome, and the report says so.
