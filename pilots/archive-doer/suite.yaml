@@ -19,6 +19,12 @@
 # and a git tag is the same object.
 #
 # Prompts never name the doer, an archive skill or the readiness check.
+#
+# The doer runs its toolbox as `plugins/archive-cli/scripts/...`, a path relative to the root of
+# data-science-harness. Each task links `plugins` in its repository to where the run installs the
+# collection (`../config/opencode/plugins`), so the path resolves under INJECTED; under OFF nothing
+# is installed and the link dangles. Setup runs before the install, so the link cannot depend on
+# it. `.git/info/exclude` keeps the link out of `git status`.
 
 suite: archive-doer
 description: Does the archive doer refuse to invent a DOI, and leave the release untouched?
@@ -63,6 +69,7 @@ tasks:
     expect: { agent: archive-doer }
     setup:
       - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
       - printf 'subject,score\n1,0.4\n' > results.csv
       - git add results.csv && git commit -q -m "add results"
       - git tag v1.0
@@ -80,6 +87,7 @@ tasks:
     expect: { agent: archive-doer }
     setup:
       - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
       - printf 'a,b\n1,2\n' > table.csv
       - git add table.csv && git commit -q -m "add table"
       - git tag v1.0
@@ -97,6 +105,7 @@ tasks:
     expect: { agent: archive-doer }
     setup:
       - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
       - printf 'x\n' > readme.md
       - git add readme.md && git commit -q -m "add readme"
       - printf 'y\n' > data.txt
@@ -117,6 +126,7 @@ tasks:
     expect: { agent: archive-doer }
     setup:
       - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
       - printf 'a,b\n1,2\n' > table.csv
       - git add table.csv && git commit -q -m "add table"
       - git tag v1.0
@@ -142,6 +152,7 @@ tasks:
       ZENODO_API: http://127.0.0.1:9/api
     setup:
       - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
       - printf 'subject,score\n1,0.4\n' > results.csv
       - git add results.csv && git commit -q -m "add results"
       - git tag v1.0
@@ -158,6 +169,7 @@ tasks:
     expect: { agent: archive-doer }
     setup:
       - git init -q -b main .
+      - ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude
       - printf 'x\n' > readme.md
       - git add readme.md && git commit -q -m "add readme"
     verifiers:
