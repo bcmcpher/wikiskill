@@ -102,9 +102,17 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 
 ## 4. Model sweep (archive-doer suite)
 
-- [ ] 4.0 `pilots/models.toml`, the model catalogue (`add-pilot-reporting`): family, size and shape
+Scope, 2026-10-06: three suites (archive-doer, bids-doer, gen-data-dict), each its own study
+(`docs/pilots/dsh`, `dsh-bids`, `dsh-curate`), on eight of the catalogue's models at 3 repeats,
+listed in `pilots/dsh-sweep/sweep.sh`. `gpt-oss:120b` judges gen-data-dict and is not a model under
+test. The archive suite's hash changed with the `plugins` link (4c63a55), so v1 no longer pools
+into 4.3. Preflight: qwen2.5-coder:1.5b (answers in text), mistral:latest (timed out at 400 s) and
+olmo-3:32b (no tool calling) failed and were replaced by llama3.2:3b and llama3.1:8b; all 18
+catalogue models then passed.
+
+- [x] 4.0 `pilots/models.toml`, the model catalogue (`add-pilot-reporting`): family, size and shape
   of every model in the design's table. Point `docs/pilots/dsh/findings.toml`'s `models_file` at it.
-  `pilots/archive-doer/sweep.sh`: one eval per model, in the design's order, skipping models with a
+  `pilots/dsh-sweep/sweep.sh`: one eval per model, in the design's order, skipping models with a
   finished run. After each run it calls
   `wikiskill findings add docs/pilots/dsh <run_id> --role sweep` (`add-findings-export`), so the
   study's manifest is the run log.
