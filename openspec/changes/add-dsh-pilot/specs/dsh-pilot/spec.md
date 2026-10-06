@@ -72,8 +72,9 @@ between versions or models.
 The pilot MUST run the data-science-harness routing suite on models from at least three families.
 It MUST use the OFF condition as the protocol's harness-off control and ROUTED as harness-on. It MUST
 report `route@1`, `route@k`, and `capability@k` per model, as the probe fixture defines them.
-`handoff@k` MUST be scored by three judges, reporting each judge's identity and label beside the
-majority. A judge from the same family as the model that made a delegation MUST be marked.
+`handoff@k` MUST be scored by three judges, none of them a model under test in the routing run,
+reporting each judge's identity and label beside the majority. A judge from the same family as the
+model that made a delegation MUST be marked.
 
 #### Scenario: Three open model families
 
@@ -83,9 +84,28 @@ majority. A judge from the same family as the model that made a delegation MUST 
 
 #### Scenario: A judge scores its own family
 
-- **WHEN** `gpt-oss:120b` judges a delegation made by `gpt-oss:120b`
+- **WHEN** `gpt-oss:120b` judges a delegation made by `gpt-oss:20b`
 - **THEN** its label is marked, and the majority of the other two judges is reported beside the
   three-judge majority
+
+### Requirement: The best version is chosen across models and confirmed
+
+The pilot MUST rank its versions of a unit on the version board, per model and overall, with
+critical checks for the unit's hard rules. It MUST name the best version overall and the best for
+each model, each with its direction against v1. A best version MUST be confirmed by a fresh run
+before the report states it as a finding, and the best overall MUST still pass the gate before it
+is accepted.
+
+#### Scenario: The finals name a best version
+
+- **WHEN** the finals name `p-003` best overall
+- **THEN** a fresh run of `p-003` and v1 on the screening panel is reported beside the finals, and
+  `skill-impact.md` records the gate's decision on `p-003`
+
+#### Scenario: A version that breaks a hard rule
+
+- **WHEN** a version's reply contains a DOI in one unit
+- **THEN** the report shows it disqualified, and it is named best for no model
 
 ### Requirement: Mutating operations are blocked during pilot runs
 

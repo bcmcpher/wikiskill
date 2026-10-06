@@ -128,15 +128,63 @@ tasks then go in a new suite file, so the existing hash and its runs stay compar
 - *Conditions:* ROUTED is the harness-on condition. INJECTED adds the decomposition the protocol does
   not define, and is reported as supplementary.
 - *Route metrics:* `route@1`, `route@k` (k=3), and `capability@k`, as defined in `bench/probes/routing.yaml`.
-- *Models:* every model that passed the sweep's preflight and finished its sweep run, at
-  `--thinking default`, covering at least three families.
-- *Handoff:* `handoff@k` uses a three-judge rubric. Judges are the three largest models from
-  different families: `gpt-oss:120b`, `llama3.3`, `nemotron-3.5-lightning`. Where a judge's own
-  family produced the delegation, its label is reported but marked, and the majority of the other
-  two is reported beside the three-judge majority.
+- *Judges:* `handoff@k` uses a three-judge rubric. The judges are the three largest models from
+  different families: `gpt-oss:120b`, `llama3.3`, `nemotron-3.5-lightning`. `eval-scoring` forbids
+  a judge that is a model under test, so these three are not routing entrants. Their sweep results
+  stand, because the sweep uses no judge.
+- *Models:* every other model that passed the sweep's preflight and finished its sweep run, at
+  `--thinking default`. They cover at least three families.
+- *Same-family judging:* where a judge shares a family with the model that delegated, as
+  `gpt-oss:120b` does with `gpt-oss:20b`, its label is reported but marked. The majority of the
+  other two judges is reported beside the three-judge majority.
 - *Routing loss against content value:* for each planner task, compare ROUTED with INJECTED. A task
   that passes INJECTED but fails ROUTED lost on the description; one that fails both lost on the
   instructions.
+
+**Choosing the best version.** This uses the version board from `add-version-board`.
+- *Versions:* at most six of `archive/archive-doer`.
+  - v1, the source at `c6f6079`, and the baseline throughout
+  - `p-002`, rejected on two models but still a version
+  - the readiness candidate (3.x)
+  - one proposal from a review of every sweep run
+  - up to two proposals from `review --model`, for the models with the lowest INJECTED rate under v1
+    that still passed preflight
+- *Critical checks:* `pilots/archive-doer/critical.yaml` marks the checks that encode the doer's
+  hard rules: no DOI in the reply, tags unmoved, no commit. A version that breaks one in any unit is
+  never named best.
+- *Baseline data:* the sweep (4.x) is v1's OFF and INJECTED on every model. OFF is shared, so
+  candidates run INJECTED only.
+- *Screening:* each candidate runs on a panel of one model per family that passed preflight, taking
+  the family's middle size. A per-model candidate also runs on its target model. Screening repeats
+  are set from the unit times measured in the sweep, so that screening fits the time available. They
+  are stated before the first screening run.
+- *Finals:* the two candidates with the best screening mean that are not disqualified, plus any
+  version that was best on a screening model, run on every sweep model at the sweep's repeats.
+- *Confirmation:* the top of several noisy versions is biased upward. So the version the finals name
+  best overall, and v1, run again, fresh, on the screening panel. A per-model best that differs from
+  the overall best and was `up` in the finals is confirmed on its model alone. Only confirmed results
+  are reported as findings.
+- *Decision:* the confirmed best overall goes through the gate as usual: `proposal replay` against
+  v1, then `proposal decide`. The board ranks; the gate decides. Per-model bests are reported as
+  findings for the maintainer, not accepted as forks of the doer.
+
+**Report structure** (`docs/pilots/dsh.md`):
+1. *Setup:* DSH commit, OpenCode and Ollama versions, the model table with served contexts, and the
+   models that failed preflight, each with its reason.
+2. *Unit 1: archive-doer:* the existing section on v1, p-002 and the decision.
+3. *Model sweep:* repeats, then the per-model OFF and INJECTED rates with lift, grouped by family
+   and ordered by size. Then the thinking table, the run-to-run spread, and an answer to each of the
+   six questions, each citing its table rows.
+4. *Versions:*
+   - a version table: label, hash, origin, a one-line `diff` summary
+   - the critical checks
+   - screening, then finals: the board's per-model table and overall table
+   - the best version overall, and the best per model, each with its direction against v1
+   - the confirmation, and the gate decision
+5. *Routing probe:* `route@1`, `route@k`, `capability@k` per model under OFF and ROUTED, `handoff@k`
+   with per-judge labels, and the routing-loss breakdown.
+6. *For the DSH maintainer:* accepted patches with their comparisons, and per-model findings.
+7. *Not run:* probes, models and runs that did not finish, with reasons.
 
 **Namespacing.** Expected routes like `govern/preregister` match OpenCode's flat skill names. The
 adapter keeps a mapping, and the report prints both.
@@ -151,6 +199,9 @@ context in `run.json`. All runs in this change use DSH `c6f6079`. If DSH moves, 
 
 ## Risks / Trade-offs
 
+- [Screening and finals multiply GPU time by the number of versions] → the screening panel and
+  repeats are sized from measured unit times before screening starts. Finals take two candidates at
+  most, plus per-model winners.
 - [Nineteen models is many hours] → if the sweep must shrink, drop `olmo-3:32b` and
   `granite4.1:8b` first, then the thinking arm of the models with the smallest INJECTED − OFF gap.
   Dropped models are listed in the report as unrun.

@@ -118,6 +118,23 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 - [ ] 4.7 Ceiling check. If two or more models are at the ceiling under INJECTED, write harder tasks
   in a new suite file, check them by hand (as 2.2), and run them on the top models.
 
+## 4b. Best version (needs `add-version-board`)
+
+- [ ] 4b.1 `pilots/archive-doer/critical.yaml`: no DOI, tags unmoved, no commit, by task and
+  verifier index. `leaderboard --by-version` accepts it against the sweep runs.
+- [ ] 4b.2 Candidates: the readiness candidate (3.x), one proposal from a review of every sweep
+  run, and up to two from `review --model` for the lowest INJECTED models under v1. At most six
+  versions with v1 and `p-002`.
+- [ ] 4b.3 Screening: set the panel (one model per family, middle size) and the repeats from the
+  sweep's unit times, and record both. Run each candidate INJECTED on the panel, and per-model
+  candidates on their target too.
+- [ ] 4b.4 Finals: the top two not disqualified by screening mean, plus any per-model screening
+  winner, on every sweep model at the sweep's repeats. The version board over finals and sweep.
+- [ ] 4b.5 Confirmation: a fresh run of the best overall and v1 on the panel, and of each per-model
+  best that was `up`, on its model. Report only confirmed bests as findings.
+- [ ] 4b.6 Gate: `proposal replay` of the confirmed best overall against v1, then `proposal
+  decide`.
+
 ## 5. Routing probe
 
 - [ ] 5.1 `pilots/dsh/dsh.toml` over the whole of DSH. `collection check --sync` passes, and the
@@ -127,11 +144,12 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
   - guard rules, and `env: { DATALAD_AUTOSAVE: "0" }`
   - `suite check` passes, and no prompt names its expected component
 - [ ] 5.3 A three-judge handoff rubric for `handoff@k`, scored against the parameters each doer
-  states it requires. Judges: `gpt-oss:120b`, `llama3.3` and `nemotron-3.5-lightning`.
+  states it requires. Judges: `gpt-oss:120b`, `llama3.3` and `nemotron-3.5-lightning`, which are
+  not routing entrants.
 - [ ] 5.4 Smoke run: `gemma4`, OFF and ROUTED, k=3. Read the transcripts: routes are detected and
   delegations are captured.
-- [ ] 5.5 Reported run: the models that finished the sweep, from at least three families. Run OFF,
-  ROUTED and INJECTED, k=3, with the handoff judges.
+- [ ] 5.5 Reported run: the models that finished the sweep, except the judges, from at least three
+  families. Run OFF, ROUTED and INJECTED, k=3, with the handoff judges.
 - [ ] 5.6 Per planner task, compare ROUTED with INJECTED to separate routing loss from content
   value.
 
@@ -145,6 +163,8 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 - [ ] 6.2 Add the readiness candidate, with its diff and decision.
 - [ ] 6.3 Add the sweep: models that failed preflight, repeats, per-model and thinking tables, the
   run-to-run spread, and answers to the six questions.
+- [ ] 6.3b Add the versions section: version table with `diff` summaries, critical checks,
+  screening and finals boards, best overall and per model, confirmation and decision.
 - [ ] 6.4 Add the routing probe: `route@1`, `route@k`, `capability@k` and `handoff@k` per model,
   with per-judge labels and the routing-loss breakdown.
 - [ ] 6.5 Record `datalad/datalad-doer` as retired: its doer was deleted upstream, and
