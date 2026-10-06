@@ -25,9 +25,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import paths, rawlog, wiki
+from . import rawlog, wiki
 from .collection import Collection, Component
 from .compare import LoadedRun, load_run
+from .compare import runs as all_runs
 from .frontmatter import FrontmatterError
 from .frontmatter import read as read_frontmatter
 from .runner.base import ROUTED
@@ -176,7 +177,7 @@ def build(collection: Collection, runs: Sequence[str | Path] | None = None) -> G
     Candidate runs (`wikiskill eval --proposal`) are skipped: they test a version never accepted.
     """
     components = collection.discover()
-    loaded = [load_run(collection.name, run) for run in runs or _all_runs(collection.name)]
+    loaded = [load_run(collection.name, run) for run in runs] if runs else all_runs(collection.name)
     loaded = [run for run in loaded if not run.manifest.get("proposal")]
     graph = Graph(collection=collection.name, built=rawlog.now_ts())
     graph.runs = sorted(run.run_id for run in loaded)
@@ -186,13 +187,6 @@ def build(collection: Collection, runs: Sequence[str | Path] | None = None) -> G
         key=lambda e: (e.kind, e.source, e.target),
     )
     return graph
-
-
-def _all_runs(collection: str) -> list[Path]:
-    root = paths.evals_dir(collection)
-    if not root.is_dir():
-        return []
-    return sorted(d for d in root.iterdir() if (d / "run.json").is_file())
 
 
 def resolve(name: str, components: Sequence[Component]) -> str | None:

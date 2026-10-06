@@ -111,17 +111,7 @@ class Outcome:
 
 def component_runs(collection: str, component: str) -> list[compare.LoadedRun]:
     """Every finished run that evaluated this component, newest first."""
-    directory = paths.evals_dir(collection)
-    if not directory.is_dir():
-        return []
-    found = []
-    for root in sorted(directory.iterdir(), reverse=True):
-        if not (root / "run.json").is_file():
-            continue
-        run = compare.load_run(collection, root)
-        if component in run.hashes():
-            found.append(run)
-    return found
+    return [run for run in reversed(compare.runs(collection)) if component in run.hashes()]
 
 
 def _unit_events(

@@ -113,6 +113,66 @@ def test_a_direction_needs_intervals_that_do_not_overlap(a, b, expected):
     assert compare_mod.direction(a, b) == expected
 
 
+def unit(model=MODEL, condition="injected", outcome="completed", passed=True, reason=None):
+    return {
+        "model": model,
+        "condition": condition,
+        "outcome": outcome,
+        "passed": passed,
+        "reason": reason,
+    }
+
+
+QWEN = "ollama/qwen3:1.7b"
+TIMEOUT = unit(outcome="infra_error", passed=None, reason="timed out after 600s")
+
+
+@pytest.mark.parametrize(
+    "results, model, models, timeouts_fail, expected",
+    [
+        ([], MODEL, [MODEL], False, (0, 0)),
+        ([unit(), unit(passed=False)], MODEL, [MODEL], False, (1, 2)),
+        ([unit(), unit(condition="off")], MODEL, [MODEL], False, (1, 1)),
+        ([unit(), unit(model=QWEN)], MODEL, [MODEL, QWEN], False, (1, 1)),
+        ([unit(), unit(model=QWEN)], "pooled", [MODEL, QWEN], False, (2, 2)),
+        ([unit(), unit(model=QWEN)], "pooled", [MODEL], False, (1, 1)),
+        ([unit(), unit(passed=None)], MODEL, [MODEL], False, (1, 1)),
+        ([unit(), unit(outcome="skipped", passed=False)], MODEL, [MODEL], False, (1, 1)),
+        ([unit(), TIMEOUT], MODEL, [MODEL], False, (1, 1)),
+        ([unit(), TIMEOUT], MODEL, [MODEL], True, (1, 2)),
+        ([unit(), TIMEOUT], "pooled", [MODEL], True, (1, 2)),
+        (
+            [unit(), unit(outcome="infra_error", passed=None, reason="crashed")],
+            MODEL,
+            [MODEL],
+            True,
+            (1, 1),
+        ),
+    ],
+)
+def test_a_rate_counts_the_scored_units_of_one_cell(
+    results, model, models, timeouts_fail, expected
+):
+    rate = compare_mod.rate(results, "injected", model, models, timeouts_fail=timeouts_fail)
+    assert (rate.passed, rate.total) == expected
+
+
+# --------------------------------------------------------------------------- loading
+
+
+def test_runs_lists_finished_runs_oldest_first(xdg):
+    evals = paths.evals_dir("dsh-datalad")
+    assert compare_mod.runs("dsh-datalad") == [], "no evals directory yet"
+    for run_id in ("20261002-b", "20261001-a", "20261003-c"):
+        make_run(evals, run_id, passes=1)
+    (evals / "20261004-unfinished").mkdir()
+    (evals / "20261005-file").write_text("", encoding="utf-8")
+
+    found = compare_mod.runs("dsh-datalad")
+    assert [run.run_id for run in found] == ["20261001-a", "20261002-b", "20261003-c"]
+    assert found[0] == compare_mod.load_run("dsh-datalad", evals / "20261001-a")
+
+
 # --------------------------------------------------------------------------- comparing
 
 

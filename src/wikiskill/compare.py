@@ -179,6 +179,18 @@ def load_run(collection: str, run: str | Path) -> LoadedRun:
     )
 
 
+def runs(collection: str) -> list[LoadedRun]:
+    """Every finished run of the collection, a directory with a `run.json`, oldest first."""
+    directory = paths.evals_dir(collection)
+    if not directory.is_dir():
+        return []
+    return [
+        load_run(collection, root)
+        for root in sorted(directory.iterdir())
+        if (root / "run.json").is_file()
+    ]
+
+
 # --------------------------------------------------------------------------- comparing
 
 
@@ -230,11 +242,11 @@ def compare(
 
     for condition in conditions:
         for model in [*models, POOLED]:
-            ra = _rate(a.results, condition, model, models)
-            rb = _rate(b.results, condition, model, models)
+            ra = rate(a.results, condition, model, models)
+            rb = rate(b.results, condition, model, models)
             comparison.rows[(condition, model)] = (ra, rb, direction(ra, rb))
-        ra = _rate(a.results, condition, POOLED, models, timeouts_fail=True)
-        rb = _rate(b.results, condition, POOLED, models, timeouts_fail=True)
+        ra = rate(a.results, condition, POOLED, models, timeouts_fail=True)
+        rb = rate(b.results, condition, POOLED, models, timeouts_fail=True)
         comparison.with_timeouts[condition] = (ra, rb, direction(ra, rb))
 
     root = raw_root or paths.raw_dir(a.manifest.get("collection") or "")
@@ -270,7 +282,7 @@ def _is_timeout(result: dict[str, Any]) -> bool:
     )
 
 
-def _rate(
+def rate(
     results: Iterable[dict[str, Any]],
     condition: str,
     model: str,

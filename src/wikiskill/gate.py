@@ -445,7 +445,7 @@ def _task_rate(
     run: compare.LoadedRun, condition: str, model: str, models: list[str], tasks: list[str]
 ) -> compare.Rate:
     results = [r for r in run.results if r["task_id"] in tasks]
-    return compare._rate(results, condition, model, models)
+    return compare.rate(results, condition, model, models)
 
 
 def _recommend(result: Replay) -> None:
