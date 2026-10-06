@@ -14,6 +14,10 @@ Every evaluation run MUST execute in a new headless harness session with its own
 directories, and working directory. It MUST NOT run in the session that requested it, and MUST NOT
 load the user's global or project skills, agents, MCP servers, or plugins beyond those under test.
 
+Skills the harness ships itself MUST NOT be offered either: every skill is denied, and a unit allows
+back only the skills its collection installed. The run's isolation proof MUST record the skills the
+agent is offered under those rules, not every skill the harness knows of.
+
 #### Scenario: Launch from inside OpenCode
 
 - **WHEN** the user runs `/wikiskill-eval dsh-routing` in an OpenCode session
@@ -24,6 +28,12 @@ load the user's global or project skills, agents, MCP servers, or plugins beyond
 
 - **WHEN** the user's global OpenCode config enables an MCP server
 - **THEN** the run's captured configuration shows no MCP servers
+
+#### Scenario: Harness with a built-in skill
+
+- **WHEN** OpenCode ships `customize-opencode` regardless of the config directory
+- **THEN** under OFF the run's isolation proof shows no skill offered and no skill tool, and under
+  ROUTED it shows only the collection's skills
 
 ### Requirement: Runs compare OFF, ROUTED, and INJECTED conditions
 
@@ -51,11 +61,30 @@ The runner MUST probe the model over the same path its units will take: directly
 addresses the endpoint itself, and through the harness when the harness holds the credential. On
 failure it MUST skip that model with an actionable message.
 
+The tool-call probe MUST have its own configurable timeout, separate from the other checks, because
+it is the request that loads the model. A probe that times out or loses its connection MUST fail
+preflight for that model with an actionable message, and MUST NOT abort the run.
+
+For Ollama, the runner MUST prefer the context the running server reports for the loaded model over
+any value read from its own environment.
+
 #### Scenario: Default Ollama context
 
 - **WHEN** a model is served by Ollama with a 4096-token context
 - **THEN** preflight fails for that model with a message recommending a larger context setting, and
   no tasks run on it
+
+#### Scenario: Context set only in the runner's shell
+
+- **WHEN** `OLLAMA_CONTEXT_LENGTH=16384` is set where wikiskill runs, but the Ollama server was
+  started without it and serves 4096 tokens
+- **THEN** preflight reports the server's 4096 tokens and fails that model
+
+#### Scenario: Model still loading when the probe times out
+
+- **WHEN** the tool-call probe does not answer within the probe timeout
+- **THEN** preflight fails for that model with a message naming `--probe-timeout`, and the run goes
+  on to the next model
 
 #### Scenario: Model the harness authorizes on the runner's behalf
 
@@ -187,3 +216,22 @@ be rewritten. A failure to store a snapshot MUST be reported as a warning and MU
 
 - **WHEN** the snapshot store cannot be written
 - **THEN** the run completes, its results are unaffected, and the warning names the store
+
+### Requirement: A model's output cap and thinking are run options
+
+For a provider wikiskill declares, the runner MUST cap each model turn's output (default 8192
+tokens) and MUST tell the harness the context the server reported in preflight. `--thinking` MUST
+accept `default`, `off` and `on`; anything but `default` MUST be sent with every request, the
+preflight probe included. Both MUST be recorded in `run.json`, as `null` for a model the harness
+serves itself, where wikiskill applies neither.
+
+#### Scenario: Thinking off
+
+- **WHEN** a run uses `--thinking off`
+- **THEN** every request to the model, the preflight probe included, carries `reasoning_effort:
+  none`, and `run.json` records `thinking: off`
+
+#### Scenario: Thinking asked of a model that cannot
+
+- **WHEN** a run uses `--thinking on` with a model the server says cannot think
+- **THEN** preflight fails that model, naming `--thinking default or off`, and no unit runs on it

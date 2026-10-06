@@ -76,6 +76,11 @@ carries these.
 
 ## 4. Before the event (about 20 GB10s for participants)
 
+**Archived incomplete on 2026-10-06.** The event preparation was not needed: wikiskill was not run
+by participants at Brainhack. 4.2–4.7 and 4.9 were dropped, not done. Everything that changed the
+code (sections 1–3, 1b, 4.1 and 4.8) shipped, and its delta specs were synced into the main specs.
+Cross-model evaluation continues in `add-dsh-pilot`.
+
 - [x] 4.1 Seed each unit's OpenCode cache from one shared per-machine copy. Every unit now installs
       OpenCode's npm packages (63 MB, into `config/opencode/node_modules`) and downloads ripgrep and
       `models.json` into its own fresh cache: about 2.3 GB for one toy-routing run, or ~45 GB across
