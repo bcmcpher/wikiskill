@@ -83,6 +83,8 @@ laptop with Ollama's 4096-token default, that is the usual outcome, and the repo
   is truncated, with the original length kept.
 - Nothing is ever written into a collection's source repository.
 
+For every file wikiskill writes, its format and its location, see [docs/data.md](docs/data.md).
+
 ## Layout
 
 | Path | What lives there |
