@@ -38,7 +38,8 @@ from .errors import WikiskillError
 from .frontmatter import FrontmatterError
 from .frontmatter import parse as parse_frontmatter
 from .frontmatter import read as read_frontmatter
-from .review import DEFAULT_RETRIES, Ask
+from .review import DEFAULT_RETRIES
+from .roles import Ask
 from .runner.base import new_run_id
 
 PROPOSALS = "proposals"

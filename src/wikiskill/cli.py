@@ -28,6 +28,7 @@ from . import leaderboard as leaderboard_mod
 from . import refine as refine_mod
 from . import report as report_mod
 from . import review as review_mod
+from . import roles as roles_mod
 from . import suite as suite_mod
 from . import wiki as wiki_mod
 from .build import (
@@ -808,7 +809,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             ask = lambda _messages: next(replies)  # noqa: E731
             maintainer, retries = f"reply file {args.reply_file}", 0
         else:
-            ask, maintainer = review_mod.role_asker(coll, "maintainer")
+            ask, maintainer = roles_mod.role_asker(coll, "maintainer")
             retries = args.retries
         outcome = review_mod.review(
             coll,
@@ -865,7 +866,7 @@ def cmd_refine(args: argparse.Namespace) -> int:
         ask = lambda _messages: next(replies)  # noqa: E731
         proposer, retries = f"reply file {args.reply_file}", 0
     else:
-        ask, proposer = review_mod.role_asker(coll, "proposer")
+        ask, proposer = roles_mod.role_asker(coll, "proposer")
         retries = args.retries
     proposal = refine_mod.refine(
         coll,
