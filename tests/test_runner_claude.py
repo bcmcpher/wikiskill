@@ -623,3 +623,13 @@ def test_normalising_leaves_the_units_stream_as_it_was(backend):
     assert json.dumps(events_in) == before
     assert KEY in saved.read_text(encoding="utf-8")
     assert KEY not in json.dumps(events)
+
+
+# --------------------------------------------------------------------------- golden
+
+
+@pytest.mark.parametrize(("name", "path"), [("subagent", SUBAGENT), ("skill", SKILL_ONLY)])
+def test_normalized_events_match_the_golden_file(backend, tmp_path, name, path):
+    from conftest import golden_events
+
+    golden_events(backend.normalize(trajectory(stream(path))), f"claude-{name}", tmp_path)

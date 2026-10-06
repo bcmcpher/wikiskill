@@ -1,0 +1,192 @@
+[
+ {
+  "collection": "capture",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "count"
+  },
+  "harness": "claude-code",
+  "harness_version": "2.1.289",
+  "model": "qwen3:30b-a3b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "agent": null,
+   "cwd": "/tmp/cc-capture/work",
+   "title": null
+  },
+  "provider": "ollama",
+  "root_session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "schema_version": 1,
+  "session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "type": "session_start"
+ },
+ {
+  "collection": "capture",
+  "component": {
+   "kind": "skill",
+   "name": "capture/word-count",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "count"
+  },
+  "harness": "claude-code",
+  "harness_version": "2.1.289",
+  "model": "qwen3:30b-a3b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "input_summary": "notes.txt",
+   "source_path": "/tmp/cc-capture/plugin/skills/word-count/SKILL.md",
+   "trigger": "skill_tool"
+  },
+  "provider": "ollama",
+  "root_session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "schema_version": 1,
+  "session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "type": "component_activated"
+ },
+ {
+  "collection": "capture",
+  "component": {
+   "kind": "skill",
+   "name": "capture/word-count",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "count"
+  },
+  "harness": "claude-code",
+  "harness_version": "2.1.289",
+  "model": "qwen3:30b-a3b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_f683zrpv",
+   "duration_ms": null,
+   "error": null,
+   "input": {
+    "args": "notes.txt",
+    "skill": "capture:word-count"
+   },
+   "ok": true,
+   "output": "Launching skill: capture:word-count",
+   "output_hash": null,
+   "output_length": 35,
+   "output_truncated": false,
+   "tool": "Skill"
+  },
+  "provider": "ollama",
+  "root_session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "schema_version": 1,
+  "session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "type": "tool_call"
+ },
+ {
+  "collection": "capture",
+  "component": {
+   "kind": "skill",
+   "name": "capture/word-count",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "count"
+  },
+  "harness": "claude-code",
+  "harness_version": "2.1.289",
+  "model": "qwen3:30b-a3b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "finish_reason": null,
+   "text": "I am counting the words in `notes.txt` using the `capture:word-count` skill. Please wait for the count to be returned.",
+   "text_length": 118
+  },
+  "provider": "ollama",
+  "root_session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "schema_version": 1,
+  "session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "type": "assistant_turn"
+ },
+ {
+  "collection": "capture",
+  "component": {
+   "kind": "skill",
+   "name": "capture/word-count",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "count"
+  },
+  "harness": "claude-code",
+  "harness_version": "2.1.289",
+  "model": "qwen3:30b-a3b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "cost": null,
+   "tokens": {
+    "cache_read": 16126,
+    "cache_write": 0,
+    "input": 16253,
+    "output": 532,
+    "reasoning": null
+   }
+  },
+  "provider": "ollama",
+  "root_session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "schema_version": 1,
+  "session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "type": "step_usage"
+ },
+ {
+  "collection": "capture",
+  "component": {
+   "kind": "skill",
+   "name": "capture/word-count",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "count"
+  },
+  "harness": "claude-code",
+  "harness_version": "2.1.289",
+  "model": "qwen3:30b-a3b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "duration_ms": 93081,
+   "reason": "result"
+  },
+  "provider": "ollama",
+  "root_session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "schema_version": 1,
+  "session_id": "feda889f-5089-4b71-98f7-daff01f6163b",
+  "type": "session_end"
+ }
+]

@@ -1,0 +1,141 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["matplotlib>=3.8"]
+# ///
+"""Draw a study's figures from its `findings.csv` alone: bin/figures <study>.
+
+- `figures/<table>-rates.png` for each leaderboard table: pooled pass rates with Wilson 95%
+  intervals, one row per model and condition, grouped by family and ordered by size.
+- `figures/<table>-lift.png` for each version-board table: each version's lift over OFF, per model.
+
+Run with `uv run --script`, which fetches matplotlib into a cached environment: plotting is never a
+project dependency, and a study without figures still builds.
+"""
+
+from __future__ import annotations
+
+import csv
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+COLOURS = ["#1f4e79", "#c55a11", "#548235", "#7030a0", "#bf9000", "#2e75b6"]
+
+
+def _float(value: str) -> float | None:
+    return float(value) if value not in ("", None) else None
+
+
+def _order(rows: list[dict[str, str]]) -> list[str]:
+    """Models grouped by family, families by their smallest model, then by size and name."""
+    smallest: dict[str, float] = {}
+    for row in rows:
+        size = _float(row["size_b"]) or float("inf")
+        family = row["family"] or "~"
+        smallest[family] = min(smallest.get(family, float("inf")), size)
+    seen = {}
+    for row in rows:
+        family = row["family"] or "~"
+        seen[row["entrant"]] = (smallest[family], family, _float(row["size_b"]) or float("inf"))
+    return sorted(seen, key=lambda model: (*seen[model], model))
+
+
+def rates(table: str, rows: list[dict[str, str]], out: Path) -> Path | None:
+    pooled = [row for row in rows if not row["task"] and row["total"] not in ("", "0")]
+    if not pooled:
+        return None
+    models = _order(pooled)
+    conditions = sorted({row["condition"] for row in pooled})
+    height = 0.8 / max(1, len(conditions))
+    fig, ax = plt.subplots(figsize=(8, 0.45 * len(models) * max(1, len(conditions)) + 1.2))
+    for index, condition in enumerate(conditions):
+        found = {row["entrant"]: row for row in pooled if row["condition"] == condition}
+        ys, xs, low, high = [], [], [], []
+        for place, model in enumerate(models):
+            row = found.get(model)
+            if row is None:
+                continue
+            rate = float(row["rate"])
+            ys.append(place + index * height)
+            xs.append(rate)
+            low.append(rate - float(row["low"]))
+            high.append(float(row["high"]) - rate)
+        colour = COLOURS[index % len(COLOURS)]
+        ax.errorbar(xs, ys, xerr=[low, high], fmt="o", color=colour, capsize=3, label=condition)
+    ax.set_yticks([place + height * (len(conditions) - 1) / 2 for place in range(len(models))])
+    ax.set_yticklabels(models)
+    ax.invert_yaxis()
+    ax.set_xlim(-0.02, 1.02)
+    ax.set_xlabel("pass rate (Wilson 95% interval)")
+    ax.set_title(f"{table}: pass rate per model and condition")
+    ax.grid(axis="x", alpha=0.3)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False)
+    fig.tight_layout()
+    path = out / f"{table}-rates.png"
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def lift(table: str, rows: list[dict[str, str]], out: Path) -> Path | None:
+    entries = [row for row in rows if row["version"] and not row["task"] and row["lift"]]
+    if not entries:
+        return None
+    models = _order(entries)
+    versions = list(dict.fromkeys(row["version"] for row in entries))
+    width = 0.8 / len(versions)
+    fig, ax = plt.subplots(figsize=(max(6, 1.2 * len(models) * len(versions) / 2 + 2), 4.5))
+    for index, version in enumerate(versions):
+        found = {row["entrant"]: float(row["lift"]) for row in entries if row["version"] == version}
+        xs = [place + index * width for place, model in enumerate(models) if model in found]
+        ys = [found[model] for model in models if model in found]
+        ax.bar(xs, ys, width=width, color=COLOURS[index % len(COLOURS)], label=version)
+    ax.axhline(0, color="black", linewidth=0.8)
+    ax.set_xticks([place + width * (len(versions) - 1) / 2 for place in range(len(models))])
+    ax.set_xticklabels(models, rotation=30, ha="right")
+    ax.set_ylabel("lift over OFF (pass rate)")
+    ax.set_title(f"{table}: lift per version and model")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False)
+    fig.tight_layout()
+    path = out / f"{table}-lift.png"
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 1:
+        print("usage: bin/figures <study>", file=sys.stderr)
+        return 2
+    study = Path(argv[0])
+    source = study / "findings.csv"
+    if not source.is_file():
+        print(f"no {source}: run `wikiskill findings tables {study}` first", file=sys.stderr)
+        return 1
+    tables: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    with source.open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            tables[(row["table"], row["kind"])].append(row)
+    out = study / "figures"
+    out.mkdir(exist_ok=True)
+    for (table, kind), rows in tables.items():
+        drawn = (
+            rates(table, rows, out)
+            if kind == "leaderboard"
+            else lift(table, rows, out)
+            if kind == "version-board"
+            else None
+        )
+        if drawn:
+            print(f"wrote {drawn}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

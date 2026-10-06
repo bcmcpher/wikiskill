@@ -35,7 +35,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from . import corrections, names, paths, rawlog
+from . import calls, corrections, names, paths, rawlog
+from .calls import qualified
 from .redact import bound, env_secrets, merge, redact, redact_value, summary
 
 HARNESS = "claude-code"
@@ -49,8 +50,6 @@ TRANSCRIPT_TAIL_BYTES = 256 * 1024
 #: Message ids remembered per transcript, so a usage line split across content blocks counts once.
 SEEN_MESSAGES = 500
 
-SKILL_TOOLS = {"Skill"}
-AGENT_TOOLS = {"Agent", "Task"}
 READ_TOOLS = {"Read"}
 
 #: A prompt Claude Code submits itself when a background agent finishes.
@@ -61,11 +60,6 @@ Factory = Callable[[dict[str, Any]], Event | None]
 
 
 # --------------------------------------------------------------------------- watch list
-
-
-def qualified(name: str) -> str:
-    """Claude Code's `plugin:name` as the collection writes it, `plugin/name`."""
-    return name.replace(":", "/", 1)
 
 
 def watched_name(config: dict[str, Any], kind: str, name: str) -> str | None:
@@ -609,12 +603,13 @@ def on_tool(log: Logger, payload: dict[str, Any], *, failed: bool) -> None:
     response = payload.get("tool_response")
     log.note_activity()
 
-    if tool in SKILL_TOOLS and args.get("skill"):
-        log.start("skill", str(args["skill"]), "skill_tool", agent_id=agent_id)
-    elif tool in AGENT_TOOLS and args.get("subagent_type"):
+    kind, name = calls.target(tool, args, calls.CLAUDE_CODE) or (None, None)
+    if kind == "skill" and name:
+        log.start("skill", name, "skill_tool", agent_id=agent_id)
+    elif kind == "agent" and name:
         agent = log.start(
             "agent",
-            str(args["subagent_type"]),
+            name,
             "task_tool",
             summary=str(args.get("description") or args.get("prompt") or "") or None,
             agent_id=agent_id,

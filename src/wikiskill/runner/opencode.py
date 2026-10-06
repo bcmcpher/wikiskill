@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, names, paths, rawlog
+from .. import RAW_SCHEMA_VERSION, build, calls, names, paths, rawlog
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
@@ -90,9 +90,6 @@ SEED_PATHS = (
     "config/opencode/bun.lock",
     "config/opencode/package-lock.json",
 )
-
-_SKILL_TOOLS = {"skill", "skills"}
-_TASK_TOOLS = {"task", "agent"}
 
 
 def _ts(ms: int | float | None) -> str:
@@ -1064,17 +1061,15 @@ class OpenCodeBackend(Backend):
             )
             component = activated
 
-        if tool in _TASK_TOOLS:
+        if calls.kind_of(tool) == "agent":
             description, found = scrub.value(common.string_field(args, "description", "prompt"))
+            delegated = calls.target(tool, args, calls.OPENCODE)
             produced.append(
                 (
                     make(
                         "delegation",
                         {
-                            "subagent_type": common.string_field(
-                                args, "subagent_type", "subagentType", "agent", "name"
-                            )
-                            or "unknown",
+                            "subagent_type": delegated[1] if delegated else "unknown",
                             "child_session_id": common.string_field(
                                 metadata, "sessionID", "sessionId", "session_id"
                             ),
@@ -1122,29 +1117,27 @@ class OpenCodeBackend(Backend):
 
     def _activation(self, tool, args, metadata):
         """``(kind, name, source_hash, trigger, source_path)`` when a call activated a component."""
-        if tool in _SKILL_TOOLS:
-            name = common.string_field(args, "name", "skill", "skill_name")
-            if name and self._watched("skill", name):
-                directory = common.string_field(metadata, "dir", "directory", "path")
-                source = f"{directory}/SKILL.md" if directory else None
-                return (
-                    "skill",
-                    name,
-                    rawlog.file_hash(source) if source else None,
-                    "skill_tool",
-                    source,
-                )
-        elif tool in _TASK_TOOLS:
-            name = common.string_field(args, "subagent_type", "subagentType", "agent", "name")
-            if name and self._watched("agent", name):
-                source = common.string_field(metadata, "path", "agentPath", "file")
-                return (
-                    "agent",
-                    name,
-                    rawlog.file_hash(source) if source else None,
-                    "task_tool",
-                    source,
-                )
+        found = calls.target(tool, args, calls.OPENCODE)
+        kind, name = found or (None, None)
+        if kind == "skill" and name and self._watched("skill", name):
+            directory = common.string_field(metadata, "dir", "directory", "path")
+            source = f"{directory}/SKILL.md" if directory else None
+            return (
+                "skill",
+                name,
+                rawlog.file_hash(source) if source else None,
+                "skill_tool",
+                source,
+            )
+        elif kind == "agent" and name and self._watched("agent", name):
+            source = common.string_field(metadata, "path", "agentPath", "file")
+            return (
+                "agent",
+                name,
+                rawlog.file_hash(source) if source else None,
+                "task_tool",
+                source,
+            )
         return None
 
     def _watched(self, kind: str, name: str) -> bool:
@@ -1238,17 +1231,10 @@ def activations(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             tool = str(part.get("tool") or "").lower()
             args = state.get("input") or {}
-            entry: dict[str, Any] | None = None
-            if tool in _SKILL_TOOLS:
-                name = common.string_field(args, "name", "skill", "skill_name")
-                if name:
-                    entry = {"kind": "skill", "name": name}
-            elif tool in _TASK_TOOLS:
-                name = common.string_field(args, "subagent_type", "subagentType", "agent", "name")
-                if name:
-                    entry = {"kind": "agent", "name": name}
-            if entry is None:
+            called = calls.target(tool, args, calls.OPENCODE)
+            if called is None:
                 continue
+            entry: dict[str, Any] = {"kind": called[0], "name": called[1]}
             if _refused(state):
                 entry["blocked"] = True
             found.append(entry)

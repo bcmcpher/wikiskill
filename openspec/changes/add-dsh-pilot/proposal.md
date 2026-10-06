@@ -58,8 +58,8 @@ indefinitely. Each becomes its own change when it is started.
   `add-skill-refinement` for the gate, and on `wikiskill leaderboard` and `wikiskill diff`, all
   landed.
 - Touches nothing in `~/Projects/claude/data-science-harness`. Results live under the wikiskill data
-  directory; the summary is `docs/pilots/dsh.md` here.
+  directory; the summary is `docs/pilots/dsh/report.md` here.
 - New: `pilots/dsh/` (the routing collection and suite), a handoff rubric, and new sections of
-  `docs/pilots/dsh.md`.
+  `docs/pilots/dsh/report.md`.
 - GPU time: the sweep and the routing probe take hours per model on the larger dense models. The
   design orders runs so that a partial sweep is still reportable.

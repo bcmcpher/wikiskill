@@ -29,9 +29,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, guard, names, paths, rawlog
+from .. import RAW_SCHEMA_VERSION, build, calls, guard, names, paths, rawlog
+from ..calls import qualified
 from ..collection import Collection
-from ..hooks import qualified
 from . import common
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .opencode import BASE_DENY
@@ -72,8 +72,6 @@ DENIED_TOOLS = ("WebFetch", "WebSearch")
 _INHERITED_PREFIXES = ("CLAUDE_CODE_", "ANTHROPIC_")
 _INHERITED_NAMES = ("CLAUDECODE", "CLAUDE_CONFIG_DIR")
 
-_SKILL_TOOLS = {"skill"}
-_AGENT_TOOLS = {"agent", "task"}
 
 #: Error text that means the harness refused an activation, rather than the model misnaming it.
 _REFUSAL_MARKERS = (
@@ -631,7 +629,7 @@ class _Normaliser:
                 session,
                 found,
             )
-        if name.lower() in _AGENT_TOOLS and not failed:
+        if calls.kind_of(name) == "agent" and not failed:
             description, found = self.scrub.value(
                 common.string_field(args, "description", "prompt")
             )
@@ -829,13 +827,12 @@ def _call_input(use: dict[str, Any]) -> dict[str, Any]:
 
 def _activation_name(tool: str, args: dict[str, Any]) -> tuple[str, str] | None:
     """``(kind, plugin/name)`` for a Skill or Agent call. Claude Code writes `plugin:name`."""
-    if tool in _SKILL_TOOLS:
-        name = common.string_field(args, "skill", "name", "command")
-        return ("skill", qualified(name.lstrip("/"))) if name else None
-    if tool in _AGENT_TOOLS:
-        name = common.string_field(args, "subagent_type")
-        return ("agent", qualified(name)) if name else None
-    return None
+    found = calls.target(tool, args, calls.CLAUDE_CODE)
+    if found is None:
+        return None
+    kind, name = found
+    # A skill invoked as a slash command is named with its slash.
+    return kind, qualified(name.lstrip("/") if kind == "skill" else name)
 
 
 def activations(stream: list[dict[str, Any]]) -> list[dict[str, Any]]:

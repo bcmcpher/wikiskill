@@ -20,7 +20,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from . import leaderboard
+from . import leaderboard, present
 from . import score as score_mod
 from .catalogue import Catalogue
 from .compare import LoadedRun
@@ -46,7 +46,25 @@ def build_report(
     # A run is one harness, but each row names it, so rows from runs in different harnesses can
     # stand in one table without losing which was which: task x model x harness x condition.
     harness = manifest.get("harness") or leaderboard.DEFAULT_HARNESS
-    rows = [{**_row(score, results, catalogue), "harness": harness} for score in scores]
+    # Pass rates, outcomes and cost come from the pool: one run reads as the leaderboard reads it.
+    board = _pool(results, manifest)
+    cells = {
+        (task, cell.base, condition): cell
+        for (task, _, condition), cell in board.task_cells.items()
+    }
+    rows = [
+        {
+            **_row(
+                score,
+                results,
+                cells.get((score.task_id, score.model, score.condition)),
+                board.bases.get(score.task_id),
+                catalogue,
+            ),
+            "harness": harness,
+        }
+        for score in scores
+    ]
     return {
         "run_id": manifest.get("run_id"),
         "suite": manifest.get("suite"),
@@ -66,12 +84,12 @@ def build_report(
         "confusion": score_mod.confusion(scores),
         "outcomes": dict(Counter(result["outcome"] for result in results)),
         "derived": _derived(results, manifest),
-        "pooled": _pooled(results, manifest),
+        "pooled": board.as_dict()["ranking"],
         "not_run": not_run(results, manifest),
     }
 
 
-def _pooled(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str, Any]:
+def _pool(results: list[dict[str, Any]], manifest: dict[str, Any]) -> leaderboard.Leaderboard:
     """This run alone in the leaderboard's terms, so one run and many read the same way."""
     run = LoadedRun(
         run_id=str(manifest.get("run_id") or ""),
@@ -79,15 +97,21 @@ def _pooled(results: list[dict[str, Any]], manifest: dict[str, Any]) -> dict[str
         manifest=manifest,
         results=tuple(results),
     )
-    return leaderboard.pool([run]).as_dict()["ranking"]
+    return leaderboard.pool([run])
 
 
 def _row(
     score: score_mod.RouteScore,
     results: list[dict[str, Any]],
+    cell: leaderboard.Cell | None,
+    basis: str | None,
     catalogue: Catalogue | None = None,
 ) -> dict[str, Any]:
-    """One task, model and condition: routing, pass rate, tokens, wall time, outcome classes."""
+    """One task, model and condition: routing, pass rate, tokens, wall time, outcome classes.
+
+    The counts are the pool's `cell`: a task with no verifiers counts on its route only under
+    ROUTED, so elsewhere its pass rate is not measured rather than a route@1 standing in for one.
+    """
     group = [
         result
         for result in results
@@ -96,21 +120,18 @@ def _row(
         and result["condition"] == score.condition
     ]
     usable = [result for result in group if result["outcome"] not in INFRA_OUTCOMES]
-    tokens = Counter()
-    for result in usable:
-        tokens.update({k: v for k, v in (result.get("tokens") or {}).items() if isinstance(v, int)})
-    rate, basis = score_mod.pass_rate(usable, score)
+    measured = cell is not None and cell.total > 0
     row = score.as_dict()
     row.update(
         {
             "attempted": len(group),
-            "pass_rate": rate,
-            "pass_basis": basis,
+            "pass_rate": cell.rate.rate if cell is not None and measured else None,
+            "pass_basis": basis if measured and basis else score_mod.UNMEASURED,
             "failed_verifiers": _failed_verifiers(usable),
             "rubric": _rubric(usable, score.model, catalogue),
-            "tokens": dict(tokens),
-            "wall_time_ms": sum(result.get("duration_ms") or 0 for result in usable),
-            "outcomes": dict(Counter(result["outcome"] for result in group)),
+            "tokens": dict(cell.tokens) if cell else {},
+            "wall_time_ms": sum(cell.durations_ms) if cell else 0,
+            "outcomes": dict(cell.outcomes) if cell else {},
         }
     )
     return row
@@ -316,8 +337,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             total = sum(value for value in tokens.values() if isinstance(value, int))
             lines.append(
                 f"| {row['task_id']} | {row['model']} | {row['condition']} | {row['repeats']} | "
-                f"{_pct(row.get('route@1'))} | {_pct(row.get('route@k'))} | "
-                f"{_pct(row.get('capability@k'))} | {_pct(row.get('pass_rate'))} | "
+                f"{present.pct(row.get('route@1'))} | {present.pct(row.get('route@k'))} | "
+                f"{present.pct(row.get('capability@k'))} | {present.pct(row.get('pass_rate'))} | "
                 f"{row.get('pass_basis', '—')} | {total} | "
                 f"{round((row.get('wall_time_ms') or 0) / 1000, 1)} |"
             )
@@ -345,9 +366,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     for key, summary in sorted((report.get("per_model_condition") or {}).items()):
         model, _, condition = key.partition("|")
         lines.append(
-            f"- **{model}** / {condition}: route@1 {_pct(summary.get('route@1'))}, "
-            f"route@k {_pct(summary.get('route@k'))}, "
-            f"capability@k {_pct(summary.get('capability@k'))} "
+            f"- **{model}** / {condition}: route@1 {present.pct(summary.get('route@1'))}, "
+            f"route@k {present.pct(summary.get('route@k'))}, "
+            f"capability@k {present.pct(summary.get('capability@k'))} "
             f"over {summary.get('tasks_measuring_route')} routing tasks"
         )
 
@@ -433,9 +454,10 @@ def _derived_lines(derived: dict[str, Any]) -> list[str]:
             loss = measures.get("routing_loss") or {}
             value = measures.get("content_value") or {}
             lines.append(
-                f"| {model} | {_pct(loss.get('value'))} | {_pct(value.get('value'))} | "
-                f"{_pct(measures.get('transfer_rate'))} | "
-                f"{_pct(measures.get('regression_rate'))} | {measures.get('tasks', 0)} |"
+                f"| {model} | {present.pct(loss.get('value'))} | "
+                f"{present.pct(value.get('value'))} | "
+                f"{present.pct(measures.get('transfer_rate'))} | "
+                f"{present.pct(measures.get('regression_rate'))} | {measures.get('tasks', 0)} |"
             )
 
     pairs = derived.get("comparisons") or []
@@ -463,10 +485,6 @@ def _failing_verifier_lines(rows: list[dict[str, Any]]) -> list[str]:
             for verifier in row["failed_verifiers"]
         ]
     return lines
-
-
-def _pct(value: float | None) -> str:
-    return "—" if value is None else f"{value * 100:.0f}%"
 
 
 def write(

@@ -25,9 +25,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import names, roles
+from .. import calls, names, roles
+from ..calls import qualified
 from ..errors import WikiskillError
-from ..hooks import qualified
 from ..rubric import Dimension, Rubric
 from ..runner.preflight import Endpoint
 
@@ -38,10 +38,6 @@ MAX_FILE_BYTES = 4000
 MAX_ANSWER_CHARS = 8000
 #: Each field of a delegation shown to a judge: the description, and the prompt passed on.
 MAX_DELEGATION_CHARS = 4000
-#: Where a harness's tool input names the agent a delegation goes to.
-_AGENT_FIELDS = ("subagent_type", "subagentType", "agent")
-#: The tools that delegate, in Claude Code and OpenCode alike, matched without case.
-_AGENT_TOOLS = ("agent", "task")
 
 DEFAULT_TIMEOUT_S = 300
 
@@ -192,30 +188,25 @@ def delegations(events: Sequence[dict[str, Any]]) -> list[Delegation]:
     in, giving the agent and description.
     """
     found = []
-    calls = 0
+    made = 0
     for event in events:
         payload = event.get("payload") or {}
         if event.get("type") != "tool_call":
             continue
-        if str(payload.get("tool") or "").lower() not in _AGENT_TOOLS:
+        handoff = calls.delegation(str(payload.get("tool") or ""), payload.get("input"))
+        if handoff is None:
             continue
-        args = payload.get("input")
-        if not isinstance(args, dict):
-            continue
-        agent = next((args[k] for k in _AGENT_FIELDS if isinstance(args.get(k), str)), None)
-        if not agent:
-            continue
-        calls += 1
+        made += 1
         if payload.get("ok") is False:
             continue
         found.append(
             Delegation(
-                agent=qualified(agent),
-                description=str(args.get("description") or ""),
-                prompt=str(args.get("prompt") or ""),
+                agent=qualified(handoff["agent"]),
+                description=handoff["description"],
+                prompt=handoff["prompt"],
             )
         )
-    if calls:
+    if made:
         return found
     return [
         Delegation(

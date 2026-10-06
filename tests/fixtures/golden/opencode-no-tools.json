@@ -1,0 +1,79 @@
+[
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "agent": "build",
+   "cwd": "/tmp/wsk/probe/work",
+   "title": "New session - 2026-09-18T18:22:10.349Z"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f4a3ed652ffecYIWtPMgVDXDul",
+  "type": "session_start"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "fatal": true,
+   "message": "registry.ollama.ai/library/gemma3:1b does not support tools",
+   "where": "session"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f4a3ed652ffecYIWtPMgVDXDul",
+  "type": "error"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "duration_ms": 30000,
+   "reason": "export"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f4a3ed652ffecYIWtPMgVDXDul",
+  "type": "session_end"
+ }
+]

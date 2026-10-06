@@ -1085,3 +1085,22 @@ def test_normalising_leaves_the_units_transcripts_as_they_were(backend):
     assert json.dumps(session) == before, "the harness's own record is never rewritten"
     assert KEY in export.read_text(encoding="utf-8")
     assert KEY not in json.dumps(events)
+
+
+# --------------------------------------------------------------------------- golden
+
+
+@pytest.mark.parametrize(
+    ("name", "sessions"),
+    [
+        ("delegation", ["session-root.json", "session-child.json"]),
+        ("skill-denied", ["session-skill-denied.json"]),
+        ("step-exhausted", ["session-step-exhausted.json"]),
+        ("no-tools", ["session-no-tools.json"]),
+    ],
+)
+def test_normalized_events_match_the_golden_file(backend, tmp_path, name, sessions):
+    from conftest import golden_events
+
+    events = backend.normalize(trajectory([load(session) for session in sessions]))
+    golden_events(events, f"opencode-{name}", tmp_path)

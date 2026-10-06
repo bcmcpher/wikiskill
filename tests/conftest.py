@@ -90,3 +90,27 @@ def write_manifest(xdg_homes, name: str, body: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
     return path
+
+
+GOLDEN = FIXTURES / "golden"
+
+
+def golden_events(events, name, tmp_path):
+    """Compare normalized events with a stored golden file. `UPDATE_GOLDEN=1` rewrites it.
+
+    Event ids are random, some timestamps are the clock's, and paths name the test's temporary
+    directory, so all three are masked; the events' order still pins their sequence.
+    """
+    import json
+    import os
+
+    text = json.dumps(
+        [{k: v for k, v in event.items() if k not in ("event_id", "ts")} for event in events],
+        indent=1,
+        sort_keys=True,
+    ).replace(str(tmp_path), "<tmp>")
+    path = GOLDEN / f"{name}.json"
+    if os.environ.get("UPDATE_GOLDEN"):
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(text + "\n", encoding="utf-8")
+    assert path.read_text(encoding="utf-8") == text + "\n", f"normalized events differ from {path}"

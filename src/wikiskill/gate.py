@@ -29,7 +29,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from . import compare, rawlog, refine, wiki
+from . import compare, present, rawlog, refine, wiki
 from . import graph as graph_mod
 from .collection import Collection
 from .errors import WikiskillError
@@ -485,7 +485,7 @@ def _neighbour_reasons(result: Replay) -> None:
     for change in result.theft:
         result.reasons.append(
             f"trigger theft: {change.task} reached its route first less often on "
-            f"{change.model}: {_fmt(change.a)} -> {_fmt(change.b)}"
+            f"{change.model}: {present.count_of(change.a)} -> {present.count_of(change.b)}"
         )
     for name in result.unchecked:
         result.reasons.append(
@@ -501,10 +501,6 @@ def _neighbour_reasons(result: Replay) -> None:
             "the description changed, but the collection has no graph: trigger theft was not "
             "checked (`wikiskill graph build`)"
         )
-
-
-def _fmt(rate: compare.Rate) -> str:
-    return f"{rate.passed}/{rate.total}" if rate.total else "-"
 
 
 def render(result: Replay) -> str:
@@ -526,7 +522,7 @@ def render(result: Replay) -> str:
     if result.motivating_rates:
         lines += ["| condition | model | baseline | candidate |", "|---|---|---|---|"]
         lines += [
-            f"| {c} | {m} | {_fmt(ra)} | {_fmt(rb)} |"
+            f"| {c} | {m} | {present.of(ra)} | {present.of(rb)} |"
             for (c, m), (ra, rb) in sorted(result.motivating_rates.items())
         ]
     else:
@@ -536,7 +532,8 @@ def render(result: Replay) -> str:
         lines += ["| condition | model | task | baseline | candidate | beyond tolerance |"]
         lines.append("|---|---|---|---|---|---|")
         lines += [
-            f"| {r.condition} | {r.model} | {r.task} | {_fmt(r.a)} | {_fmt(r.b)} | "
+            f"| {r.condition} | {r.model} | {r.task} | "
+            f"{present.count_of(r.a)} | {present.count_of(r.b)} | "
             f"{'yes' if r.drop > result.tolerance + 1e-9 else 'no'} |"
             for r in result.regressions
         ]
@@ -555,7 +552,7 @@ def render(result: Replay) -> str:
         lines += ["| model | task | baseline | candidate | beyond tolerance |"]
         lines.append("|---|---|---|---|---|")
         lines += [
-            f"| {r.model} | {r.task} | {_fmt(r.a)} | {_fmt(r.b)} | "
+            f"| {r.model} | {r.task} | {present.count_of(r.a)} | {present.count_of(r.b)} | "
             f"{'yes' if r.drop > result.tolerance + 1e-9 else 'no'} |"
             for r in result.theft
         ]
@@ -669,4 +666,4 @@ def _replay_lines(summary: dict[str, Any] | None) -> list[str]:
 
 
 def _rate_text(rate: dict[str, Any]) -> str:
-    return f"{rate['passed']}/{rate['total']}" if rate["total"] else "-"
+    return present.count(rate["passed"], rate["total"])

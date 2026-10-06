@@ -10,8 +10,18 @@ dist/
 
 # Local eval output and scratch state
 runs/
+# ...except a study's bundled runs, which are its record (`wikiskill findings bundle`)
+!docs/**/runs/
 .wikiskill/
 
 # Secrets and machine-local settings
 .env
 .claude/settings.local.json
+
+# Office documents built from versioned markdown by bin/build-docs; the markdown is the record
+docs/**/*.docx
+docs/**/*.pptx
+docs/**/build.txt
+# ...but not the templates that style them
+!docs/**/reference.docx
+!docs/**/reference.pptx

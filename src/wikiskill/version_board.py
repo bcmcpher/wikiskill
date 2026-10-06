@@ -28,13 +28,12 @@ from typing import Any
 
 import yaml
 
-from . import diff, paths, rawlog
+from . import diff, paths, present, rawlog
 from .catalogue import Catalogue
 from .compare import DOWN, SAME, LoadedRun, Rate, direction
 from .gate import DEFAULT_TOLERANCE
 from .leaderboard import (
     LeaderboardError,
-    _fmt,
     _short,
     _size,
     check_suite,
@@ -610,12 +609,6 @@ def version_labels(collection, component: str, runs: list[LoadedRun]) -> dict[st
 # --------------------------------------------------------------------------- output
 
 
-def _pct(value: float | None, *, signed: bool = False) -> str:
-    if value is None:
-        return "-"
-    return f"{value:+.0%}" if signed else f"{value:.0%}"
-
-
 def render(board: VersionBoard) -> str:
     label = board.label
     lines = [
@@ -674,11 +667,11 @@ def _overall_lines(board: VersionBoard) -> list[str]:
     for row in sorted(board.overall(), key=lambda r: -(r["mean"] or 0.0)):
         mark = " **best**" if best and row["version"] == best["version"] else ""
         baseline = " (baseline)" if row["version"] == board.baseline else ""
-        p = "-" if row["sign_test_p"] is None else f"{row['sign_test_p']:.3g}"
+        p = present.value(row["sign_test_p"], ".3g")
         lines.append(
-            f"| `{row['label']}`{baseline}{mark} | {_pct(row['mean'])} | {row['won']} | "
-            f"{row['lost']} | {p} | {', '.join(row['regressions']) or '-'} | "
-            f"{'yes' if row['disqualified'] else '-'} |"
+            f"| `{row['label']}`{baseline}{mark} | {present.pct(row['mean'])} | {row['won']} | "
+            f"{row['lost']} | {p} | {', '.join(row['regressions']) or present.MISSING} | "
+            f"{'yes' if row['disqualified'] else present.MISSING} |"
         )
     lines.append("")
     if best is None:
@@ -701,7 +694,7 @@ def _per_model_lines(board: VersionBoard) -> list[str]:
     ]
     for model in board.models:
         best = board.best(model)
-        control = _fmt(board.control.get(model) or Rate(0, 0))
+        control = present.of(board.control.get(model) or Rate(0, 0))
         info = board.described(model)
         about = (
             f"{info.get('family') or 'uncatalogued'} | {_size(info.get('size_b'))} | "
@@ -724,8 +717,8 @@ def _per_model_lines(board: VersionBoard) -> list[str]:
             against = "baseline" if entry.version == board.baseline else entry.direction
             lines.append(
                 f"| {model} | {about}{control} | `{board.label(entry.version)}` | "
-                f"{_fmt(entry.rate)} | "
-                f"{_pct(entry.lift, signed=True)} | {against} | {entry.not_run} | "
+                f"{present.of(entry.rate)} | "
+                f"{present.pct(entry.lift, signed=True)} | {against} | {entry.not_run} | "
                 f"{', '.join(notes)} |"
             )
             control = ""
@@ -789,7 +782,7 @@ def _matrix_lines(board: VersionBoard) -> list[str]:
             rates = [board.matrix.get((model, v, task)) for v in versions]
             if not any(rates):
                 continue
-            cells = [f"{r.passed}/{r.total}" if r and r.total else "-" for r in rates]
+            cells = [present.count_of(r) for r in rates]
             lines.append(f"| {task} | " + " | ".join(cells) + " |")
         lines.append("")
     return lines

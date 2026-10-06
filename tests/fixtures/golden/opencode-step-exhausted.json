@@ -1,0 +1,407 @@
+[
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "agent": "build",
+   "cwd": "/tmp/eval/work",
+   "title": "Create one.txt, two.txt, three.txt"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "session_start"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_46a86910c6c0417381871901",
+   "duration_ms": 112,
+   "error": null,
+   "input": {
+    "command": "ls -la"
+   },
+   "ok": true,
+   "output": "total 12\ndrwxrwxr-x 3 runner runner 4096 Sep 21 15:53 .\ndrwxrwxr-x 7 runner runner 4096 Sep 21 15:53 ..\ndrwxrwxr-x 7 runner runner 4096 Sep 21 15:53 .git\n",
+   "output_hash": null,
+   "output_length": 154,
+   "output_truncated": false,
+   "tool": "bash"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "cost": 0,
+   "tokens": {
+    "cache_read": 1792,
+    "cache_write": 0,
+    "input": 5887,
+    "output": 59,
+    "reasoning": 0
+   }
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "step_usage"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "finish_reason": null,
+   "text": "\n\n",
+   "text_length": 2
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "assistant_turn"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_ed8cd84bbf1a48e3bb4b61fc",
+   "duration_ms": 6,
+   "error": "blocked by the wikiskill evaluation guard: step budget of 1 exhausted",
+   "input": {
+    "content": "one.txt",
+    "filePath": "/tmp/eval/work/one.txt"
+   },
+   "ok": false,
+   "output": "",
+   "output_hash": null,
+   "output_length": 0,
+   "output_truncated": false,
+   "tool": "write"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_e728a5160ac24e10bbb07680",
+   "duration_ms": 3,
+   "error": "blocked by the wikiskill evaluation guard: step budget of 1 exhausted",
+   "input": {
+    "content": "two.txt",
+    "filePath": "/tmp/eval/work/two.txt"
+   },
+   "ok": false,
+   "output": "",
+   "output_hash": null,
+   "output_length": 0,
+   "output_truncated": false,
+   "tool": "write"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_05e1421f08a945f7b3cfdcb5",
+   "duration_ms": 7,
+   "error": "blocked by the wikiskill evaluation guard: step budget of 1 exhausted",
+   "input": {
+    "content": "three.txt",
+    "filePath": "/tmp/eval/work/three.txt"
+   },
+   "ok": false,
+   "output": "",
+   "output_hash": null,
+   "output_length": 0,
+   "output_truncated": false,
+   "tool": "write"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "cost": 0,
+   "tokens": {
+    "cache_read": 1792,
+    "cache_write": 0,
+    "input": 6044,
+    "output": 337,
+    "reasoning": 0
+   }
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "step_usage"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_99273621bc6149458f51d199",
+   "duration_ms": 5,
+   "error": "blocked by the wikiskill evaluation guard: step budget of 1 exhausted",
+   "input": {
+    "command": "ls"
+   },
+   "ok": false,
+   "output": "",
+   "output_hash": null,
+   "output_length": 0,
+   "output_truncated": false,
+   "tool": "bash"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "cost": 0,
+   "tokens": {
+    "cache_read": 7680,
+    "cache_write": 0,
+    "input": 568,
+    "output": 311,
+    "reasoning": 0
+   }
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "step_usage"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "finish_reason": null,
+   "text": "I couldn't complete the task: the evaluation guard blocked further steps after my initial `ls` command consumed the one-step budget. No files were created.",
+   "text_length": 155
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "assistant_turn"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "cost": 0,
+   "tokens": {
+    "cache_read": 8448,
+    "cache_write": 0,
+    "input": 138,
+    "output": 119,
+    "reasoning": 0
+   }
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "step_usage"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "duration_ms": 30000,
+   "reason": "export"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a782de0ffe8o7K2H1Zj1lbbL",
+  "type": "session_end"
+ }
+]

@@ -15,7 +15,7 @@ per-judge labels are reported.
 Its `bin/install.sh --harness opencode` drops agent `tools:` and maps `haiku/sonnet/opus` to Anthropic
 ids. It pins models only on `bids-doer` and `coordinator`.
 
-**What the first unit established** (`docs/pilots/dsh.md`): `archive/archive-doer` went through v1,
+**What the first unit established** (`docs/pilots/dsh/report.md`): `archive/archive-doer` went through v1,
 review, refine, a candidate run, replay and a rejection, on `gemma4` and `qwen3:30b-a3b`. INJECTED
 beat OFF on both models with non-overlapping intervals. qwen3 was at 18/18 under INJECTED, at the
 ceiling. In 30 of 36 INJECTED units the doer's readiness script was not found, because the doer names
@@ -168,7 +168,7 @@ tasks then go in a new suite file, so the existing hash and its runs stay compar
   v1, then `proposal decide`. The board ranks; the gate decides. Per-model bests are reported as
   findings for the maintainer, not accepted as forks of the doer.
 
-**Report structure** (`docs/pilots/dsh.md`):
+**Report structure** (`docs/pilots/dsh/report.md`):
 1. *Setup:* DSH commit, OpenCode and Ollama versions, the model table with served contexts, and the
    models that failed preflight, each with its reason.
 2. *Unit 1: archive-doer:* the existing section on v1, p-002 and the decision.

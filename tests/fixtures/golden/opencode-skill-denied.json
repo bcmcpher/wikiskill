@@ -1,0 +1,126 @@
+[
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "agent": "build",
+   "cwd": "/tmp/eval/work",
+   "title": "Agent skill usage tracking"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a698c12ffeGMVVtQilx7H3ZT",
+  "type": "session_start"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "skill",
+   "name": "wikiskill-trace",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "input_summary": null,
+   "source_path": null,
+   "trigger": "skill_tool"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a698c12ffeGMVVtQilx7H3ZT",
+  "type": "component_activated"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "skill",
+   "name": "wikiskill-trace",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_7ef2477513624611af2139a7",
+   "duration_ms": 4,
+   "error": "The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules [{\"permission\":\"*\",\"action\":\"allow\",\"pattern\":\"*\"},{\"permission\":\"skill\",\"pattern\":\"wikiskill-trace\",\"action\":\"deny\"}]",
+   "input": {
+    "name": "wikiskill-trace"
+   },
+   "ok": false,
+   "output": "",
+   "output_hash": null,
+   "output_length": 0,
+   "output_truncated": false,
+   "tool": "skill"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a698c12ffeGMVVtQilx7H3ZT",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "skill",
+   "name": "wikiskill-trace",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "duration_ms": 30000,
+   "reason": "export"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_f3a698c12ffeGMVVtQilx7H3ZT",
+  "type": "session_end"
+ }
+]

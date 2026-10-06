@@ -1,0 +1,377 @@
+[
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "agent": "build",
+   "cwd": "/tmp/eval/work",
+   "title": "Cut version 1.0 of the dataset"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "session_start"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "skill",
+   "name": "dataset-release",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "input_summary": null,
+   "source_path": "/tmp/eval/config/opencode/skills/dataset-release/SKILL.md",
+   "trigger": "skill_tool"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "component_activated"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "skill",
+   "name": "dataset-release",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_skill_1",
+   "duration_ms": 700,
+   "error": null,
+   "input": {
+    "name": "dataset-release"
+   },
+   "ok": true,
+   "output": "Loaded skill dataset-release",
+   "output_hash": null,
+   "output_length": 28,
+   "output_truncated": false,
+   "tool": "skill"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "agent",
+   "name": "datalad-doer",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "input_summary": "tag the dataset",
+   "source_path": null,
+   "trigger": "task_tool"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "component_activated"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "agent",
+   "name": "datalad-doer",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "child_session_id": "ses_child000000000000000001",
+   "description": "tag the dataset",
+   "subagent_type": "datalad-doer"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "delegation"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "agent",
+   "name": "datalad-doer",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "call_id": "call_task_1",
+   "duration_ms": 18000,
+   "error": null,
+   "input": {
+    "description": "tag the dataset",
+    "subagent_type": "datalad-doer"
+   },
+   "ok": true,
+   "output": "child finished",
+   "output_hash": null,
+   "output_length": 14,
+   "output_truncated": false,
+   "tool": "task"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "agent",
+   "name": "datalad-doer",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "cost": 0,
+   "tokens": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 1200,
+    "output": 90,
+    "reasoning": 0
+   }
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "step_usage"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "agent",
+   "name": "datalad-doer",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "finish_reason": null,
+   "text": "Tagged the dataset as v1.0 and wrote CHANGELOG.md.",
+   "text_length": 50
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "assistant_turn"
+ },
+ {
+  "collection": "toy",
+  "component": {
+   "kind": "agent",
+   "name": "datalad-doer",
+   "source_hash": null
+  },
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": null,
+  "payload": {
+   "duration_ms": 30000,
+   "reason": "export"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_root0000000000000000001",
+  "type": "session_end"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": "ses_root0000000000000000001",
+  "payload": {
+   "agent": "datalad-doer",
+   "cwd": "/tmp/eval/work",
+   "title": "datalad-doer"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_child000000000000000001",
+  "type": "session_start"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": "ses_root0000000000000000001",
+  "payload": {
+   "call_id": "call_bash_1",
+   "duration_ms": 50,
+   "error": "blocked by the wikiskill evaluation guard: git push origin main matches deny pattern git push*",
+   "input": {
+    "command": "git push origin main"
+   },
+   "ok": false,
+   "output": "",
+   "output_hash": null,
+   "output_length": 0,
+   "output_truncated": false,
+   "tool": "bash"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_child000000000000000001",
+  "type": "tool_call"
+ },
+ {
+  "collection": "toy",
+  "component": null,
+  "eval": {
+   "condition": "routed",
+   "repeat": 0,
+   "run_id": "01ABCDEFGHJKMNPQRSTVWXYZ01",
+   "suite": "toy",
+   "task_id": "release"
+  },
+  "harness": "opencode",
+  "harness_version": "1.18.31",
+  "model": "qwen2.5-coder:1.5b",
+  "origin": "eval",
+  "parent_session_id": "ses_root0000000000000000001",
+  "payload": {
+   "duration_ms": 30000,
+   "reason": "export"
+  },
+  "provider": "ollama",
+  "root_session_id": "ses_root0000000000000000001",
+  "schema_version": 1,
+  "session_id": "ses_child000000000000000001",
+  "type": "session_end"
+ }
+]

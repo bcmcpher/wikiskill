@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import names, paths, rawlog
+from . import names, paths, present, rawlog
 from .errors import WikiskillError
 from .score.route import UNSCORED
 
@@ -383,13 +383,6 @@ def _event_model(model: str) -> str:
 # --------------------------------------------------------------------------- output
 
 
-def _fmt(rate: Rate) -> str:
-    if rate.total == 0:
-        return "-"
-    low, high = rate.interval or (0.0, 0.0)
-    return f"{rate.passed}/{rate.total} ({rate.rate:.0%}, CI {low:.0%}-{high:.0%})"
-
-
 def render(comparison: Comparison) -> str:
     a, b = comparison.a, comparison.b
     short = lambda h: (h or "?")[:12]  # noqa: E731
@@ -423,9 +416,11 @@ def render(comparison: Comparison) -> str:
         for model in [*models, POOLED]:
             ra, rb, move = comparison.rows[(condition, model)]
             label = f"**{model}**" if model == POOLED else model
-            lines.append(f"| {label} | {_fmt(ra)} | {_fmt(rb)} | {move} |")
+            lines.append(f"| {label} | {present.of(ra)} | {present.of(rb)} | {move} |")
         ta, tb, tmove = comparison.with_timeouts[condition]
-        lines.append(f"| pooled, timeouts as failures | {_fmt(ta)} | {_fmt(tb)} | {tmove} |")
+        lines.append(
+            f"| pooled, timeouts as failures | {present.of(ta)} | {present.of(tb)} | {tmove} |"
+        )
         lines.append("")
         counts_a, units_a = comparison.tools.get((condition, "A"), ({}, 0))
         counts_b, units_b = comparison.tools.get((condition, "B"), ({}, 0))

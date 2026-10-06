@@ -8,7 +8,7 @@ upstream before its v1/v2 comparison, so its 6.0c, 6.1, 6.2 and 8.4 moved here: 
 Sections 1–2 used DSH at `c6f6079` (`main`), OpenCode 1.18.34, and Ollama 0.34.2 on a GB10. The
 models were `ollama/gemma4:latest` and `ollama/qwen3:30b-a3b`, with `--thinking default`. The
 maintainer and proposer were `qwen3:30b-a3b` at a 40960-token context. The report is
-`docs/pilots/dsh.md`.
+`docs/pilots/dsh/report.md`.
 
 Rewritten 2026-10-06 for a broader check across models (sections 3–7). Passive use (old 5.x) and
 Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
@@ -28,7 +28,7 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
   - `ledger-only` for a relation it cannot write
 
   The pair needs the routing probe, and `bids-doer` needs its fixture. The reasons are in
-  `docs/pilots/dsh.md`.
+  `docs/pilots/dsh/report.md`.
 - [x] 1.2 For each unit, `pilots/<unit>/<collection>.toml` with `plugins = [...]`, and
   `wikiskill collection check` passing. Done in `pilots/archive-doer/dsh-archive.toml`:
   - `plugins = ["archive", "archive-cli"]`
@@ -103,8 +103,11 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 ## 4. Model sweep (archive-doer suite)
 
 - [ ] 4.0 `pilots/models.toml`, the model catalogue (`add-pilot-reporting`): family, size and shape
-  of every model in the design's table. `pilots/archive-doer/sweep.sh`: one eval per model, in the
-  design's order, skipping models with a finished run, and appending each run id to a log.
+  of every model in the design's table. Point `docs/pilots/dsh/findings.toml`'s `models_file` at it.
+  `pilots/archive-doer/sweep.sh`: one eval per model, in the design's order, skipping models with a
+  finished run. After each run it calls
+  `wikiskill findings add docs/pilots/dsh <run_id> --role sweep` (`add-findings-export`), so the
+  study's manifest is the run log.
 - [ ] 4.1 Preflight every model in the design's table, at `--thinking default`. Record per model:
   pass or the failure reason, and the served context. Fill in the size and shape of the added models
   from `ollama show`, and which ones the server says can think.
@@ -116,8 +119,9 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
   repeats.
 - [ ] 4.5 Noise: rerun `gemma4` on the v1 settings on a different day. Use `wikiskill compare`
   for the run-to-run spread.
-- [ ] 4.6 `wikiskill leaderboard` over every sweep run and v1. Answer the design's six questions
-  from the per-model table.
+- [ ] 4.6 Declare a `sweep` leaderboard table over roles `sweep` and `v1` in the study, then run
+  `wikiskill findings bundle`, `findings tables` and `bin/figures`. Answer the design's six
+  questions from the per-model table.
 - [ ] 4.7 Ceiling check. If two or more models are at the ceiling under INJECTED, write harder tasks
   in a new suite file, check them by hand (as 2.2), and run them on the top models.
 
@@ -159,7 +163,14 @@ Phase 2 (old 6.x) moved out to their own changes. Old 4.2 is now 3.5.
 
 ## 6. Report
 
-- [x] 6.1 `docs/pilots/dsh.md`, written in the protocol's terms (was 4.1):
+Every section below is written into `docs/pilots/dsh/report.md` and `slides.md`, the study made by
+`add-findings-export`. The study lives on the `results/dsh-pilot` branch, not `main`; results are
+committed there, and tooling changes on `main` are merged in. Numbers come in through `<!-- include: tables/... -->` lines, never copied
+by hand. Each run is added with `findings add` and bundled, and every table is declared in
+`findings.toml`. `findings tables --check` passes before a commit, and `bin/build-docs` makes the
+`.docx` and `.pptx`.
+
+- [x] 6.1 `docs/pilots/dsh/report.md`, written in the protocol's terms (was 4.1):
   - the control named
   - per unit and per model: pass rates with intervals, the direction, and tool choice
   - the proposals and the decisions on them

@@ -109,6 +109,9 @@ which never disqualify a version. `--models-file` takes a model catalogue
 ([`examples/models.toml`](examples/models.toml)) giving each model's family and size. Rows are then
 grouped by family and ordered by size.
 
+Every output prints a rate one way: `9/10 (90%, 60-98%)`, the counts, the rate and its Wilson 95%
+interval. A per-task cell gives the counts alone (`9/10`), and a missing value prints as `—`.
+
 `wikiskill report <run> --models-file models.toml` rebuilds a finished run's report from its own
 files and runs nothing. A rubric graded by a judge panel (`[roles.judge] models = [...]`) shows each
 judge's levels. The report also marks a judge from the family of the model it judged, and gives the
@@ -118,6 +121,33 @@ each handoff the model made, to grade it.
 The board is saved under `evals/versions/`. It ranks and never decides: a winner still goes
 through `proposal replay` and `proposal decide`. `wikiskill review --model <model>` reviews only
 one model's eval units and live sessions, so a proposal can target that model.
+
+### Studies: findings you can version and share
+
+A study is a directory that keeps the runs behind a set of findings, and makes every table, data
+file and figure from them.
+
+```bash
+wikiskill findings add <study> <run-id> --role sweep   # list a run in findings.toml
+wikiskill findings bundle <study>          # copy run.json and results.jsonl; no transcripts
+wikiskill findings tables <study>          # tables/*.md, slide-sized *.slim.md, findings.csv
+wikiskill findings tables <study> --check  # fail when a generated file is stale
+bin/figures <study>                        # PNG figures from findings.csv (uv fetches matplotlib)
+bin/build-docs <study>                     # report.md -> .docx, slides.md -> .pptx (pandoc)
+```
+
+`findings.toml` names the runs, each with a role, and the tables to make: `leaderboard`,
+`version-board` or `report` (per-judge levels). A bundled run is never overwritten. A run whose
+source has changed is refused. `report.md` and `slides.md` are written by hand and pull tables in
+with `<!-- include: tables/<name>.slim.md -->`, and
+[`docs/findings/how-wikiskill-works.md`](docs/findings/how-wikiskill-works.md) explains the method
+in any study's terms. The `.docx` and `.pptx` files are build outputs, not tracked. They import into
+Google Docs and Slides with editable text and tables. `bin/build-docs` needs pandoc on `PATH`, and
+styles slides with [`docs/findings/reference.pptx`](docs/findings/reference.pptx) (16:9) unless a
+study has its own.
+
+A study's results belong to whoever ran it, so they need not live on `main`. This project keeps its
+own, the DSH pilot in `docs/pilots/dsh/`, on the `results/dsh-pilot` branch.
 
 ## What it records, and what it will not
 

@@ -46,8 +46,8 @@ Step 4 has its first unit through the loop, and the change stays open for its pa
   defect.
 - The pilot fixed two wikiskill bugs. Review let OFF units crowd out the component's own. The
   proposer's prompt dropped cited eval evidence.
-- The report is [`docs/pilots/dsh.md`](docs/pilots/dsh.md). The routing probe, passive use and Phase
-  2 stay deferred.
+- The report is `docs/pilots/dsh/report.md` on the `results/dsh-pilot` branch, with the runs and
+  tables behind it. The routing probe, passive use and Phase 2 stay deferred.
 
 Step 7 is **done**: archived on 2026-10-05, built on step 3's wiki rather than beside it. Review
 now samples by signal, with explicit notes first and clean evidence last, each up to a quota. A

@@ -32,9 +32,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import rawlog
+from . import present, rawlog
 from .catalogue import Catalogue
-from .compare import CompareError, LoadedRun, Rate, wilson
+from .compare import CompareError, LoadedRun, Rate
 from .runner.base import ROUTED
 from .score.route import UNSCORED, first_activation, same
 
@@ -79,6 +79,8 @@ class Cell:
     durations_ms: list[int] = field(default_factory=list)
     tokens_in: list[int] = field(default_factory=list)
     tokens_out: list[int] = field(default_factory=list)
+    #: every token count of the units that ran, summed by kind
+    tokens: Counter = field(default_factory=Counter)
 
     @property
     def rate(self) -> Rate:
@@ -120,6 +122,8 @@ class Leaderboard:
     cells: dict[tuple[str, str], Cell] = field(default_factory=dict)
     #: (task, model, condition) → pooled rate
     matrix: dict[tuple[str, str, str], Rate] = field(default_factory=dict)
+    #: (task, model, condition) → the counts of `cells` for one task, which a run's report reads
+    task_cells: dict[tuple[str, str, str], Cell] = field(default_factory=dict)
     #: task → how its units are judged: `verifier` or `route`
     bases: dict[str, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -408,38 +412,51 @@ def _add(
     thinking, label, harness = labels
     served, condition, task = result["model"], result["condition"], result["task_id"]
     model = served + label
-    cell = board.cells.setdefault(
-        (model, condition),
-        Cell(
+
+    def fresh() -> Cell:
+        return Cell(
             model=model,
             condition=condition,
             harness=harness,
             served=served + thinking,
             base=served,
-        ),
+        )
+
+    verdict, basis = unit_verdict(result)
+    for cell in (
+        board.cells.setdefault((model, condition), fresh()),
+        board.task_cells.setdefault((task, model, condition), fresh()),
+    ):
+        _tally(cell, run, result, contexts, verdict)
+    if verdict is None or result.get("outcome") in UNSCORED:
+        return
+    board.bases.setdefault(task, basis)
+    rate = board.matrix.get((task, model, condition), Rate(0, 0))
+    board.matrix[(task, model, condition)] = Rate(
+        passed=rate.passed + (1 if verdict else 0), total=rate.total + 1
     )
+
+
+def _tally(
+    cell: Cell, run: LoadedRun, result: dict[str, Any], contexts: dict, verdict: bool | None
+) -> None:
+    """One unit into one cell: its outcome, its cost, its route, and its verdict."""
     cell.runs.add(run.run_id)
-    if served in contexts:
-        cell.contexts.add(contexts[served])
+    if result["model"] in contexts:
+        cell.contexts.add(contexts[result["model"]])
     cell.outcomes[result.get("outcome") or "unknown"] += 1
     if result.get("outcome") in UNSCORED:
         cell.not_run += 1
         return
     _cost(cell, result)
     expected = (result.get("expected") or {}).get("primary")
-    if expected and condition == ROUTED:
+    if expected and cell.condition == ROUTED:
         cell.routed += 1
         cell.routed_first += 1 if same(first_activation(result), expected) else 0
-    verdict, basis = unit_verdict(result)
     if verdict is None:
         return
-    board.bases.setdefault(task, basis)
     cell.passed += 1 if verdict else 0
     cell.total += 1
-    rate = board.matrix.get((task, model, condition), Rate(0, 0))
-    board.matrix[(task, model, condition)] = Rate(
-        passed=rate.passed + (1 if verdict else 0), total=rate.total + 1
-    )
 
 
 def _cost(cell: Cell, result: dict[str, Any]) -> None:
@@ -447,6 +464,7 @@ def _cost(cell: Cell, result: dict[str, Any]) -> None:
     if isinstance(result.get("duration_ms"), int):
         cell.durations_ms.append(result["duration_ms"])
     tokens = result.get("tokens") or {}
+    cell.tokens.update({kind: n for kind, n in tokens.items() if isinstance(n, int)})
     if isinstance(tokens.get("input"), int):
         cell.tokens_in.append(tokens["input"])
     if isinstance(tokens.get("output"), int):
@@ -470,13 +488,6 @@ def _short(digest: str | None) -> str:
 # --------------------------------------------------------------------------- output
 
 
-def _fmt(rate: Rate) -> str:
-    if not rate.total:
-        return "-"
-    low, high = wilson(rate.passed, rate.total) or (0.0, 0.0)
-    return f"{rate.passed}/{rate.total} ({rate.rate:.0%}, {low:.0%}-{high:.0%})"
-
-
 def ranking_lines(ranking: dict[str, list[dict[str, Any]]]) -> list[str]:
     """The pooled table per condition, from `as_dict()["ranking"]`.
 
@@ -498,7 +509,9 @@ def ranking_lines(ranking: dict[str, list[dict[str, Any]]]) -> list[str]:
         for place, entry in enumerate(entries, start=1):
             mark = str(place) if place == 1 or entry["clear_of_leader"] else f"{place}≈"
             rate = Rate(passed=entry["passed"], total=entry["total"])
-            contexts = ", ".join(f"{c // 1024}k" for c in entry["context_tokens"]) or "-"
+            contexts = (
+                ", ".join(f"{c // 1024}k" for c in entry["context_tokens"]) or present.MISSING
+            )
             seconds = entry.get("median_duration_ms")
             about = (
                 f"{entry.get('family') or 'uncatalogued'} | {_size(entry.get('size_b'))} | "
@@ -506,8 +519,8 @@ def ranking_lines(ranking: dict[str, list[dict[str, Any]]]) -> list[str]:
                 else ""
             )
             lines.append(
-                f"| {mark} | {entry['model']} | {about}{_fmt(rate)} | {entry['not_run']} | "
-                f"{'-' if seconds is None else f'{seconds / 1000:.1f}'} | "
+                f"| {mark} | {entry['model']} | {about}{present.of(rate)} | {entry['not_run']} | "
+                f"{present.seconds(seconds)} | "
                 f"{len(entry['runs'])} | {contexts} |"
             )
         lines.append("")
@@ -595,18 +608,18 @@ def outcome_lines(
         tokens = entry.get("median_tokens") or {}
         lines.append(
             f"| {entry['model']} | {condition} | " + " | ".join(counts) + " | "
-            f"{'-' if seconds is None else f'{seconds / 1000:.1f}'} | "
+            f"{present.seconds(seconds)} | "
             f"{_count(tokens.get('input'))}/{_count(tokens.get('output'))} |"
         )
     return [*lines, ""]
 
 
 def _size(value: float | None) -> str:
-    return "-" if value is None else f"{value:g}"
+    return present.value(value, "g")
 
 
 def _count(value: float | None) -> str:
-    return "-" if value is None else f"{value:.0f}"
+    return present.value(value, ".0f")
 
 
 def across_harness_lines(rows: list[dict[str, Any]]) -> list[str]:
@@ -630,15 +643,15 @@ def across_harness_lines(rows: list[dict[str, Any]]) -> list[str]:
             rate = Rate(passed=entry["passed"], total=entry["total"])
             route = Rate(passed=entry["route@1"]["passed"], total=entry["route@1"]["total"])
             lines.append(
-                f"| {row['model']} | {row['condition']} | {harness} | {_fmt(rate)} | "
-                f"{_fmt(route)} | {entry['not_run']} |"
+                f"| {row['model']} | {row['condition']} | {harness} | {present.of(rate)} | "
+                f"{present.of(route)} | {entry['not_run']} |"
             )
     return [*lines, ""]
 
 
 def _matrix_lines(board: Leaderboard) -> list[str]:
-    present = {model for _, model, _ in board.matrix}
-    models = [model for model in board.models_in_order if model in present]
+    seen = {model for _, model, _ in board.matrix}
+    models = [model for model in board.models_in_order if model in seen]
     tasks = sorted({task for task, _, _ in board.matrix})
     lines = ["## Per task", ""]
     for condition in board.conditions:
@@ -656,8 +669,9 @@ def _matrix_lines(board: Leaderboard) -> list[str]:
             "|---|---|" + "---|" * len(models),
         ]
         for task, rates in rows:
-            cells = [f"{r.passed}/{r.total}" if r and r.total else "-" for r in rates]
-            lines.append(f"| {task} | {board.bases.get(task, '-')} | " + " | ".join(cells) + " |")
+            cells = [present.count_of(r) for r in rates]
+            basis = board.bases.get(task, present.MISSING)
+            lines.append(f"| {task} | {basis} | " + " | ".join(cells) + " |")
         lines.append("")
     return lines
 
