@@ -273,8 +273,14 @@ one at a time, rebasing each onto `main`, then push once at the end of the wave.
   public name. One difference: review now loads every finished run before filtering, so a broken
   `run.json` may surface from a different run. Tests: a 12-case table for `rate`, plus one for
   `runs`. `bin/check` after rebasing onto `main`: pytest 853, bun 216 and 75, pyright clean.
-- [ ] 7.2 Remove `run.load_results`, `gate.PROPOSED`, the unused `root` parameters (`wiki.py:374`,
+- [x] 7.2 Remove `run.load_results`, `gate.PROPOSED`, the unused `root` parameters (`wiki.py:374`,
   `runner/claude.py:240`) and the commented-out code at `runner/claude.py:155`.
+  Done 2026-10-06. Each had no caller outside its definition and the openspec docs. The `root`
+  parameters were on `wiki._write_component` and `ClaudeCodeBackend.settings_for` (not part of
+  `Backend`); their callers, one test included, are updated. `env_for` and `command_for` keep
+  theirs, which they use. The "commented-out code" was a sample of `claude --version` output,
+  so it is reworded as prose rather than deleted; `ruff --select ERA` is now clean. No test
+  removed; pytest 870, bun 216 and 75, pyright clean.
 - [x] 7.3 Add `tests/fixtures/parity/redact.json` and `guard.json`, read by the pytest and bun
   suites, plus a test that the Python and TypeScript redaction pattern sources are identical.
   Done 2026-10-05. `tests/fixtures/parity/redact.json` (38 cases) and `guard.json` (56) are read by
