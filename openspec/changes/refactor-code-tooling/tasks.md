@@ -3,8 +3,9 @@
 Each slice merges on its own and passes `bin/check`.
 
 **Status, 2026-10-06.** Slice 1, wave A (slices 2, 3, 4 and task 7.3), the redaction fix and
-wave B (slice 5 and task 7.1) are merged and pushed. `bin/check` passes: pytest 870, bun 216
-(plugin) and 75 (guard), and pyright 0 errors with no file excluded. Next is wave C.
+waves B (slice 5, task 7.1) and C (slice 6, task 7.2) are merged and pushed. `bin/check` passes:
+pytest 879, bun 216 (plugin) and 75 (guard), and pyright 0 errors with no file excluded. Next is
+wave D, optional and awaiting the user's go-ahead.
 
 **Decided before wave B (the user, 2026-10-06):**
 
@@ -257,10 +258,22 @@ one at a time, rebasing each onto `main`, then push once at the end of the wave.
 
 ## 6. Meta-role client (D7; M; after step 4 merges)
 
-- [ ] 6.1 Add `src/wikiskill/roles.py` with `role_asker`, `endpoint_asker`, `harness_asker`,
+- [x] 6.1 Add `src/wikiskill/roles.py` with `role_asker`, `endpoint_asker`, `harness_asker`,
   `harness_flatten` and one `chat()` request. Keep the error messages word for word.
-- [ ] 6.2 `review`, `refine`, `cli` and `score/judge.ask_once` use it, and `review.py` drops about
+  Done 2026-10-06. `roles.py` also holds `ROLE_MAX_STEPS`, the `Ask` type and a new
+  `RoleError(WikiskillError)`, which replaces `ReviewError` for role failures because `roles`
+  cannot import `review`. Messages are unchanged, and the only `except ReviewError` in `src`
+  (`refine.load_prompt`) wraps `load_sample`, not a role call. `chat()` builds the one payload
+  (`names.bare(model)`, temperature 0, no streaming) and returns `(status, body)`, letting `OSError`
+  through so the endpoint role and the judge keep their own wording. Known and unchanged: a 200
+  whose body is not JSON still raises `AttributeError` in `endpoint_asker`.
+- [x] 6.2 `review`, `refine`, `cli` and `score/judge.ask_once` use it, and `review.py` drops about
   210 lines.
+  Done: `review.py` -224/+2 (it re-exports `Ask`), `judge.py` -14/+4, `cli.py` and `refine.py` a
+  few lines each. The four harness-role tests moved from `test_wiki.py` to a new `test_roles.py`
+  with nine new ones (the `chat` payload, URL, key and timeout; the exact failure messages;
+  `harness_flatten`). After rebasing onto `main` with 7.2: pytest 879, bun 216 and 75, pyright
+  clean.
 
 ## 7. Small cleanups (D10; S each; after step 4 merges)
 
