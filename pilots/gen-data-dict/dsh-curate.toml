@@ -1,0 +1,43 @@
+# One unit of data-science-harness: the curate plugin's gen-data-dict skill, with its neighbours.
+#
+# The skill writes a participants.json data dictionary and never invents a column's meaning, units or
+# level coding. A collection is loaded by name, so copy this to
+# ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/dsh-curate.toml, then:
+#
+#     wikiskill collection check dsh-curate --sync
+
+name = "dsh-curate"
+
+# The whole curate plugin, so ROUTED has gen-data-dict's near neighbours (annotate, merge-data) to
+# choose wrongly between.
+sources = [
+  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin", plugins = ["curate"] },
+]
+
+[watch]
+skills = ["curate/gen-data-dict"]
+
+# The judge grades the rubric's dimensions only, never pass or fail, and must not be a model under
+# test: leave gpt-oss:120b out of `--models` for this suite. gpt-oss:20b shares its family, which the
+# report marks.
+[roles.judge]
+base_url = "http://localhost:11434/v1"
+model = "gpt-oss:120b"
+context_tokens = 131072
+
+[roles.maintainer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:30b-a3b"
+context_tokens = 40960
+
+[roles.proposer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:30b-a3b"
+context_tokens = 40960
+
+[aliases.opencode]
+small = "ollama/gemma4:latest"
+large = "ollama/qwen3:30b-a3b"
+haiku = "small"
+sonnet = "large"
+opus = "large"

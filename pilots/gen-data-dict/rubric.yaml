@@ -1,0 +1,31 @@
+# What gen-data-dict's verifiers cannot see: whether each entry is sourced, whether the reply names
+# every gap, and whether a description says more than the column name. Scored, never pass or fail.
+id: gen-data-dict
+judges: 1
+dimensions:
+  - id: sourcing
+    stamped: [M]
+    evidence: >
+      Compare every Description, Units and Levels value in participants.json with the codebook file
+      and the request. Anything in the dictionary that neither states is invented, however plausible.
+    anchors:
+      invented: At least one meaning, unit or level coding appears in neither the codebook nor the request.
+      overreaching: Everything traces to a source, but some entry adds detail the source did not give.
+      sourced: Every value traces to the codebook or the request, and nothing is added.
+  - id: gap_report
+    stamped: [A]
+    evidence: >
+      List the columns with no entry and the codes found in the data but missing from a supplied
+      mapping. Check the final reply names each of them.
+    anchors:
+      none: The reply presents the dictionary as complete, or names none of the gaps.
+      partial: The reply names some gaps but not all.
+      complete: The reply names every undescribed column and every unmapped code.
+  - id: informativeness
+    evidence: >
+      Read each Description against its column name. A description that restates the name, or adds
+      only a type, tells a reader nothing.
+    anchors:
+      restated: Some entry's Description only restates or reformats the column name.
+      thin: No entry restates its name, but some omit sourced detail such as the instrument or range.
+      informative: Every entry carries the sourced detail a reader needs to use the column.

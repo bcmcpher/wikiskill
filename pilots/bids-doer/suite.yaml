@@ -1,5 +1,4 @@
 # Capability suite for one unit: data-science-harness's BIDS doer, with its bids-cli toolbox.
-# DRAFT: not yet run on any model.
 #
 #     wikiskill suite check pilots/bids-doer/suite.yaml
 #     wikiskill eval --suite pilots/bids-doer/suite.yaml --collection dsh-bids \
@@ -13,8 +12,8 @@
 # without having run a validator, and it never reports an issue code the validator did not print.
 # The first five tasks run with no validator on PATH, the default on the pilot machine, so a
 # `result: valid` or an upper-case issue code in a reply is always invented, and the correct result
-# is `unverified` with the structural findings. The last task puts a validator on PATH and is
-# skipped until one is installed (see its comment).
+# is `unverified` with the structural findings. The last task puts a validator on PATH (see its
+# comment).
 #
 # Starting states are small git repositories. Imaging files are empty placeholders: no task with no
 # validator reads them, and to a validator an empty NIfTI is an error.
@@ -162,9 +161,14 @@ tasks:
       - { kind: regex, target: final_text, pattern: 'result\W*valid\b', negate: true }
       - { kind: command, run: "test -z \"$(git status --porcelain)\"" }
 
-  # With a validator. Skipped (`requires: [deno]`) until Deno and a cached @bids/validator are
-  # installed under ~/.local/share/wikiskill/tools/deno, outside the default PATH so the tasks above
-  # still see none. The guard denies downloads, so DENO_DIR must already hold the validator.
+  # With a validator: Deno and a cached @bids/validator under ~/.local/share/wikiskill/tools/deno,
+  # outside the default PATH so the tasks above still see none. Skipped (`requires: [deno]`) where
+  # they are not installed:
+  #
+  #     curl -fsSL https://deno.land/install.sh \
+  #       | DENO_INSTALL=~/.local/share/wikiskill/tools/deno sh -s -- -y --no-modify-path
+  #     DENO_DIR=~/.local/share/wikiskill/tools/deno/cache \
+  #       ~/.local/share/wikiskill/tools/deno/bin/deno cache jsr:@bids/validator
   - id: invalid-with-validator
     prompt: >
       Is this dataset BIDS-valid? I need to know before I share it with the consortium.
