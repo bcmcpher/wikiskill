@@ -50,7 +50,7 @@ MUST read the stored graph and MUST NOT rebuild it.
 
 #### Scenario: Rebuild after an eval
 
-- **WHEN** the user runs `wikiskill graph build --collection dsh` after a new eval
+- **WHEN** the user runs `wikiskill graph build --collection my-plugins` after a new eval
 - **THEN** `graph.json` holds the new run's confusions, names the run, and the wiki has a commit for it
 
 ### Requirement: Neighbours are depth-1 and thresholded

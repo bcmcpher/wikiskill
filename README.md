@@ -31,20 +31,20 @@ fills the log passively, and the packaging that installs them.
 uv tool install .
 
 # Declare what to watch; edit the generated watch list.
-wikiskill collection init data-science-harness --source ~/Projects/claude/data-science-harness/plugins
-wikiskill collection check data-science-harness --sync
+wikiskill collection init my-plugins --source ~/path/to/my-plugins/plugins
+wikiskill collection check my-plugins --sync
 
 # Install the logger into OpenCode.
-wikiskill install --harness opencode --scope global --collection data-science-harness
+wikiskill install --harness opencode --scope global --collection my-plugins
 
 # Use OpenCode normally, then look at what was recorded.
-wikiskill log stats data-science-harness
-wikiskill log validate data-science-harness
-wikiskill log tail data-science-harness -f
+wikiskill log stats my-plugins
+wikiskill log validate my-plugins
+wikiskill log tail my-plugins -f
 ```
 
 A worked manifest with an open-model alias table is in
-[`examples/collections/data-science-harness.toml`](examples/collections/data-science-harness.toml).
+[`examples/collections/my-plugins.toml`](examples/collections/my-plugins.toml).
 
 ### Explicit evaluation
 
@@ -55,7 +55,7 @@ same prompts, across a list of models, with and without the collection, repeated
 wikiskill suite check examples/suites/toy-routing.yaml
 
 wikiskill eval --suite examples/suites/toy-routing.yaml \
-  --collection data-science-harness \
+  --collection my-plugins \
   --models ollama/qwen2.5-coder:1.5b \
   --condition off,routed
 ```
@@ -80,9 +80,9 @@ Each version of a component is the hash of its file. `wikiskill diff` shows what
 of them, in text and in results, from what wikiskill already stores; it never runs an evaluation.
 
 ```bash
-wikiskill diff datalad/datalad-doer --list --collection data-science-harness
-wikiskill diff datalad/datalad-doer p-003^ p-003 --collection data-science-harness
-wikiskill diff datalad/datalad-doer run:<run-id> current --collection data-science-harness
+wikiskill diff release/release-doer --list --collection my-plugins
+wikiskill diff release/release-doer p-003^ p-003 --collection my-plugins
+wikiskill diff release/release-doer run:<run-id> current --collection my-plugins
 ```
 
 A version is `current`, a hash prefix of 7 or more hex digits, a proposal (`p-003` is its candidate,
@@ -94,8 +94,8 @@ With more than two versions, rank them across models instead. `leaderboard --by-
 runs that differ only in that component's version:
 
 ```bash
-wikiskill leaderboard <run-id>... --collection data-science-harness \
-  --by-version archive/archive-doer --critical critical.yaml
+wikiskill leaderboard <run-id>... --collection my-plugins \
+  --by-version release/release-doer --critical critical.yaml
 ```
 
 For each model it gives every version's pass rate with its interval, and the best version with
@@ -151,8 +151,9 @@ Google Docs and Slides with editable text and tables. `bin/build-docs` needs pan
 styles slides with [`docs/findings/reference.pptx`](docs/findings/reference.pptx) (16:9) unless a
 study has its own.
 
-A study's results belong to whoever ran it, so they need not live on `main`. This project keeps its
-own, the DSH pilot in `docs/pilots/dsh/`, on the `results/dsh-pilot` branch.
+A study's results belong to whoever ran it, so they do not live on `main`. Keep a study, its suites
+and its sweep scripts on a branch of their own (`results/<study>`), and merge `main` into it for new
+code; `main` stays a clean starting point for a new collection.
 
 ## What it records, and what it will not
 

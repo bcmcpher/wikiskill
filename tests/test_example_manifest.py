@@ -52,23 +52,23 @@ def test_copying_the_example_into_place_gives_a_loadable_collection(xdg, example
     """What the file's own instructions tell a user to do must work."""
     destination = xdg["config"] / "wikiskill" / "collections" / example.name
     destination.parent.mkdir(parents=True, exist_ok=True)
+    raw = tomllib.loads(example.read_text(encoding="utf-8"))
+    plugin, skill = raw["watch"]["skills"][0].split("/")
     source = tmp_path / "plugins"
-    (source / "govern" / "skills" / "preregister").mkdir(parents=True)
-    (source / "govern" / "skills" / "preregister" / "SKILL.md").write_text(
-        "---\nname: preregister\ndescription: d\n---\n\nbody\n", encoding="utf-8"
+    (source / plugin / "skills" / skill).mkdir(parents=True)
+    (source / plugin / "skills" / skill / "SKILL.md").write_text(
+        f"---\nname: {skill}\ndescription: d\n---\n\nbody\n", encoding="utf-8"
     )
     shutil.copy(example, destination)
     destination.write_text(
-        destination.read_text().replace(
-            "~/Projects/claude/data-science-harness/plugins", str(source)
-        ),
+        destination.read_text().replace(raw["sources"][0]["path"], str(source)),
         encoding="utf-8",
     )
 
     loaded = collection_mod.load(example.stem)
 
     assert loaded.sources[0].path == source
-    assert [c.name for c in loaded.watched()] == ["govern/preregister"]
+    assert [c.name for c in loaded.watched()] == [f"{plugin}/{skill}"]
     # The rest of the watch list is genuinely absent from this stub source.
     assert loaded.unresolved()
 

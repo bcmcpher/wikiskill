@@ -1,36 +1,33 @@
-# The first real wikiskill collection: the data-science-harness (DSH) plugin marketplace.
+# A worked collection: a Claude Code plugin marketplace, evaluated on open models under OpenCode.
 #
-# Copy to ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/data-science-harness.toml, adjust the
-# source path, then:
+# Copy to ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/my-plugins.toml, adjust the source
+# path and the watch list to your own plugins, then:
 #
-#     wikiskill collection check data-science-harness --sync
+#     wikiskill collection check my-plugins --sync
 #
 # wikiskill never writes into the source repository — `check` and `build` leave its `git status`
 # exactly as they found it.
 
-name = "data-science-harness"
+name = "my-plugins"
 
 sources = [
-  { path = "~/Projects/claude/data-science-harness/plugins", layout = "claude-plugin" },
+  { path = "~/path/to/my-plugins/plugins", layout = "claude-plugin" },
 ]
 # To evaluate, watch and refine one unit on its own, narrow the source to its plugins:
 #
-#     { path = "...", layout = "claude-plugin", plugins = ["datalad"] },
+#     { path = "...", layout = "claude-plugin", plugins = ["release"] },
 
 # Only sessions that activate something listed here are logged. Everything else writes nothing.
 # Names are `<plugin>/<component>`; a harness that reports a bare name (OpenCode's `skill` tool
-# says `preregister`, not `govern/preregister`) still matches.
+# says `changelog`, not `release/changelog`) still matches.
 [watch]
 skills = [
-  "govern/preregister",
-  "govern/qc-review",
-  "analyze/run-comparison",
-  "analyze/propose-comparison",
-  "curate/raw-to-bids",
+  "release/changelog",
+  "release/version-bump",
+  "review/code-review",
 ]
 agents = [
-  "datalad/datalad-doer",
-  "bids/bids-doer",
+  "release/release-doer",
   "project/coordinator",
 ]
 commands = []
@@ -75,7 +72,7 @@ claude-code = ["sonnet"]
 # tool call, which is exactly what `add-explicit-eval`'s preflight check is for.
 
 [aliases.opencode]
-# Tiers. DSH agents pin Claude model names; each resolves to a tier, and the tier to a model, so
+# Tiers. Claude Code plugin agents pin Claude model names; each resolves to a tier, and the tier to a model, so
 # choosing a different small or large model is one line. Both are the one endpoint that passes
 # preflight here until a second is chosen. Evaluation strips these pins either way: a subagent runs
 # on the model under test.

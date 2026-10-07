@@ -125,7 +125,7 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — | Schema, manifest, and packaging underpin everything. |
 | 2 ✅ | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 | Controlled measurement; real trajectories; the replay engine the gate needs. |
 | 3 ✅ | `add-minimal-loop` | experience-wiki, refinement-proposal, version-comparison (+ collection-config, harness-packaging, eval-runner) | 1, 2 | The whole loop once, on one unit (`datalad-doer`), with a light gate: a human decision informed by a v1-vs-v2 comparison with intervals. |
-| 4 | `add-dsh-pilot` | dsh-pilot | 3 | Reshaped into per-unit pilots on the loop. The full-collection routing probe becomes optional. First unit (`archive-doer`) done; passive use waits for Milestone C. |
+| 4 | pilots on a real collection | — | 3 | Per-unit pilots on the loop, each kept with its suites and results on a `results/<study>` branch, not on `main`. First unit done; passive use waits for Milestone C. |
 | 5 ✅ | `add-correction-capture` | correction-signal | 1 | Starts accumulating the strongest learning signal from real use. |
 | 6 ✅ | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 5 | Captures sessions where most development happens; adds the harness axis. |
 | 7 ✅ | `add-experience-wiki` | experience-wiki | 3, 5 | Extends step 3's minimal wiki with sampling at scale, digests and a watermark. |
@@ -149,8 +149,8 @@ task 7.1). Step 9 extends step 8's gate the same way.
 
   The comparison states pass rates with intervals per model, and states which models failed
   preflight and why.
-- Per-unit DSH pilots follow (step 4). The pilot's passive-use tasks wait for Milestone C, and its
-  Phase 2 stays deferred.
+- Per-unit pilots follow (step 4), each on its own results branch. Their passive-use tasks wait for
+  Milestone C, and provenance and reproducibility probes stay deferred.
 
 **Milestone A progress.** The schema half holds: logs written by the OpenCode logger validate against
 `schemas/raw-event.schema.json` with zero errors, checked both from the plugin's own mapper and from
@@ -200,7 +200,7 @@ which the report describes.
 - The pilot gains its Claude Code arm here.
 
 **Milestone B met (2026-10-05)**, apart from the pilot's Claude Code arm, which has no task in
-`add-dsh-pilot` and moves there. Live sessions logged every signal in both harnesses:
+`add-dsh-pilot` (now on `results/dsh-pilot`) and moves there. Live sessions logged every signal in both harnesses:
 
 - **OpenCode 1.18.34 on gemma4:**
   - Follow-ups and notes: `add-correction-capture` 4.3.
@@ -216,7 +216,7 @@ which the report describes.
 ### C — Learning loop at depth (7–8)
 
 - **Milestone C:** `/wikiskill-review` produces validated, scoped patterns from sampled real logs. Then
-  `/wikiskill-refine` delivers one data-science-harness patch with cross-model replay, decided by a
+  `/wikiskill-refine` delivers one patch to a real collection with cross-model replay, decided by a
   human and recorded in `skill-impact.md`.
 - Resume the pilot's passive-use tasks.
 
@@ -236,8 +236,8 @@ The table above is the single-track order.
 
 ## Carried forward
 
-- **data-science-harness pilot Phase 2** (provenance and reproducibility): needs a sandbox with fake
-  credentials, local siblings, and a synthetic BIDS dataset. Schedule it after Milestone C.
+- **Provenance and reproducibility probes**: need a sandbox with fake credentials and local
+  siblings. Schedule them after Milestone C.
 - **Open questions** tracked in the changes' `design.md` files:
   - neutral-proposal acceptance
   - wiki pruning

@@ -56,7 +56,7 @@ bundle now gives.
 
 #### Scenario: Regenerating on another machine
 
-- **WHEN** a fresh clone runs `wikiskill findings tables docs/pilots/dsh`
+- **WHEN** a fresh clone runs `wikiskill findings tables <study>`
 - **THEN** the fragments are rewritten from the bundle, unchanged from the committed ones
 
 #### Scenario: A stale fragment
@@ -87,7 +87,7 @@ project's dependencies.
 
 #### Scenario: Drawing the sweep
 
-- **WHEN** the figures script runs on the DSH study CSV
+- **WHEN** the figures script runs on a study CSV
 - **THEN** it writes PNG figures into the study directory, and `pyproject.toml` is unchanged
 
 ### Requirement: Documents are versioned as markdown and built to office formats
@@ -99,9 +99,9 @@ editable after import. When the study supplies reference templates, the build MU
 office files MUST NOT be tracked by git. When pandoc is not on `PATH`, the build MUST fail, saying so,
 and write nothing.
 
-#### Scenario: Building the DSH documents
+#### Scenario: Building a study's documents
 
-- **WHEN** `bin/build-docs docs/pilots/dsh` runs with pandoc installed
+- **WHEN** `bin/build-docs <study>` runs with pandoc installed
 - **THEN** `report.docx` and `slides.pptx` are written beside their markdown, with each included
   table's current content, and `git status` does not list them
 

@@ -20,7 +20,7 @@ agent is offered under those rules, not every skill the harness knows of.
 
 #### Scenario: Launch from inside OpenCode
 
-- **WHEN** the user runs `/wikiskill-eval dsh-routing` in an OpenCode session
+- **WHEN** the user runs `/wikiskill-eval my-routing` in an OpenCode session
 - **THEN** evaluation starts as a background process with a run id, and the calling session's
   context is not used for any task
 
