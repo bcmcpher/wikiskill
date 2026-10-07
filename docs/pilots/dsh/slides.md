@@ -267,10 +267,16 @@ generated from every run recorded at export time (see the build line on the last
 
 ## What the sweep shows so far
 
-- The doers are worth something from about 8B up; below that, OFF and INJECTED overlap
-- Archive is at its ceiling: most entrants from 3B up pass 16–18 of 18 under INJECTED
-- Curate is hard for everyone; only `gemma4:31b` gains from the skill
+- The doers help from about 8B total up; the 3B dense models never separate
+- Archive is at its ceiling: 10 of 15 entrants pass 16–18 of 18 under INJECTED
+- Curate: only `gemma4:31b` gains from the skill
 - Thinking off costs both gemma4 models INJECTED passes (bids 12 to 6, curate 10 to 7): a lead
+
+::: notes
+"Separate" means INJECTED's interval does not overlap OFF's for the same model. qwen3-coder:30b
+(3.3B active, 30.5B total) separates on both doers, so total size predicts more than active size.
+On curate, qwen3.8 passes 7 of 12 with no skill and 8 with it.
+:::
 
 ## Hard rules do not always hold
 
@@ -280,8 +286,10 @@ generated from every run recorded at export time (see the build line on the last
 - The doers reduce these failures; they do not remove them
 
 ::: notes
-Counted from per-verifier results, for the first seven models; the four added for the dense/MoE
-comparison are not yet counted. The DOI verifier also fails labelled placeholders ("e.g.
+Counted from per-verifier results for all eleven models. The four added for the dense/MoE comparison
+broke no hard rule under INJECTED: their two failures were a quoted `result: valid` template and a
+labelled example issue code. Under OFF, qwen3-coder:30b created or moved a tag, committed, or left
+the tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2. The DOI verifier also fails labelled placeholders ("e.g.
 10.5281/zenodo.1234567"), so the raw DOI counts overstate fabrication; the cases above were read.
 :::
 
@@ -319,13 +327,16 @@ model. Output is capped at 8192 per turn, and the judge's tokens are not counted
 - `gemma4:latest`, `gemma4:31b`, `qwen3:1.7b`: stopped thinking; output falls to the visible text
 - `gpt-oss:20b`: ignored it; still produces reasoning parts
 - `qwen3:30b-a3b`: moved its reasoning into the reply ("Okay, let's see…")
-- Leaked reasoning trips final-text verifiers: it quotes the doer's `result: valid | …` template
-- The thinking arm holds for gemma4 and `qwen3:1.7b` only
+- `qwen3.8`: stopped thinking; narrates its plan between tool calls
+- The thinking arm holds for gemma4, `qwen3:1.7b` and `qwen3.8`
 
 ::: notes
-Every off run sends reasoningEffort none. Counted from transcripts: reasoning parts, and visible
+Every off run sends reasoningEffort none. qwen3:30b-a3b's leaked reasoning trips final-text
+verifiers: it quotes the doer's `result: valid | …` template. Counted from transcripts: reasoning parts, and visible
 text and tool arguments at about 4 characters a token, against reported output. gpt-oss's effort
-levels are low, medium and high.
+levels are low, medium and high. qwen3.8 had no reasoning parts in any of 96 units; 54 open their first text
+with "The user wants…" or "Let me…", but only 2 of its final replies do. It ran at off only, so it
+has no default row to compare.
 :::
 
 ## Dense against MoE: the comparisons
@@ -348,15 +359,17 @@ only on archive and bids, so the total-size pair compares like with like only at
 - **Same active size, about 3B:** `qwen3-coder:30b` (MoE) vs dense `granite4.1:3b`, `ministral-3:3b`
 - MoE separates: archive 18/18 vs 5/18, bids 15/18 vs 3/18
 - The 3B dense models separate on no suite recorded
-- **Same total size:** `qwen3.8` (27B dense) vs `qwen3:30b-a3b`: **pending**
+- **Same total size, at off:** dense `qwen3.8` ahead on all three suites, within the intervals
 - **Tuning:** the two qwen MoE models overlap everywhere
 
 ::: notes
 Read off the sweep tables; "vs" is INJECTED against OFF for the same model. On curate the skill does
-not help the 3B dense models. Tuning compares qwen3-coder:30b and qwen3:30b-a3b under INJECTED. The two qwen MoE models differ in thinking as well as tuning:
-qwen3-coder cannot think, and qwen3:30b-a3b's thinking-off rows are not a clean comparison because
-its reasoning leaks into the reply. ministral-3:3b's archive run lost one unit to a harness crash
-and is being filled, so its archive rows appear once it is recorded.
+not help the 3B dense models. Total size, INJECTED at off, qwen3.8 against qwen3:30b-a3b: archive
+18/18 against 17/18, bids 17/18 against 12/18, curate 8/12 against 5/12. qwen3.8 also does more
+without the component (OFF bids 9/18 against 2/18, curate 7/12 against 1/12), so its lift is no
+larger. gemma4:31b, the other dense model near 30B, is mixed against the MoE models (18, 11, 7).
+qwen3:30b-a3b leaks its reasoning at off, so the pair is not clean on thinking. Tuning compares
+qwen3-coder:30b and qwen3:30b-a3b under INJECTED; qwen3-coder cannot think.
 :::
 
 ## Tooling the pilot produced
@@ -373,7 +386,8 @@ A 0/12 cell's lower bound came out a rounding error above zero and broke the fig
 Retries and fill come from this sweep: one OpenCode crash in 36 units made ministral-3:3b's archive
 run incomplete, and the sweep would have rerun all 36. Both refuse to rerun a unit that ran, pass or
 fail, because rerunning failures until they pass would inflate every rate. A fill is refused if the
-suite, harness version, component text or run options changed. Retries and fill are on branch
+suite, harness version, component text or run options changed. The ministral-3:3b archive run was
+filled this way: one unit rerun in 11 seconds, the other 35 kept. Retries and fill are on branch
 preserve-units, not yet on main.
 :::
 

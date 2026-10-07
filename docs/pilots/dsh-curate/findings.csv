@@ -29,6 +29,8 @@ sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,
 sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,,0,12,0,0,0.242494,,,"{""completed"": 12}",16.3015,8668,652,1
 sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",14.158,4915.5,536,1
 sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,,6,12,0.5,0.253782,0.746218,,,"{""completed"": 12}",32.0625,8174,1222,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,off,,,7,12,0.583333,0.319511,0.80674,,,"{""completed"": 12}",46.4965,7536,893,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,,8,12,0.666667,0.390622,0.86188,,,"{""completed"": 12}",66.45,10436.5,1175.5,1
 sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",14.491,6213,1183,1
 sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",27.589,4764,2739,1
 sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",15.914,4606,1494,1
@@ -149,6 +151,14 @@ sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,in
 sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",26.416,8359,1098,1
 sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",33.816,7962,1236,1
 sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",22.736,8578,782,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",61.662,7509,1147,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,off,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",40.835,7731,687,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",40.666,7165,646,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,off,,meanings-in-request,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",47.552,7350,860,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,partial-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",73.013,10490,1248,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",66.293,10393,1223,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",50.602,11367,584,1
+sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",67.443,9722,1128,1
 judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
 judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
 judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
@@ -269,3 +279,11 @@ judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injecte
 judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
 judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
 judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,off,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,off,,meanings-in-request,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,injected,,partial-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,injected,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3.8:latest,ollama/qwen3.8:latest,qwen,27.3,dense,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1

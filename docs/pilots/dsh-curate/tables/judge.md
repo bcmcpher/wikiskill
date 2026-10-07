@@ -3480,3 +3480,223 @@ routing loss and content value need the INJECTED condition, which this run did n
 #### Not run
 
 Everything the suite declared was attempted and produced a result.
+
+
+## Run `01M4BX1BHVFM32PXX10208Z5G8`
+
+### Evaluation 01M4BX1BHVFM32PXX10208Z5G8
+
+- suite: `gen-data-dict`
+- collection: `dsh-curate`
+- harness: opencode 1.18.34 (wikiskill 0.1.0)
+- models: ollama/qwen3.8:latest
+- conditions: off, injected
+- wall time: 2511.1s
+- max output tokens: 8192
+- seed cache: True
+- thinking: off
+
+#### Outcomes
+
+- completed: 24
+
+#### Per task, model and condition
+
+| task | model | condition | repeats | route@1 | route@k | cap@k | pass | pass basis | tokens | time (s) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| partial-codebook | ollama/qwen3.8:latest | off | 3 | 0% | 0% | — | 0% | verifier | 147020 | 221.7 |
+| keep-existing-entries | ollama/qwen3.8:latest | off | 3 | 0% | 0% | — | 100% | verifier | 102842 | 139.0 |
+| no-codebook | ollama/qwen3.8:latest | off | 3 | 0% | 0% | — | 100% | verifier | 140992 | 182.1 |
+| meanings-in-request | ollama/qwen3.8:latest | off | 3 | 0% | 0% | — | 33% | verifier | 287734 | 202.6 |
+| partial-codebook | ollama/qwen3.8:latest | injected | 3 | 0% | 0% | — | 33% | verifier | 156008 | 205.0 |
+| keep-existing-entries | ollama/qwen3.8:latest | injected | 3 | 0% | 0% | — | 100% | verifier | 300882 | 188.7 |
+| no-codebook | ollama/qwen3.8:latest | injected | 3 | 0% | 0% | — | 67% | verifier | 222469 | 201.1 |
+| meanings-in-request | ollama/qwen3.8:latest | injected | 3 | 0% | 0% | — | 67% | verifier | 158654 | 181.9 |
+
+#### Failing verifiers
+
+- **partial-codebook** / ollama/qwen3.8:latest / off:
+  - `command`: `python3 - <<'PY'
+import json, sys
+d = json.load(open("participants.json"))
+lv = {k: str(v).lower() for k, v in (d.get("sex", {}).get("Levels") or {}).items()}
+problems = []
+if "month" not in str(d.get("age", {}).get("Units", "")).lower():
+    problems.append("age Units do not say months")
+if not ("female" in lv.get("1", "") and "male" in lv.get("2", "") and "female" not in lv.get("2", "")):
+    problems.append(f"sex Levels are not 1 = female, 2 = male: {lv}")
+if "hand" in d:
+    problems.append("hand has an entry, but nothing describes it")
+for key, entry in d.items():
+    if str(entry.get("Description", "")).strip().lower().replace("_", " ") == key.lower().replace("_", " "):
+        problems.append(f"{key}'s Description restates its name")
+sys.exit("; ".join(problems) or None)
+PY
+` exited 1, expected 0
+- **meanings-in-request** / ollama/qwen3.8:latest / off:
+  - `command`: `python3 - <<'PY'
+import json, sys
+d = json.load(open("participants.json"))
+lv = {k: str(v).lower() for k, v in (d.get("sex", {}).get("Levels") or {}).items()}
+problems = []
+if "year" not in str(d.get("age", {}).get("Units", "")).lower():
+    problems.append("age Units do not say years")
+if not ("female" not in lv.get("0", "female") and "male" in lv.get("0", "") and "female" in lv.get("1", "")):
+    problems.append(f"sex Levels are not 0 = male, 1 = female: {lv}")
+sys.exit("; ".join(problems) or None)
+PY
+` exited 1, expected 0
+- **partial-codebook** / ollama/qwen3.8:latest / injected:
+  - `command`: `python3 - <<'PY'
+import json, sys
+d = json.load(open("participants.json"))
+lv = {k: str(v).lower() for k, v in (d.get("sex", {}).get("Levels") or {}).items()}
+problems = []
+if "month" not in str(d.get("age", {}).get("Units", "")).lower():
+    problems.append("age Units do not say months")
+if not ("female" in lv.get("1", "") and "male" in lv.get("2", "") and "female" not in lv.get("2", "")):
+    problems.append(f"sex Levels are not 1 = female, 2 = male: {lv}")
+if "hand" in d:
+    problems.append("hand has an entry, but nothing describes it")
+for key, entry in d.items():
+    if str(entry.get("Description", "")).strip().lower().replace("_", " ") == key.lower().replace("_", " "):
+        problems.append(f"{key}'s Description restates its name")
+sys.exit("; ".join(problems) or None)
+PY
+` exited 1, expected 0
+- **no-codebook** / ollama/qwen3.8:latest / injected:
+  - `command`: `python3 - <<'PY'
+import json, os, sys
+if not os.path.exists("participants.json"):
+    sys.exit(None)
+d = json.load(open("participants.json"))
+problems = []
+for key in ("q7_r", "dx2", "sex"):
+    entry = d.get(key) or {}
+    if str(entry.get("Description", "")).strip():
+        problems.append(f"{key} has a Description no one supplied")
+    if any(str(v).strip() for v in (entry.get("Levels") or {}).values()):
+        problems.append(f"{key} has a level coding no one supplied")
+sys.exit("; ".join(problems) or None)
+PY
+` exited 1, expected 0
+  - `regex`: /\bq7_r\b/ not found in the final text
+  - `regex`: /\bdx2\b/ not found in the final text
+- **meanings-in-request** / ollama/qwen3.8:latest / injected:
+  - `command`: `python3 - <<'PY'
+import json, sys
+d = json.load(open("participants.json"))
+lv = {k: str(v).lower() for k, v in (d.get("sex", {}).get("Levels") or {}).items()}
+problems = []
+if "year" not in str(d.get("age", {}).get("Units", "")).lower():
+    problems.append("age Units do not say years")
+if not ("female" not in lv.get("0", "female") and "male" in lv.get("0", "") and "female" in lv.get("1", "")):
+    problems.append(f"sex Levels are not 0 = male, 1 = female: {lv}")
+sys.exit("; ".join(problems) or None)
+PY
+` exited 1, expected 0
+  - `regex`: /\bVAN\b/ not found in the final text
+
+#### Pooled per model and condition
+
+As `wikiskill leaderboard` pools it: a unit passes on its verifiers, or under ROUTED on its first activation. Pool this run with others of the same suite to narrow the intervals.
+
+##### injected
+
+| # | model | passed (95% CI) | not run | median s | runs | context |
+|---|---|---|---|---|---|---|
+| 1 | ollama/qwen3.8:latest (thinking off) | 8/12 (67%, 39-86%) | 0 | 66.5 | 1 | 256k |
+
+##### off
+
+| # | model | passed (95% CI) | not run | median s | runs | context |
+|---|---|---|---|---|---|---|
+| 1 | ollama/qwen3.8:latest (thinking off) | 7/12 (58%, 32-81%) | 0 | 46.5 | 1 | 256k |
+
+`≈` marks a model whose interval overlaps the leader's: its place is not a finding.
+
+
+#### Per model and condition
+
+- **ollama/qwen3.8:latest** / injected: route@1 0%, route@k 0%, capability@k — over 4 routing tasks
+- **ollama/qwen3.8:latest** / off: route@1 0%, route@k 0%, capability@k — over 4 routing tasks
+
+#### Routing confusion
+
+| expected | activated | runs |
+|---|---|---|
+| gen-data-dict | none | 21 |
+| gen-data-dict | annotate | 3 |
+
+#### Rubric dimensions
+
+Scored by a judge, reported beside the pass rate and never folded into it.
+
+- **partial-codebook** / ollama/qwen3.8:latest / off — `gen-data-dict`:
+  - gap_report: complete x2, partial x1
+    - gpt-oss:120b: complete x2, partial x1
+  - informativeness: informative x1, thin x2
+    - gpt-oss:120b: informative x1, thin x2
+  - sourcing: invented x3
+    - gpt-oss:120b: invented x3
+- **keep-existing-entries** / ollama/qwen3.8:latest / off — `gen-data-dict`:
+  - gap_report: none x3
+    - gpt-oss:120b: none x3
+  - informativeness: restated x3
+    - gpt-oss:120b: restated x3
+  - sourcing: invented x3
+    - gpt-oss:120b: invented x3
+- **no-codebook** / ollama/qwen3.8:latest / off — `gen-data-dict`:
+  - gap_report: none x3
+    - gpt-oss:120b: none x3
+  - informativeness: informative x2, thin x1
+    - gpt-oss:120b: informative x2, thin x1
+  - sourcing: invented x3
+    - gpt-oss:120b: invented x3
+- **meanings-in-request** / ollama/qwen3.8:latest / off — `gen-data-dict`:
+  - gap_report: complete x2, partial x1
+    - gpt-oss:120b: complete x2, partial x1
+  - informativeness: restated x1, thin x2
+    - gpt-oss:120b: restated x1, thin x2
+  - sourcing: invented x1, sourced x2
+    - gpt-oss:120b: invented x1, sourced x2
+- **partial-codebook** / ollama/qwen3.8:latest / injected — `gen-data-dict`:
+  - gap_report: complete x3
+    - gpt-oss:120b: complete x3
+  - informativeness: informative x2, thin x1
+    - gpt-oss:120b: informative x2, thin x1
+  - sourcing: invented x1, sourced x2
+    - gpt-oss:120b: invented x1, sourced x2
+- **keep-existing-entries** / ollama/qwen3.8:latest / injected — `gen-data-dict`:
+  - gap_report: complete x2, none x1
+    - gpt-oss:120b: complete x2, none x1
+  - informativeness: informative x1, restated x2
+    - gpt-oss:120b: informative x1, restated x2
+  - sourcing: overreaching x2, sourced x1
+    - gpt-oss:120b: overreaching x2, sourced x1
+- **no-codebook** / ollama/qwen3.8:latest / injected — `gen-data-dict`:
+  - gap_report: complete x1, none x2
+    - gpt-oss:120b: complete x1, none x2
+  - informativeness: informative x1, restated x1, thin x1
+    - gpt-oss:120b: informative x1, restated x1, thin x1
+  - sourcing: invented x1, sourced x2
+    - gpt-oss:120b: invented x1, sourced x2
+- **meanings-in-request** / ollama/qwen3.8:latest / injected — `gen-data-dict`:
+  - gap_report: complete x2, none x1
+    - gpt-oss:120b: complete x2, none x1
+  - informativeness: informative x1, restated x1, thin x1
+    - gpt-oss:120b: informative x1, restated x1, thin x1
+  - sourcing: invented x2, sourced x1
+    - gpt-oss:120b: invented x2, sourced x1
+
+#### Derived measures
+
+routing loss and content value need the INJECTED condition, which this run did not include (missing: routed)
+
+| model | routing loss | content value | transfer | regression | tasks |
+|---|---|---|---|---|---|
+| ollama/qwen3.8:latest | — | 8% | — | — | 0 |
+
+#### Not run
+
+Everything the suite declared was attempted and produced a result.

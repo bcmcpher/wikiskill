@@ -20,6 +20,8 @@
 | granite4.1:3b | granite | off | 9/18 (50%, 29-71%) | 0 | 9.1 |
 | granite4.1:8b | granite | injected | 16/18 (89%, 67-97%) | 0 | 21.8 |
 | granite4.1:8b | granite | off | 9/18 (50%, 29-71%) | 0 | 9.1 |
+| ministral-3:3b | mistral | injected | 15/18 (83%, 61-94%) | 0 | 14.6 |
+| ministral-3:3b | mistral | off | 9/18 (50%, 29-71%) | 0 | 3.8 |
 | gemma4:latest | gemma | injected | 17/18 (94%, 74-99%) | 0 | 31.5 |
 | gemma4:latest | gemma | off | 9/18 (50%, 29-71%) | 0 | 11.1 |
 | gemma4:latest (thinking off) | gemma | injected | 14/18 (78%, 55-91%) | 0 | 11.3 |

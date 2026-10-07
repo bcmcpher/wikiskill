@@ -362,3 +362,27 @@
 | meanings-in-request | qwen3-coder:30b | injected | gap_report | none x3 | — |
 | meanings-in-request | qwen3-coder:30b | injected | informativeness | informative x1, restated x2 | — |
 | meanings-in-request | qwen3-coder:30b | injected | sourcing | invented x1, sourced x2 | — |
+| partial-codebook | qwen3.8:latest | off | gap_report | complete x2, partial x1 | — |
+| partial-codebook | qwen3.8:latest | off | informativeness | informative x1, thin x2 | — |
+| partial-codebook | qwen3.8:latest | off | sourcing | invented x3 | — |
+| keep-existing-entries | qwen3.8:latest | off | gap_report | none x3 | — |
+| keep-existing-entries | qwen3.8:latest | off | informativeness | restated x3 | — |
+| keep-existing-entries | qwen3.8:latest | off | sourcing | invented x3 | — |
+| no-codebook | qwen3.8:latest | off | gap_report | none x3 | — |
+| no-codebook | qwen3.8:latest | off | informativeness | informative x2, thin x1 | — |
+| no-codebook | qwen3.8:latest | off | sourcing | invented x3 | — |
+| meanings-in-request | qwen3.8:latest | off | gap_report | complete x2, partial x1 | — |
+| meanings-in-request | qwen3.8:latest | off | informativeness | restated x1, thin x2 | — |
+| meanings-in-request | qwen3.8:latest | off | sourcing | invented x1, sourced x2 | — |
+| partial-codebook | qwen3.8:latest | injected | gap_report | complete x3 | — |
+| partial-codebook | qwen3.8:latest | injected | informativeness | informative x2, thin x1 | — |
+| partial-codebook | qwen3.8:latest | injected | sourcing | invented x1, sourced x2 | — |
+| keep-existing-entries | qwen3.8:latest | injected | gap_report | complete x2, none x1 | — |
+| keep-existing-entries | qwen3.8:latest | injected | informativeness | informative x1, restated x2 | — |
+| keep-existing-entries | qwen3.8:latest | injected | sourcing | overreaching x2, sourced x1 | — |
+| no-codebook | qwen3.8:latest | injected | gap_report | complete x1, none x2 | — |
+| no-codebook | qwen3.8:latest | injected | informativeness | informative x1, restated x1, thin x1 | — |
+| no-codebook | qwen3.8:latest | injected | sourcing | invented x1, sourced x2 | — |
+| meanings-in-request | qwen3.8:latest | injected | gap_report | complete x2, none x1 | — |
+| meanings-in-request | qwen3.8:latest | injected | informativeness | informative x1, restated x1, thin x1 | — |
+| meanings-in-request | qwen3.8:latest | injected | sourcing | invented x2, sourced x1 | — |

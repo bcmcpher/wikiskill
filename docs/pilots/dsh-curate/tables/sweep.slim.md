@@ -6,6 +6,8 @@
 | qwen3:1.7b | qwen | off | 1/12 (8%, 1-35%) | 0 | 17.3 |
 | qwen3:1.7b (thinking off) | qwen | injected | 1/12 (8%, 1-35%) | 0 | 18.5 |
 | qwen3:1.7b (thinking off) | qwen | off | 2/12 (17%, 5-45%) | 0 | 5.4 |
+| qwen3.8:latest (thinking off) | qwen | injected | 8/12 (67%, 39-86%) | 0 | 66.5 |
+| qwen3.8:latest (thinking off) | qwen | off | 7/12 (58%, 32-81%) | 0 | 46.5 |
 | qwen3-coder:30b | qwen | injected | 6/12 (50%, 25-75%) | 0 | 32.1 |
 | qwen3-coder:30b | qwen | off | 3/12 (25%, 9-53%) | 0 | 14.2 |
 | qwen3:30b-a3b | qwen | injected | 5/12 (42%, 19-68%) | 0 | 139.0 |

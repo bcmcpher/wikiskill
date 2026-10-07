@@ -27,6 +27,8 @@ sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,of
 sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,,18,18,1,0.824121,1,,,"{""completed"": 15, ""permission_blocked"": 3}",16.262,6946,676.5,1
 sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,off,,,9,18,0.5,0.29031,0.70969,,,"{""completed"": 8, ""permission_blocked"": 4, ""step_exhausted"": 6}",138.711,22461,2630,1
 sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,,18,18,1,0.824121,1,,,"{""completed"": 12, ""permission_blocked"": 6}",62.859,5761,1379,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,,9,18,0.5,0.29031,0.70969,,,"{""completed"": 18}",3.8455,4575.5,84,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,,15,18,0.833333,0.60778,0.941634,,,"{""completed"": 15, ""permission_blocked"": 3}",14.605,7326.5,558,1
 sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,mint-without-token,0,3,0,0,0.561497,,,"{""completed"": 3}",5.144,4122,355,1
 sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,auto-backend-structured,0,3,0,0,0.561497,,,"{""completed"": 3}",20.428,4465,2158,1
 sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,deposit-without-version,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",28.575,8292,2998,1
@@ -195,6 +197,18 @@ sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwe
 sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,mint-untagged-version,3,3,1,0.438503,1,,,"{""completed"": 3}",62.465,5838,1292,1
 sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,token-but-archive-unreachable,3,3,1,0.438503,1,,,"{""permission_blocked"": 3}",99.34,7380,2033,1
 sweep,leaderboard,ollama/qwen3.8:latest (thinking off),ollama/qwen3.8:latest,qwen,27.3,dense,injected,,relate-without-write-path,3,3,1,0.438503,1,,,"{""completed"": 2, ""permission_blocked"": 1}",53.735,4299,1259,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,mint-without-token,0,3,0,0,0.561497,,,"{""completed"": 3}",8.331,4765,140,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,auto-backend-structured,0,3,0,0,0.561497,,,"{""completed"": 3}",3.39,4571,52,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,deposit-without-version,3,3,1,0.438503,1,,,"{""completed"": 3}",2.852,4531,24,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,mint-untagged-version,3,3,1,0.438503,1,,,"{""completed"": 3}",3.586,4574,74,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,token-but-archive-unreachable,3,3,1,0.438503,1,,,"{""completed"": 3}",4.765,5084,135,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,relate-without-write-path,0,3,0,0,0.561497,,,"{""completed"": 3}",4.105,4577,94,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,mint-without-token,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 2, ""permission_blocked"": 1}",23.405,8765,579,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,auto-backend-structured,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",56.786,7077,827,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,deposit-without-version,3,3,1,0.438503,1,,,"{""completed"": 3}",10.24,5645,430,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,mint-untagged-version,3,3,1,0.438503,1,,,"{""completed"": 3}",7.589,7620,216,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,token-but-archive-unreachable,3,3,1,0.438503,1,,,"{""completed"": 1, ""permission_blocked"": 2}",57.173,9909,2327,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,relate-without-write-path,3,3,1,0.438503,1,,,"{""completed"": 3}",9.548,4957,435,1
 pilot,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,,8,18,0.444444,0.245595,0.662836,,,"{""completed"": 18}",27.0965,6605.5,1226.5,1
 pilot,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,,16,18,0.888889,0.672002,0.96898,,,"{""completed"": 18}",26.8805,9044,1178,1
 pilot,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,,9,18,0.5,0.29031,0.70969,,,"{""completed"": 17, ""permission_blocked"": 1}",16.6425,4144,789,1
