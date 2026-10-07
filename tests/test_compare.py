@@ -100,6 +100,12 @@ def test_wilson_stays_inside_zero_and_one():
     assert wilson(0, 0) is None
 
 
+def test_wilson_bounds_are_exact_at_zero_and_full():
+    # 0/12 used to give a lower bound of 2.8e-17, above the rate itself
+    assert wilson(0, 12)[0] == 0.0
+    assert wilson(12, 12)[1] == 1.0
+
+
 @pytest.mark.parametrize(
     "a, b, expected",
     [

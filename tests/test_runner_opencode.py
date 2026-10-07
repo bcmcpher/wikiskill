@@ -419,7 +419,18 @@ def test_token_usage_comes_from_step_parts():
         "input": 1200,
         "output": 90,
         "reasoning": 0,
+        "cache_read": 0,
     }
+
+
+def test_token_totals_count_the_prompt_the_server_took_from_its_cache():
+    # Ollama's `input` is only the prompt it evaluated afresh; a reused prefix is `cache.read`.
+    steps = [
+        {"type": "step-finish", "tokens": {"input": 4079, "output": 726, "cache": {"read": 1098}}},
+        {"type": "step-finish", "tokens": {"input": 105, "output": 1192, "cache": {"read": 5174}}},
+    ]
+    totals = backend_mod._token_totals([{"messages": [{"parts": steps}]}])
+    assert totals == {"input": 4184, "output": 1918, "reasoning": 0, "cache_read": 6272}
 
 
 def test_child_session_ids_are_found_for_export():

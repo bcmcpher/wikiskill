@@ -138,7 +138,10 @@ def wilson(passed: int, total: int, z: float = Z) -> tuple[float, float] | None:
     denominator = 1 + z * z / total
     centre = (p + z * z / (2 * total)) / denominator
     half = z * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total)) / denominator
-    return max(0.0, centre - half), min(1.0, centre + half)
+    # At 0% and 100% a bound is exact; the formula leaves it a rounding error away.
+    low = 0.0 if passed == 0 else max(0.0, centre - half)
+    high = 1.0 if passed == total else min(1.0, centre + half)
+    return low, high
 
 
 def direction(a: Rate, b: Rate) -> str:

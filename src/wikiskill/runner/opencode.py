@@ -1257,14 +1257,20 @@ def _refused(state: dict[str, Any]) -> bool:
 
 
 def _token_totals(sessions: list[dict[str, Any]]) -> dict[str, int]:
-    totals = {"input": 0, "output": 0, "reasoning": 0}
+    """The unit's tokens over every step, children included.
+
+    `input` is only the prompt the server evaluated afresh. A prefix it reused from its cache is
+    `cache_read`, so the context a unit actually put through the model is the sum of the two.
+    """
+    totals = {"input": 0, "output": 0, "reasoning": 0, "cache_read": 0}
     for _, parts in _iter_parts(sessions):
         for part in parts:
             if part.get("type") != "step-finish":
                 continue
             tokens = part.get("tokens") or {}
+            counts = {**tokens, "cache_read": (tokens.get("cache") or {}).get("read")}
             for key in totals:
-                value = tokens.get(key)
+                value = counts.get(key)
                 if isinstance(value, int):
                     totals[key] += value
     return totals

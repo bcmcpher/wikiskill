@@ -929,7 +929,7 @@ def token_totals(stream: list[dict[str, Any]]) -> dict[str, int]:
     The stream's own messages are no use for this: each reports its usage as of its first block,
     so `output_tokens` is always 0 there. `modelUsage` is cumulative over the whole session.
     """
-    totals = {"input": 0, "output": 0, "reasoning": 0}
+    totals = {"input": 0, "output": 0, "reasoning": 0, "cache_read": 0}
     found = results(stream)
     usage = found[-1].get("modelUsage") if found else None
     if isinstance(usage, dict) and usage:
@@ -940,6 +940,7 @@ def token_totals(stream: list[dict[str, Any]]) -> dict[str, int]:
                 ("input", "inputTokens"),
                 ("output", "outputTokens"),
                 ("reasoning", "thinkingTokens"),
+                ("cache_read", "cacheReadInputTokens"),
             ):
                 value = entry.get(field)
                 if isinstance(value, int):
@@ -947,7 +948,11 @@ def token_totals(stream: list[dict[str, Any]]) -> dict[str, int]:
         return totals
     for result in found:
         turn = result.get("usage") or {}
-        for key, field in (("input", "input_tokens"), ("output", "output_tokens")):
+        for key, field in (
+            ("input", "input_tokens"),
+            ("output", "output_tokens"),
+            ("cache_read", "cache_read_input_tokens"),
+        ):
             value = turn.get(field)
             if isinstance(value, int):
                 totals[key] += value

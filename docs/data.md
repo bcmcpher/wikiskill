@@ -172,7 +172,11 @@ It never contains an API key.
   - `completed`, `tool_call_as_text`, `step_exhausted`, `permission_blocked` or `api_error`;
   - `infra_error`, which a timeout is: `reason` says "timed out after Ns";
   - `skipped`;
-- `reason`, `error`, `duration_ms`, `exit_code`, `tokens`, `session_id`, `activations`;
+- `reason`, `error`, `duration_ms`, `exit_code`, `tokens`, `session_id`, `activations`. `tokens`
+  sums every model call in the unit, children included: `input`, `output`, `reasoning` and
+  `cache_read`. `input` is only the prompt the server evaluated afresh, and `cache_read` the prefix
+  it reused, so the context put through the model is their sum. Runs before `cache_read` was
+  recorded lack it;
 - `verifiers` and `passed` (`null` when a task has no verifiers), `rubric`, `expected`. Each
   opinion in `rubric.opinions` names the judge `model` that gave it, and `rubric.scales` gives each
   dimension's levels from worst to best; runs before judge panels carry neither.
