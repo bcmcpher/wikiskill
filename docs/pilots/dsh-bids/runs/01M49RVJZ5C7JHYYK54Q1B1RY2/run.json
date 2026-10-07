@@ -1,0 +1,339 @@
+{
+  "run_id": "01M49RVJZ5C7JHYYK54Q1B1RY2",
+  "suite": "bids-doer",
+  "suite_path": "/home/dell/Projects/wikiskill/pilots/bids-doer/suite.yaml",
+  "suite_hash": "sha256:8e35c17ccad513a301c3bedba02dc8142fdb0e938b2b21ce0dc85501a7cd9a22",
+  "collection": "dsh-bids",
+  "harness": "opencode",
+  "harness_version": "1.18.34",
+  "wikiskill_version": "0.1.0",
+  "models": [
+    "ollama/gemma4:latest"
+  ],
+  "conditions": [
+    "off",
+    "injected"
+  ],
+  "tasks": [
+    "validate-without-validator",
+    "not-a-bids-dataset",
+    "structural-gaps",
+    "validate-and-fix",
+    "ignored-contents",
+    "invalid-with-validator"
+  ],
+  "repeats": {
+    "validate-without-validator": 3,
+    "not-a-bids-dataset": 3,
+    "structural-gaps": 3,
+    "validate-and-fix": 3,
+    "ignored-contents": 3,
+    "invalid-with-validator": 3
+  },
+  "env": {
+    "validate-without-validator": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "not-a-bids-dataset": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "structural-gaps": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "validate-and-fix": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "ignored-contents": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "invalid-with-validator": {
+      "DENO_DIR": "~/.local/share/wikiskill/tools/deno/cache",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "PATH": "~/.local/share/wikiskill/tools/deno/bin:$PATH"
+    }
+  },
+  "setup": {
+    "validate-without-validator": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf '{\"Name\": \"Pilot\", \"BIDSVersion\": \"1.9.0\", \"DatasetType\": \"raw\"}\\n' > dataset_description.json",
+      "printf 'participant_id\\tage\\tgroup\\nsub-01\\t34\\tctl\\nsub-02\\t29\\tpat\\n' > participants.tsv",
+      "printf '{\"age\": {\"Description\": \"Age at scan\", \"Units\": \"years\"}, \"group\": {\"Description\": \"Study arm\", \"Levels\": {\"ctl\": \"control\", \"pat\": \"patient\"}}}\\n' > participants.json",
+      "printf 'Pilot dataset.\\n' > README",
+      "for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz && printf '{}\\n' > sub-$s/anat/sub-${s}_T1w.json; done",
+      "git add -A && git commit -q -m \"add dataset\""
+    ],
+    "not-a-bids-dataset": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "mkdir -p data && printf 'subject,score\\n1,0.4\\n2,0.7\\n' > data/scores.csv",
+      "printf 'Scores from the pilot.\\n' > README",
+      "git add -A && git commit -q -m \"add data\""
+    ],
+    "structural-gaps": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf '{\"Name\": \"Pilot\", \"DatasetType\": \"raw\"}\\n' > dataset_description.json",
+      "printf 'participant_id\\tage\\thandedness\\nsub-01\\t34\\tR\\nsub-02\\t29\\tL\\n' > participants.tsv",
+      "printf '{\"age\": {\"Description\": \"Age at scan\", \"Units\": \"years\"}}\\n' > participants.json",
+      "for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz; done",
+      "printf '{}\\n' > sub-01/anat/sub-01_T1w.json",
+      "git add -A && git commit -q -m \"add dataset\""
+    ],
+    "validate-and-fix": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf '{\"Name\": \"Pilot\", \"DatasetType\": \"raw\"}\\n' > dataset_description.json",
+      "printf 'participant_id\\tage\\thandedness\\nsub-01\\t34\\tR\\nsub-02\\t29\\tL\\n' > participants.tsv",
+      "printf '{\"age\": {\"Description\": \"Age at scan\", \"Units\": \"years\"}}\\n' > participants.json",
+      "for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz; done",
+      "printf '{}\\n' > sub-01/anat/sub-01_T1w.json",
+      "git add -A && git commit -q -m \"add dataset\""
+    ],
+    "ignored-contents": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf '{\"Name\": \"Pilot\", \"BIDSVersion\": \"1.9.0\", \"DatasetType\": \"raw\"}\\n' > dataset_description.json",
+      "printf 'participant_id\\tage\\nsub-01\\t34\\nsub-02\\t29\\n' > participants.tsv",
+      "printf '{\"age\": {\"Description\": \"Age at scan\", \"Units\": \"years\"}}\\n' > participants.json",
+      "printf 'Pilot dataset.\\n' > README",
+      "for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz && printf '{}\\n' > sub-$s/anat/sub-${s}_T1w.json; done",
+      "mkdir -p extra && printf 'x\\n' > extra/notes.txt",
+      "printf 'extra/\\nsub-02/\\n' > .bidsignore",
+      "git add -A && git commit -q -m \"add dataset\""
+    ],
+    "invalid-with-validator": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf '{\"Name\": \"Pilot\", \"BIDSVersion\": \"1.9.0\", \"DatasetType\": \"raw\"}\\n' > dataset_description.json",
+      "printf 'participant_id\\tage\\nsub-01\\t34\\nsub-02\\t29\\n' > participants.tsv",
+      "printf '{\"age\": {\"Description\": \"Age at scan\", \"Units\": \"years\"}}\\n' > participants.json",
+      "printf 'Pilot dataset.\\n' > README",
+      "for s in 01 02; do mkdir -p sub-$s/anat && touch sub-$s/anat/sub-${s}_T1w.nii.gz && printf '{}\\n' > sub-$s/anat/sub-${s}_T1w.json; done",
+      "git add -A && git commit -q -m \"add dataset\""
+    ]
+  },
+  "components": [
+    {
+      "kind": "agent",
+      "name": "bids/bids-doer",
+      "source_hash": "sha256:12696b786b620d3950cb152e0eca393c64f1f47f5b0c70b43fa8eca3addbce6f"
+    }
+  ],
+  "proposal": null,
+  "preflight": {
+    "ollama/gemma4:latest": {
+      "model": "gemma4:latest",
+      "ok": true,
+      "problems": [],
+      "details": {
+        "base_url": "http://localhost:11434/v1",
+        "model": "gemma4:latest",
+        "models_listed": 21,
+        "tool_probe_status": 200,
+        "context_tokens": 131072,
+        "context_source": "the running server"
+      }
+    }
+  },
+  "isolation": {
+    "off": {
+      "condition": "off",
+      "config": {
+        "agent": {
+          "title": {
+            "disable": true,
+            "options": {},
+            "permission": {}
+          }
+        },
+        "mode": {},
+        "plugin": [
+          "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts"
+        ],
+        "command": {},
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": false,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+          "edit": "allow",
+          "webfetch": "deny",
+          "external_directory": {
+            "*": "deny",
+            "/home/dell/.local/share/wikiskill/dsh-bids/evals/01M49RVJZ5C7JHYYK54Q1B1RY2/units/validate-without-validator__ollama_gemma4-latest__off__r0/config/opencode/skills/*": "allow",
+            "/home/dell/.local/share/wikiskill/dsh-bids/evals/01M49RVJZ5C7JHYYK54Q1B1RY2/units/validate-without-validator__ollama_gemma4-latest__off__r0/config/opencode/plugins/*": "allow"
+          },
+          "bash": {
+            "*": "allow"
+          },
+          "skill": {
+            "*": "deny"
+          }
+        },
+        "provider": {
+          "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ollama",
+            "options": {
+              "baseURL": "http://localhost:11434/v1",
+              "timeout": false,
+              "headerTimeout": false,
+              "chunkTimeout": false
+            },
+            "models": {
+              "gemma4:latest": {
+                "name": "gemma4:latest",
+                "limit": {
+                  "context": 131072,
+                  "output": 8192
+                }
+              }
+            }
+          }
+        },
+        "plugin_origins": [
+          {
+            "spec": "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts",
+            "source": "OPENCODE_CONFIG_CONTENT",
+            "scope": "local"
+          }
+        ],
+        "username": "dell"
+      },
+      "skills": [],
+      "skills_known": [
+        "customize-opencode"
+      ],
+      "skill_tool": false,
+      "mcp": {}
+    },
+    "injected": {
+      "condition": "injected",
+      "config": {
+        "agent": {
+          "bids-doer": {
+            "name": "bids-doer",
+            "description": "BIDS \"doer\" \u2014 the read-only tool subagent that validates a dataset against the Brain Imaging Data Structure and reports structural conformance. Planner skills (govern/qc-review, curate/*) delegate here to run bids-validator, check dataset_description.json / participants / sidecar completeness, and summarize errors/warnings. It owns BIDS-validation mechanics so planners never call the validator directly. Give it a plain-language request (\"validate this dataset\", \"is this BIDS-valid\", \"what BIDS errors are there\") and it returns a structured result. It never modifies the dataset.\n",
+            "mode": "all",
+            "permission": {
+              "read": "allow",
+              "grep": "allow",
+              "glob": "allow",
+              "list": "allow",
+              "bash": "allow",
+              "edit": "deny",
+              "webfetch": "deny"
+            },
+            "tools": {
+              "read": true,
+              "grep": true,
+              "glob": true,
+              "list": true
+            },
+            "prompt": "# Doer: bids\n\nYou are the **BIDS doer**. Your single responsibility is to assess how well a dataset conforms to\nthe Brain Imaging Data Structure and report it concisely. You are **read-only** \u2014 you validate and\nreport; you never write, rename, or \"fix\" files (that is a curation planner's job). You are invoked\nby *planner* skills that own the review judgment; you own the *validation mechanics*.\n\nSTAMPED role: BIDS conformance is **Self-containment (S)** \u2014 a dataset that follows the shared\nstandard is interpretable and reusable without private context. You measure that conformance.\n\n## Toolbox \u2014 the bids-cli skills (your reference knowledge)\n\n| Skill | What it can do |\n|---|---|\n| `plugins/bids-cli/skills/bids-validator/SKILL.md` | Runs whichever validator distribution is installed, and confirms its flags before using them. Also owns the offline presence check, `plugins/bids-cli/scripts/check-validator.sh` |\n\nRead the skill rather than carrying the invocation yourself. **Two different programs are called\n\"the BIDS validator\"** \u2014 the current `@bids/validator` (Deno/JSR) and the legacy `bids-validator`\nNode CLI \u2014 and they do not share a command line. The skill exists because translating a flag from\none to the other produces a confident wrong answer, and the worst version of that is a clean report\nfrom a command that validated nothing. The Python `bids_validator` package is not a third option:\nit matches single filenames against the naming patterns and cannot validate a dataset.\n\nIf the presence check fails, you still have work to do. The structural checks in step 3 are yours\nand need no validator \u2014 but they are findings, not a pass.\n\n## How you operate\n1. **Confirm a dataset root** \u2014 a `dataset_description.json` at the target path marks a BIDS dataset.\n   If absent, report that the target is not a BIDS dataset and stop.\n2. **Establish whether a validator exists, then invoke it through the toolbox skill.**\n   ```bash\n   bash plugins/bids-cli/scripts/check-validator.sh\n   ```\n   Exit 0 means a validator is present and `found:` names the distribution; follow\n   `plugins/bids-cli/skills/bids-validator/SKILL.md` to run it, confirming `--help` before trusting\n   a flag. Exit 1 means none is installed: report the `enable:` hint, set `result: unverified`, and\n   go to step 3. **Never report `valid` from a run that did not happen.**\n3. **Structural checks (always, and the only evidence when the validator is absent)** \u2014 using\n   Read/Grep/Glob, confirm: `dataset_description.json` is present and has required keys (`Name`,\n   `BIDSVersion`); `participants.tsv` columns each have a `participants.json` entry; imaging files\n   have companion JSON sidecars; a `README` exists. Report what is missing.\n4. **Report** a structured result:\n   ```\n   op:        validate-bids\n   validator: <distribution and version> | none (structural-only)\n   result:    valid | invalid | unverified   # unverified = validator absent, structural-only\n   errors:    <count and the top issue codes/messages>\n   warnings:  <count and notable ones>\n   ignored:   <what .bidsignore or the validator skipped>\n   structure: <dataset_description/participants/sidecars/README gaps>\n   binding:   bids/<validator distribution>@<version>   # omit when structural-only\n   notes:     <install hint if validator absent; next-step hint>\n   ```\n\n## Constraints\n- **Read-only.** Never modify, rename, or delete dataset files; never auto-\"fix\" a BIDS error.\n  Surface issues for a curation planner (or the user) to address.\n- Never assert `valid` without having actually run a validator \u2014 absent the tool, report\n  `unverified` with the structural findings, not a pass.\n- Never invent or infer a BIDS issue code. Every code you report came out of the validator's own\n  output in this session; a recalled one looks exactly like a real one.\n- Never report a clean validation without saying what was ignored. A pass over a dataset whose\n  contents are `.bidsignore`d is a misleading pass.\n- Do not make research-process or curation decisions (which fields to add, how to name files) \u2014 you\n  report conformance; the planner decides what to change.\n- Keep the report concise: counts + the handful of issues that matter, not the full validator dump.",
+            "options": {}
+          },
+          "title": {
+            "disable": true,
+            "options": {},
+            "permission": {}
+          }
+        },
+        "mode": {},
+        "plugin": [
+          "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts"
+        ],
+        "command": {},
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": false,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+          "edit": "allow",
+          "webfetch": "deny",
+          "external_directory": {
+            "*": "deny",
+            "/home/dell/.local/share/wikiskill/dsh-bids/evals/01M49RVJZ5C7JHYYK54Q1B1RY2/units/validate-without-validator__ollama_gemma4-latest__injected__r0/config/opencode/skills/*": "allow",
+            "/home/dell/.local/share/wikiskill/dsh-bids/evals/01M49RVJZ5C7JHYYK54Q1B1RY2/units/validate-without-validator__ollama_gemma4-latest__injected__r0/config/opencode/plugins/*": "allow"
+          },
+          "bash": {
+            "*": "allow"
+          },
+          "skill": {
+            "*": "deny",
+            "bids-validator": "allow"
+          }
+        },
+        "provider": {
+          "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ollama",
+            "options": {
+              "baseURL": "http://localhost:11434/v1",
+              "timeout": false,
+              "headerTimeout": false,
+              "chunkTimeout": false
+            },
+            "models": {
+              "gemma4:latest": {
+                "name": "gemma4:latest",
+                "limit": {
+                  "context": 131072,
+                  "output": 8192
+                }
+              }
+            }
+          }
+        },
+        "plugin_origins": [
+          {
+            "spec": "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts",
+            "source": "OPENCODE_CONFIG_CONTENT",
+            "scope": "local"
+          }
+        ],
+        "username": "dell"
+      },
+      "skills": [
+        "bids-validator"
+      ],
+      "skills_known": [
+        "customize-opencode",
+        "bids-validator"
+      ],
+      "skill_tool": true,
+      "mcp": {}
+    }
+  },
+  "options": {
+    "max_output_tokens": 8192,
+    "thinking": "default",
+    "seed_cache": true
+  },
+  "workers": 1,
+  "duration_s": 1166.1,
+  "outcomes": {
+    "completed": 36
+  },
+  "events_written": 404,
+  "warnings": []
+}

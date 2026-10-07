@@ -12,6 +12,11 @@ name = "dsh-pilot"
 collection = "dsh-archive"
 models_file = "../../../pilots/models.toml"
 
+[[tables]]
+name = "sweep"
+kind = "leaderboard"
+roles = ["sweep"]
+
 [[runs]]
 id = "01M46QWP6CTEM5DN807VS7GQMW"
 role = "v1"

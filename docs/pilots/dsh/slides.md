@@ -93,13 +93,69 @@ This is the first unit through the whole loop: evaluated, reviewed, proposed, re
 candidate, replayed and decided.
 :::
 
-## Model sweep
+## Model sweep (preliminary)
 
-**Pending** (`add-dsh-pilot` section 4)
+- Three DSH components: `archive-doer`, `bids-doer` (agents) and `gen-data-dict` (skill)
+- Seven local models, 1.7B to 31B, from five families; OFF and INJECTED
+- 3 repeats per task: n = 18 per cell (12 for curate), intervals about ±20 points
+- Thinking at each model's default, and `--thinking off` for the models that can think
 
-- About twenty local models, OFF and INJECTED, 10 repeats per task
-- Per-model rates grouped by family and ordered by size
-- A thinking arm, and a run-to-run noise check
+::: notes
+A proof of concept: the design asks for 10 repeats and eighteen models. Four more models are running
+for a first dense-against-MoE comparison.
+:::
+
+## archive-doer
+
+![](figures/sweep-rates.png)
+
+## bids-doer
+
+![](../dsh-bids/figures/sweep-rates.png)
+
+## gen-data-dict
+
+![](../dsh-curate/figures/sweep-rates.png)
+
+## What the sweep shows so far
+
+- The doers are worth something from about 8B up; below that, OFF and INJECTED overlap
+- Archive is at its ceiling: six entrants pass 16–18 of 18 under INJECTED
+- Curate is hard for everyone; only `gemma4:31b` gains from the skill
+- Thinking off costs both gemma4 models INJECTED passes (bids 12 to 6, curate 10 to 7): a lead
+
+## Hard rules do not always hold
+
+- Under INJECTED, `qwen3:30b-a3b` and `llama3.2:3b` returned `result: ok` with an invented DOI
+- On bids, five models reported `valid` with no validator on PATH
+- `gemma4:31b` edited the dataset in every `validate-and-fix` unit, against the read-only rule
+- The doers reduce these failures; they do not remove them
+
+::: notes
+Counted from per-verifier results. The DOI verifier also fails labelled placeholders ("e.g.
+10.5281/zenodo.1234567"), so the raw DOI counts overstate fabrication; the cases above were read.
+:::
+
+## Tokens per unit (heavily qualified)
+
+- INJECTED usually costs more output per unit, and less per pass
+- `granite4.1:8b` on bids: about 9.2k output per pass under OFF, 0.9k under INJECTED
+- `gemma4:31b` on archive: the doer cuts its median from 1.6k to 0.2k per unit, and it passes all 18
+- Thinking off cuts `gemma4:latest`'s output fivefold; `qwen3:30b-a3b`'s does not move
+
+::: notes
+Output tokens only, computed by a one-off script from the bundled results. Input leaves out Ollama's
+prefix cache: one 7-step unit had 4.9k input against 34k read from the cache, so input is not
+reported. Reasoning is not reported separately. Tokenizers differ by family, so compare within a
+model. Output is capped at 8192 per turn, and the judge's tokens are not counted.
+:::
+
+## Open checks and gaps
+
+- Is `--thinking off` effective on `qwen3:30b-a3b` and `gpt-oss:20b`? Output barely changes
+- `gemma4:31b` at default thinking timed out on archive and bids (600 s per unit)
+- No run-to-run noise check yet
+- Tooling: no generated lift or thinking table; the judge table is per unit; safety counts by hand
 
 ## Best version
 

@@ -1,10 +1,20 @@
 # The DSH pilot's sweep of gen-data-dict as a study: `pilots/dsh-sweep/sweep.sh` adds each complete run
-# here with role `sweep`. Tables come once there are runs to make them from. See README "Studies".
+# here with role `sweep`. See README "Studies".
 
 [study]
 name = "dsh-curate"
 collection = "dsh-curate"
 models_file = "../../../pilots/models.toml"
+
+[[tables]]
+name = "sweep"
+kind = "leaderboard"
+roles = ["sweep"]
+
+[[tables]]
+name = "judge"
+kind = "report"
+roles = ["sweep"]
 
 [[runs]]
 id = "01M49NSVBE22B3NB91MTQ7REE6"
@@ -48,4 +58,8 @@ role = "sweep"
 
 [[runs]]
 id = "01M4B4QEC4PME0ZHHAD3DTF5J3"
+role = "sweep"
+
+[[runs]]
+id = "01M4BDBK8QYZNVM9NQP4BAM26B"
 role = "sweep"

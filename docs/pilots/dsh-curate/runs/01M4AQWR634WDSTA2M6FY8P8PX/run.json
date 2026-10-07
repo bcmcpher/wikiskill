@@ -1,0 +1,277 @@
+{
+  "run_id": "01M4AQWR634WDSTA2M6FY8P8PX",
+  "suite": "gen-data-dict",
+  "suite_path": "/home/dell/Projects/wikiskill/pilots/gen-data-dict/suite.yaml",
+  "suite_hash": "sha256:96c241a491b47d3957ee31862ed2cd5787941b9ea36a338b0545c6228cc61270",
+  "collection": "dsh-curate",
+  "harness": "opencode",
+  "harness_version": "1.18.34",
+  "wikiskill_version": "0.1.0",
+  "models": [
+    "ollama/gemma4:31b"
+  ],
+  "conditions": [
+    "off",
+    "injected"
+  ],
+  "tasks": [
+    "partial-codebook",
+    "keep-existing-entries",
+    "no-codebook",
+    "meanings-in-request"
+  ],
+  "repeats": {
+    "partial-codebook": 3,
+    "keep-existing-entries": 3,
+    "no-codebook": 3,
+    "meanings-in-request": 3
+  },
+  "env": {
+    "partial-codebook": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "keep-existing-entries": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "no-codebook": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    },
+    "meanings-in-request": {
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot"
+    }
+  },
+  "setup": {
+    "partial-codebook": [
+      "git init -q -b main .",
+      "printf 'participant_id\\tage\\tsex\\tgrp\\tmoca\\thand\\nsub-01\\t412\\t1\\thc\\t28\\tR\\nsub-02\\t530\\t2\\tpd\\t22\\tL\\nsub-03\\t388\\t1\\tpdd\\t17\\tR\\nsub-04\\t455\\t2\\thc\\t27\\tR\\n' > participants.tsv",
+      "printf '# Codebook (clinic database export, v2)\\n\\n- age: age at the baseline visit, in months\\n- sex: 1 = female, 2 = male\\n- grp: hc = healthy control, pd = Parkinson disease\\n- moca: Montreal Cognitive Assessment total score, 0 to 30 points\\n' > codebook.md",
+      "git add -A && git commit -q -m \"add table and codebook\""
+    ],
+    "keep-existing-entries": [
+      "git init -q -b main .",
+      "printf 'participant_id\\tage\\tsite\\tsex\\tgrp\\nsub-01\\t412\\tMTL\\t1\\thc\\nsub-02\\t530\\tTOR\\t2\\tpd\\nsub-03\\t388\\tMTL\\t1\\tpd\\n' > participants.tsv",
+      "printf '{\\n  \"age\": {\"Description\": \"Age at the baseline visit, from the REDCap export\", \"Units\": \"months\"},\\n  \"site\": {\"Description\": \"Acquisition site\", \"Levels\": {\"MTL\": \"Montreal Neurological Institute\", \"TOR\": \"Toronto Western\"}}\\n}\\n' > participants.json",
+      "printf '# Codebook for columns added in v3\\n\\n- sex: 1 = female, 2 = male\\n- grp: hc = healthy control, pd = Parkinson disease\\n' > codebook.md",
+      "git add -A && git commit -q -m \"add table, dictionary and codebook\""
+    ],
+    "no-codebook": [
+      "git init -q -b main .",
+      "printf 'participant_id\\tq7_r\\tdx2\\tsex\\nsub-01\\t3\\tA\\t0\\nsub-02\\t5\\tB\\t1\\nsub-03\\t2\\tA\\t1\\n' > participants.tsv",
+      "git add -A && git commit -q -m \"add table\""
+    ],
+    "meanings-in-request": [
+      "git init -q -b main .",
+      "printf 'participant_id\\tage\\tsex\\tsite\\nsub-01\\t34\\t0\\tMTL\\nsub-02\\t29\\t1\\tTOR\\nsub-03\\t41\\t1\\tVAN\\n' > participants.tsv",
+      "git add -A && git commit -q -m \"add table\""
+    ]
+  },
+  "components": [
+    {
+      "kind": "skill",
+      "name": "curate/gen-data-dict",
+      "source_hash": "sha256:d06353e169e0a996fd6dbd77f7f5939a344c2778ec4d7a39336706ff369db76b"
+    }
+  ],
+  "proposal": null,
+  "preflight": {
+    "ollama/gemma4:31b": {
+      "model": "gemma4:31b",
+      "ok": true,
+      "problems": [],
+      "details": {
+        "base_url": "http://localhost:11434/v1",
+        "model": "gemma4:31b",
+        "models_listed": 21,
+        "tool_probe_status": 200,
+        "context_tokens": 262144,
+        "context_source": "the running server"
+      }
+    }
+  },
+  "isolation": {
+    "off": {
+      "condition": "off",
+      "config": {
+        "agent": {
+          "title": {
+            "disable": true,
+            "options": {},
+            "permission": {}
+          }
+        },
+        "mode": {},
+        "plugin": [
+          "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts"
+        ],
+        "command": {},
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": false,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+          "edit": "allow",
+          "webfetch": "deny",
+          "external_directory": {
+            "*": "deny",
+            "/home/dell/.local/share/wikiskill/dsh-curate/evals/01M4AQWR634WDSTA2M6FY8P8PX/units/partial-codebook__ollama_gemma4-31b__off__r0/config/opencode/skills/*": "allow",
+            "/home/dell/.local/share/wikiskill/dsh-curate/evals/01M4AQWR634WDSTA2M6FY8P8PX/units/partial-codebook__ollama_gemma4-31b__off__r0/config/opencode/plugins/*": "allow"
+          },
+          "bash": {
+            "*": "allow"
+          },
+          "skill": {
+            "*": "deny"
+          }
+        },
+        "provider": {
+          "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ollama",
+            "options": {
+              "baseURL": "http://localhost:11434/v1",
+              "timeout": false,
+              "headerTimeout": false,
+              "chunkTimeout": false
+            },
+            "models": {
+              "gemma4:31b": {
+                "name": "gemma4:31b",
+                "limit": {
+                  "context": 262144,
+                  "output": 8192
+                }
+              }
+            }
+          }
+        },
+        "plugin_origins": [
+          {
+            "spec": "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts",
+            "source": "OPENCODE_CONFIG_CONTENT",
+            "scope": "local"
+          }
+        ],
+        "username": "dell"
+      },
+      "skills": [],
+      "skills_known": [
+        "customize-opencode"
+      ],
+      "skill_tool": false,
+      "mcp": {}
+    },
+    "injected": {
+      "condition": "injected",
+      "config": {
+        "agent": {
+          "title": {
+            "disable": true,
+            "options": {},
+            "permission": {}
+          }
+        },
+        "mode": {},
+        "plugin": [
+          "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts"
+        ],
+        "command": {},
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": false,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+          "edit": "allow",
+          "webfetch": "deny",
+          "external_directory": {
+            "*": "deny",
+            "/home/dell/.local/share/wikiskill/dsh-curate/evals/01M4AQWR634WDSTA2M6FY8P8PX/units/partial-codebook__ollama_gemma4-31b__injected__r0/config/opencode/skills/*": "allow",
+            "/home/dell/.local/share/wikiskill/dsh-curate/evals/01M4AQWR634WDSTA2M6FY8P8PX/units/partial-codebook__ollama_gemma4-31b__injected__r0/config/opencode/plugins/*": "allow"
+          },
+          "bash": {
+            "*": "allow"
+          },
+          "skill": {
+            "*": "deny",
+            "annotate": "allow",
+            "deidentify": "allow",
+            "merge-data": "allow",
+            "raw-to-bids": "allow",
+            "gen-data-dict": "deny"
+          }
+        },
+        "provider": {
+          "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ollama",
+            "options": {
+              "baseURL": "http://localhost:11434/v1",
+              "timeout": false,
+              "headerTimeout": false,
+              "chunkTimeout": false
+            },
+            "models": {
+              "gemma4:31b": {
+                "name": "gemma4:31b",
+                "limit": {
+                  "context": 262144,
+                  "output": 8192
+                }
+              }
+            }
+          }
+        },
+        "instructions": [
+          "/home/dell/.local/share/wikiskill/dsh-curate/evals/01M4AQWR634WDSTA2M6FY8P8PX/units/partial-codebook__ollama_gemma4-31b__injected__r0/config/opencode/skills/gen-data-dict/SKILL.md"
+        ],
+        "plugin_origins": [
+          {
+            "spec": "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts",
+            "source": "OPENCODE_CONFIG_CONTENT",
+            "scope": "local"
+          }
+        ],
+        "username": "dell"
+      },
+      "skills": [
+        "merge-data",
+        "deidentify",
+        "annotate",
+        "raw-to-bids"
+      ],
+      "skills_known": [
+        "customize-opencode",
+        "gen-data-dict",
+        "merge-data",
+        "deidentify",
+        "annotate",
+        "raw-to-bids"
+      ],
+      "skill_tool": true,
+      "mcp": {}
+    }
+  },
+  "options": {
+    "max_output_tokens": 8192,
+    "thinking": "default",
+    "seed_cache": true
+  },
+  "workers": 1,
+  "duration_s": 4091.1,
+  "outcomes": {
+    "completed": 24
+  },
+  "events_written": 366,
+  "warnings": []
+}

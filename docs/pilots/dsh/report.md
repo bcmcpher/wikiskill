@@ -10,14 +10,14 @@ from a copy of the source.
   before the pilot and after it.
 - Harness: OpenCode 1.18.34. Models are served by Ollama 0.34.2 on a GB10, at
   `http://localhost:11434/v1`.
-- Models under test: `ollama/gemma4:latest` (128k context) and `ollama/qwen3:30b-a3b` (256k). Both
-  passed preflight. Thinking was left at each model's default (`--thinking default`, recorded in
+- Models under test in Unit 1: `ollama/gemma4:latest` (128k context) and `ollama/qwen3:30b-a3b`
+  (256k). Both passed preflight. The model sweep below adds more models and two more suites. Thinking was left at each model's default (`--thinking default`, recorded in
   `run.json`), and each turn was capped at 8192 output tokens.
 - Maintainer and proposer: `qwen3:30b-a3b` at a 40960-token context. It is also a model under test.
   These roles only read evidence and are never scored.
 
-Every table and figure below is generated from the runs bundled in this directory (`runs/`, listed
-in `findings.toml`) by `wikiskill findings tables` and `bin/figures`, and the documents are built
+Every table and figure below is generated from the runs bundled in this directory and in its two
+sibling studies, `../dsh-bids` and `../dsh-curate` (`runs/`, listed in each `findings.toml`), by `wikiskill findings tables` and `bin/figures`, and the documents are built
 with `bin/build-docs`. Only the prose is written by hand.
 
 ## How wikiskill works
@@ -132,8 +132,185 @@ say which credential is missing. Referring to the toolbox through `${CLAUDE_PLUG
 path the installer fills in) would let the check run. wikiskill expands that variable in its builds.
 Any such change should go back through a candidate run before it is relied on.
 
+## Model sweep (preliminary)
+
+**Status.** This is a draft for a proof of concept. The sweep is smaller than the design's: 3
+repeats per task, not 10, and seven models of the eighteen in the catalogue. Intervals are
+therefore about ±20 points at 50%, and most places in each ranking are not findings. A fuller
+sweep is left for a later report.
+
+**What ran.** Three DSH components, each its own suite and study, on the same models:
+
+| suite | component | tasks | decided by |
+|---|---|---|---|
+| `pilots/archive-doer/suite.yaml` | `archive/archive-doer` (agent) | 6 | verifiers |
+| `pilots/bids-doer/suite.yaml` | `bids/bids-doer` (agent) | 6 | verifiers |
+| `pilots/gen-data-dict/suite.yaml` | `curate/gen-data-dict` (skill) | 4 | verifiers and a judge (`gpt-oss:120b`) |
+
+- **Conditions.** OFF is the control, and INJECTED loads the component directly. n = 18 per cell
+  for archive and bids, and 12 for curate.
+- **Models.** `qwen3:1.7b`, `llama3.2:3b`, `gemma4:latest` (8B), `granite4.1:8b`, `gpt-oss:20b`,
+  `qwen3:30b-a3b` and `gemma4:31b`. They run in that order, smallest first, by
+  `pilots/dsh-sweep/sweep.sh`.
+- **Thinking.** Every model runs at `--thinking default`. The models the server says can think also
+  run at `--thinking off`: the qwen3 models, gemma4 and gpt-oss. The tables list the two settings as
+  separate entrants.
+- **Left out.** `llama3.3` was left out for time, and `gpt-oss:120b` because it is curate's judge.
+  The archive suite's hash changed when the `plugins` link was added, so Unit 1's v1 run does not
+  pool in.
+
+### archive-doer
+
+<!-- include: tables/sweep.slim.md -->
+
+![archive-doer: pass rate per model and condition](figures/sweep-rates.png)
+
+### bids-doer
+
+The doer is read-only. It never reports `valid` without having run a validator, and never reports
+an issue code the validator did not print. Five tasks run with no validator on PATH, so in those
+tasks `result: valid` is always invented.
+
+<!-- include: ../dsh-bids/tables/sweep.slim.md -->
+
+![bids-doer: pass rate per model and condition](../dsh-bids/figures/sweep-rates.png)
+
+### gen-data-dict
+
+The skill takes a data dictionary's structure from the data, and its meaning only from the user or
+a codebook. A judge scores sourcing, gap reporting and informativeness. Its per-unit levels are in
+the appendix.
+
+<!-- include: ../dsh-curate/tables/sweep.slim.md -->
+
+![gen-data-dict: pass rate per model and condition](../dsh-curate/figures/sweep-rates.png)
+
+### What the sweep shows so far
+
+- **The doers are worth something from about 8B up.** At `--thinking default`, INJECTED beats OFF
+  with intervals that do not overlap for every model of 8B or more on bids. On archive the same
+  holds for every such model except `granite4.1:8b` (16/18 against 9/18, which just overlap).
+  Below 8B (`qwen3:1.7b`, `llama3.2:3b`), the two conditions overlap on every suite.
+- **On curate the skill helps only the largest model.** Only `gemma4:31b` at
+  `--thinking default` separates. With thinking off it no longer does (7/12 against 3/12). `gpt-oss:20b`
+  does better without the skill (OFF 5/12, INJECTED 2/12), within the intervals.
+- **Archive is at its ceiling.** Six entrants pass 16 to 18 of 18 under INJECTED, so the suite no
+  longer separates them. The design's ceiling rule (4.7) calls for harder tasks.
+- **Curate is hard for everyone.** Under INJECTED, only `gemma4:31b` passes most units. Most models
+  are at 0–2 of 12 under both conditions.
+- **The doers' hard rules do not always hold under INJECTED.** These counts come from per-verifier
+  results in the bundled `results.jsonl`, not from a generated table:
+  - `qwen3:30b-a3b` (both thinking settings) and `llama3.2:3b` gave a structured `result: ok` with
+    an invented `10.5281/zenodo.1234567`, while the archive was unreachable or unset.
+  - On bids, five models reported `result: valid` with no validator on PATH.
+  - `gemma4:31b` (thinking off) edited the dataset in all 3 `validate-and-fix` units, against the
+    doer's read-only rule.
+- **The DOI verifier is too strict.** Some of its failures are labelled placeholders in prose
+  ("e.g. `10.5281/zenodo.1234567`"), not claims. The verifier counts these the same as a claimed
+  DOI, so the archive DOI counts overstate fabrication. Unit 1's statement that no reply contained
+  a DOI holds only for its two models.
+
+### Tokens per unit (heavily qualified)
+
+Each unit records `tokens` summed over every model call it made, child sessions included. The full
+tables' "Outcomes and cost" sections give the median input and output per model and condition.
+The figures below are output tokens, computed from the bundled `results.jsonl` with a one-off
+script. They are not a generated table. "Per pass" is a cell's total output divided by its passed
+units.
+
+- **INJECTED usually costs more per unit, and less per pass.** The doer adds steps, but passes rise
+  faster:
+  - On bids, output per pass for `granite4.1:8b` falls from about 9.2k (OFF) to 0.9k (INJECTED).
+  - For `gemma4:latest` on bids it falls from 8.3k to 3.5k.
+  - Per unit, `qwen3:30b-a3b` on bids rises from a median of 1.7k to 4.4k.
+- **The doer can make a model cheaper per unit as well.** On archive, `gemma4:31b` (thinking off)
+  falls from a median of 1.6k to 0.2k per unit, and passes all 18.
+- **Thinking off cuts output where it takes effect.** On archive INJECTED, `gemma4:latest` falls
+  from a median of 1.6k to 0.3k. On bids INJECTED, `qwen3:30b-a3b` does not move (4.4k against
+  4.4k), which is the same signal as the open check below.
+- **`qwen3:30b-a3b` is the most verbose model.** Its median is 6.6k output per unit on curate
+  INJECTED, against 3.2k for `gemma4:31b`, which passes twice as often.
+
+What these numbers are not:
+- **Not the context processed.** `input` counts only the prompt the server evaluated afresh. The
+  prefix Ollama reused from its cache is not counted. In one 7-step bids unit, `input` summed to
+  4.9k against 34k read from the cache. So `input` varies with how warm the cache was, and is not
+  reported here. From this change on, runs also record `cache_read`, but these runs predate it.
+- **Output without its split.** `reasoning` is 0 in every unit: Ollama's OpenAI-compatible endpoint
+  does not report it separately. `output` is visible text plus any reasoning, in unknown
+  proportion.
+- **Not comparable across families.** Each family has its own tokenizer, so counts compare within a
+  model (OFF against INJECTED, thinking on against off), not across models.
+- **Truncated at the edges.** Output is capped at 8192 tokens per turn, and `step_exhausted` units
+  stop early. A failure can look cheap.
+- **Not the judge.** On curate, the judge's tokens are not counted.
+- **Small n.** These are medians of 18 units per cell (12 on curate), from one run each.
+
+### The design's six questions
+
+1. **INJECTED − OFF against size within a family.** Only two ladders ran. Lift grows with size in
+   the Qwen ladder (1.7B to 30B) on archive and bids. It also grows in the Gemma ladder (8B to 31B)
+   on all three suites. That ladder is compared at `--thinking off` on archive and bids, the only
+   setting `gemma4:31b` has there. Two ladders are not a finding.
+2. **Dense against MoE at similar size.** Pending: see below.
+3. **Tuning with the architecture fixed.** Pending: `qwen3-coder:30b` against `qwen3:30b-a3b`.
+4. **Does thinking change rule-following?** There is a lead in the Gemma family, not yet a
+   finding.
+   - With thinking off, `gemma4:latest` loses its separation on both doers: archive INJECTED falls
+     from 17/18 to 14/18, and bids from 12/18 to 6/18.
+   - `gemma4:31b` loses its separation on curate: INJECTED falls from 10/12 to 7/12.
+   - `gpt-oss:20b` loses separation on bids (12/18 to 10/18).
+   - The other pairs barely move. `--thinking off` may not take effect on every model (see the
+     open checks).
+5. **Unsafe under OFF.** Yes, and under INJECTED too: see the hard rules above. The doers reduce
+   these failures but do not remove them.
+6. **Tool-call format or the task?** The small models complete nearly every unit (`completed`), so
+   they fail on the task, not on the tool-call format. The exception is `qwen3:30b-a3b` on bids
+   OFF: 5 of its 18 units are `permission_blocked`. The full tables' "Outcomes and cost" sections
+   have the counts.
+
+### Dense against MoE (running)
+
+The MoE models (`gpt-oss:20b`, `qwen3:30b-a3b`) have 20–30B parameters in total but about 3B
+active. There is no small MoE model to compare, so four more models are queued to test both
+readings of "similar size":
+- **Matched active parameters.** `granite4.1:3b` and `ministral-3:3b`, both dense, against the MoE
+  models.
+- **Matched total parameters.** `qwen3.8:latest` (27B, dense) at `--thinking off`, against
+  `qwen3:30b-a3b`.
+- **Tuning.** `qwen3-coder:30b` (MoE) against `qwen3:30b-a3b`, for question 3.
+
+Their rows will appear in the tables above once they are recorded.
+
+### Open checks
+
+- **Is `--thinking off` effective?** Every run sends `reasoningEffort: none`. `qwen3:1.7b`'s output
+  falls about fourteen-fold on bids, but `qwen3:30b-a3b`'s barely changes, and `gpt-oss:20b`'s
+  rises. gpt-oss may accept only low, medium and high effort. Transcripts carry no reasoning parts,
+  and `tokens.reasoning` is 0 in every unit, so reasoning cannot be separated from output. To
+  settle it, call the server directly with `reasoning_effort: none` on each model.
+- **gemma4:31b at `--thinking default` on archive and bids.** Not recorded: 12 and 5 units hit the
+  600 s per-unit timeout. The timeout is not raised, so every model runs under the same budget.
+- **Noise (4.5).** No second-day run has been made, so the run-to-run spread is unknown.
+
+### Reporting gaps
+
+- **No generated lift table.** INJECTED − OFF per model, across suites, is read off the tables by
+  eye.
+- **No thinking table.** The design asks for one pairing each model's default and off rows.
+- **The judge table is per unit and dimension.** It is too large for a slide. It needs pooling per
+  model and condition.
+- **Safety counts are not generated.** A critical-checks table (`critical.yaml`, 4b.1) would
+  generate the hard-rule counts above instead of leaving them as prose.
+- **Tokens are not generated.** The leaderboard has medians per unit, but no tokens per passed
+  unit and no context (`input` + `cache_read`). The token figures above come from a one-off script.
+- **The rates figure is portrait.** It is too tall for a 16:9 slide once there are 11 or more
+  entrants.
+
 ## Not run
 
+- **Model sweep at full scale.** 10 repeats, and the catalogue's other models: `llama3.3`, the
+  larger granite and mistral models, `glm-4.7-flash` and `nemotron-3.5-lightning`.
 - **Routing probe** (`bench/tasks/routing-lifecycle.yaml`, tasks 3.x). Optional until per-unit
   pilots have shown the loop works on DSH. This report has no `route@1`, `route@k` or
   `capability@k` for DSH.
@@ -152,3 +329,11 @@ Any such change should go back through a candidate run before it is relied on.
 <!-- include: tables/pilot.md -->
 
 <!-- include: tables/archive-doer-versions.md -->
+
+<!-- include: tables/sweep.md -->
+
+<!-- include: ../dsh-bids/tables/sweep.md -->
+
+<!-- include: ../dsh-curate/tables/sweep.md -->
+
+<!-- include: ../dsh-curate/tables/judge.md -->
