@@ -32,7 +32,7 @@
 - [x] 4.1 `sweep-fill.patch`: fill up to `MAX_FILLS` (default 2) while `state finished` fails,
   stopping on a refused fill; then the existing completeness check and `findings add`
 - [x] 4.2 Header comment: what a fill does, and that it never reruns a scored unit
-- [ ] 4.3 Apply the patch on `results/dsh-pilot` once the running sweeps end
+- [x] 4.3 Apply the patch on `results/dsh-pilot` once the running sweeps end
 
 ## 5. Docs and verification
 

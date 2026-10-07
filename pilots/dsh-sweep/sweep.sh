@@ -20,8 +20,11 @@
 # every suite before the next model loads.
 #
 # A run is complete when every unit has a result and at most MAX_NOT_RUN of them did not run
-# (`infra_error`, `skipped`). An incomplete run is not recorded, its directory is left for reading,
-# and it is retried on the next invocation. A complete run that `findings add` cannot record is kept
+# (`infra_error`, `skipped`). `wikiskill eval` already runs a unit the harness crashed on once more
+# (`--retries`). A run still incomplete is filled: `eval --fill` runs again only its unscored units,
+# up to MAX_FILLS times, and never a unit that ran, pass or fail. A run that is still incomplete
+# after that is not recorded, its directory is left for reading, and it is run again in full on
+# the next invocation. A complete run that `findings add` cannot record is kept
 # in $SWEEP_LOGS/unrecorded and added at the start of the next invocation, never rerun.
 #
 # `preflight` marks each model that fails under $SWEEP_LOGS/preflight/; the sweep skips a marked
@@ -32,8 +35,9 @@
 # without one is `skipped`, and its run could never be complete.
 #
 # Environment: SUITES (space-separated names from the table below; all by default), REPEATS (3),
-# MAX_NOT_RUN (0), BASE_URL (http://localhost:11434/v1), MODELS (space-separated, overrides the
-# order below), DRY_RUN=1 (print what would run). Logs go to $SWEEP_LOGS, one file per run.
+# MAX_NOT_RUN (0), MAX_FILLS (2), BASE_URL (http://localhost:11434/v1), MODELS (space-separated,
+# overrides the order below), DRY_RUN=1 (print what would run). Logs go to $SWEEP_LOGS, one file
+# per run.
 
 set -uo pipefail
 
@@ -44,6 +48,7 @@ cd "$ROOT" || exit 2
 
 REPEATS=${REPEATS:-3}
 MAX_NOT_RUN=${MAX_NOT_RUN:-0}
+MAX_FILLS=${MAX_FILLS:-2}
 BASE_URL=${BASE_URL:-http://localhost:11434/v1}
 OLLAMA_URL=${BASE_URL%/v1}
 CATALOGUE=pilots/models.toml
@@ -215,10 +220,19 @@ run_one() {
     say "FAILED $name on $model at --thinking $thinking: exit $status before a run began"
     return 1
   fi
-  if ! why=$(state finished "${COLLECTION[$name]}" "$run_id" "$MAX_NOT_RUN"); then
-    say "INCOMPLETE $name on $model at --thinking $thinking: run $run_id, exit $status: $why"
-    return 1
-  fi
+  local fills=0
+  while ! why=$(state finished "${COLLECTION[$name]}" "$run_id" "$MAX_NOT_RUN"); do
+    # Exit 2 is a refused fill: a run killed before its run.json, or a suite edited since.
+    if ((fills >= MAX_FILLS || status == 2)); then
+      say "INCOMPLETE $name on $model at --thinking $thinking: run $run_id, exit $status: $why"
+      return 1
+    fi
+    fills=$((fills + 1))
+    say "fill $fills of $MAX_FILLS: $name on $model at --thinking $thinking, run $run_id: $why"
+    uv run wikiskill eval --fill "$run_id" --collection "${COLLECTION[$name]}" \
+      --base-url "$BASE_URL" 2>&1 | tee -a "$log"
+    status=${PIPESTATUS[0]}
+  done
   if uv run wikiskill findings add "${STUDY[$name]}" "$run_id" --role sweep; then
     say "done $name on $model at --thinking $thinking: run $run_id recorded"
   else
