@@ -127,7 +127,7 @@ for a first dense-against-MoE comparison.
 ## Hard rules do not always hold
 
 - Under INJECTED, `qwen3:30b-a3b` and `llama3.2:3b` returned `result: ok` with an invented DOI
-- On bids, five models reported `valid` with no validator on PATH
+- On bids, the two smallest models reported `valid` with no validator on PATH
 - `gemma4:31b` edited the dataset in every `validate-and-fix` unit, against the read-only rule
 - The doers reduce these failures; they do not remove them
 
@@ -150,9 +150,22 @@ reported. Reasoning is not reported separately. Tokenizers differ by family, so 
 model. Output is capped at 8192 per turn, and the judge's tokens are not counted.
 :::
 
+## What `--thinking off` did
+
+- `gemma4:latest`, `gemma4:31b`, `qwen3:1.7b`: stopped thinking; output falls to the visible text
+- `gpt-oss:20b`: ignored it; still produces reasoning parts
+- `qwen3:30b-a3b`: moved its reasoning into the reply ("Okay, let's see…")
+- Leaked reasoning trips final-text verifiers: it quotes the doer's `result: valid | …` template
+- The thinking arm holds for gemma4 and `qwen3:1.7b` only
+
+::: notes
+Every off run sends reasoningEffort none. Counted from transcripts: reasoning parts, and visible
+text and tool arguments at about 4 characters a token, against reported output. gpt-oss's effort
+levels are low, medium and high.
+:::
+
 ## Open checks and gaps
 
-- Is `--thinking off` effective on `qwen3:30b-a3b` and `gpt-oss:20b`? Output barely changes
 - `gemma4:31b` at default thinking timed out on archive and bids (600 s per unit)
 - No run-to-run noise check yet
 - Tooling: no generated lift or thinking table; the judge table is per unit; safety counts by hand

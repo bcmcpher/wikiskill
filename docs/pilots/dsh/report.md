@@ -202,13 +202,17 @@ the appendix.
   results in the bundled `results.jsonl`, not from a generated table:
   - `qwen3:30b-a3b` (both thinking settings) and `llama3.2:3b` gave a structured `result: ok` with
     an invented `10.5281/zenodo.1234567`, while the archive was unreachable or unset.
-  - On bids, five models reported `result: valid` with no validator on PATH.
+  - On bids, the two smallest models (`llama3.2:3b` and `qwen3:1.7b`, 2 units each) reported
+    `result: valid` with no validator on PATH.
   - `gemma4:31b` (thinking off) edited the dataset in all 3 `validate-and-fix` units, against the
     doer's read-only rule.
 - **The DOI verifier is too strict.** Some of its failures are labelled placeholders in prose
   ("e.g. `10.5281/zenodo.1234567`"), not claims. The verifier counts these the same as a claimed
   DOI, so the archive DOI counts overstate fabrication. Unit 1's statement that no reply contained
   a DOI holds only for its two models.
+- **The bids `result: valid` verifier is too strict in the same way.** Of its 8 failures under
+  INJECTED, 4 are quoted templates such as "result: valid | invalid | unverified", not claims. The
+  cases named above were read in the transcripts.
 
 ### Tokens per unit (heavily qualified)
 
@@ -227,7 +231,7 @@ units.
   falls from a median of 1.6k to 0.2k per unit, and passes all 18.
 - **Thinking off cuts output where it takes effect.** On archive INJECTED, `gemma4:latest` falls
   from a median of 1.6k to 0.3k. On bids INJECTED, `qwen3:30b-a3b` does not move (4.4k against
-  4.4k), which is the same signal as the open check below.
+  4.4k): its reasoning moves into the reply rather than stopping (see below).
 - **`qwen3:30b-a3b` is the most verbose model.** Its median is 6.6k output per unit on curate
   INJECTED, against 3.2k for `gemma4:31b`, which passes twice as often.
 
@@ -236,9 +240,9 @@ What these numbers are not:
   prefix Ollama reused from its cache is not counted. In one 7-step bids unit, `input` summed to
   4.9k against 34k read from the cache. So `input` varies with how warm the cache was, and is not
   reported here. From this change on, runs also record `cache_read`, but these runs predate it.
-- **Output without its split.** `reasoning` is 0 in every unit: Ollama's OpenAI-compatible endpoint
-  does not report it separately. `output` is visible text plus any reasoning, in unknown
-  proportion.
+- **Output without its split.** `tokens.reasoning` is 0 in every unit, although the transcripts do
+  hold reasoning parts. `output` is visible text plus reasoning. The split can be estimated from
+  the transcripts (see below), but it is not recorded.
 - **Not comparable across families.** Each family has its own tokenizer, so counts compare within a
   model (OFF against INJECTED, thinking on against off), not across models.
 - **Truncated at the edges.** Output is capped at 8192 tokens per turn, and `step_exhausted` units
@@ -260,8 +264,9 @@ What these numbers are not:
      from 17/18 to 14/18, and bids from 12/18 to 6/18.
    - `gemma4:31b` loses its separation on curate: INJECTED falls from 10/12 to 7/12.
    - `gpt-oss:20b` loses separation on bids (12/18 to 10/18).
-   - The other pairs barely move. `--thinking off` may not take effect on every model (see the
-     open checks).
+   - The other pairs barely move. But only the gemma4 models and `qwen3:1.7b` really stopped
+     thinking (see below). So `gpt-oss:20b`'s and `qwen3:30b-a3b`'s rows are not thinking-off
+     comparisons.
 5. **Unsafe under OFF.** Yes, and under INJECTED too: see the hard rules above. The doers reduce
    these failures but do not remove them.
 6. **Tool-call format or the task?** The small models complete nearly every unit (`completed`), so
@@ -282,13 +287,33 @@ readings of "similar size":
 
 Their rows will appear in the tables above once they are recorded.
 
-### Open checks
+### What `--thinking off` did, per model
 
-- **Is `--thinking off` effective?** Every run sends `reasoningEffort: none`. `qwen3:1.7b`'s output
-  falls about fourteen-fold on bids, but `qwen3:30b-a3b`'s barely changes, and `gpt-oss:20b`'s
-  rises. gpt-oss may accept only low, medium and high effort. Transcripts carry no reasoning parts,
-  and `tokens.reasoning` is 0 in every unit, so reasoning cannot be separated from output. To
-  settle it, call the server directly with `reasoning_effort: none` on each model.
+Every run at `off` sends `reasoningEffort: none`. The transcripts show three different outcomes.
+Each unit's reasoning parts were counted. Its visible text and tool-call arguments were estimated
+at 4 characters a token, and compared with the `output` it reports. The figures are medians per
+unit over all three suites, from a one-off script.
+
+| model | default: output / visible / reasoning parts | off: output / visible / reasoning parts | what off did |
+|---|---|---|---|
+| `gemma4:latest` | 1363 / 250 / 366 | 153 / 164 / 0 | stopped thinking |
+| `gemma4:31b` | 2057 / 286 / 123 | 390 / 279 / 0 | stopped thinking |
+| `qwen3:1.7b` | 1490 / 191 / 481 | 147 / 150 / 0 | stopped thinking |
+| `gpt-oss:20b` | 725 / 371 / 244 | 1083 / 472 / 306 | ignored: still thinks |
+| `qwen3:30b-a3b` | 2441 / 123 / 299 | 2291 / 2428 / 0 | moved the reasoning into the reply |
+
+- **`qwen3:30b-a3b` still reasons at `off`.** Its reasoning becomes visible text instead. Its
+  replies open with "Okay, let's see. The user wants…" and think aloud before the answer.
+- **That leaked reasoning trips final-text verifiers.** Both of its bids `result: valid` failures
+  at `off` were the reasoning quoting the doer's template, not a claim. The archive DOI failure
+  at `off` is real: the reply reasons its way to a "simulated success" and reports `result: ok`
+  with an invented DOI.
+- **`gpt-oss:20b` ignores `none`.** It goes on producing reasoning parts. gpt-oss's effort levels
+  are low, medium and high.
+- **So the thinking arm only holds for gemma4 and `qwen3:1.7b`.** `qwen3.8`, queued at `off`, needs
+  the same check before its rows are read as thinking-off.
+
+### Open checks
 - **gemma4:31b at `--thinking default` on archive and bids.** Not recorded: 12 and 5 units hit the
   600 s per-unit timeout. The timeout is not raised, so every model runs under the same budget.
 - **Noise (4.5).** No second-day run has been made, so the run-to-run spread is unknown.
