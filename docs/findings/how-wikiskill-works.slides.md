@@ -16,7 +16,7 @@ set of checks. The next two slides define the words used for them.
 |---|---|
 | skill | a file of instructions a model loads when a task matches it |
 | agent | a separate model session with its own instructions and tools |
-| doer | DSH's name for an agent that carries out one kind of job |
+| doer | an agent that carries out one kind of job, delegated to |
 | component | the one skill or agent being evaluated; its version is the hash of its text |
 | collection | the components installed together, from one manifest |
 | harness | the program that runs the model and its tools: OpenCode or Claude Code |

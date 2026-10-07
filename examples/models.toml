@@ -3,7 +3,7 @@
 # rows by family, order them by size, and mark a judge that shares a family with the model it
 # judges. A key names a model with or without its provider.
 #
-# These are the models served on the DSH pilot's GB10. Sizes are billions of parameters, from
+# These are the models served on one development GB10. Sizes are billions of parameters, from
 # `ollama show` where it was run and from the Ollama library otherwise.
 
 [models."qwen2.5-coder:1.5b"]

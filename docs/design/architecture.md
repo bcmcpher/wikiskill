@@ -22,7 +22,7 @@ Targets:
   llama.cpp, vLLM, LM Studio, hosted open-model APIs).
 - **Secondary:** Claude Code, where most development happens — with local models via an
   Anthropic-compatible endpoint, or Anthropic models as a frontier baseline.
-- **First collection:** `data-science-harness` (DSH), which already installs into both harnesses.
+- **First collection:** a Claude Code plugin marketplace that already installs into both harnesses.
 
 ## 2. Mapping the paper onto a harness
 
@@ -74,7 +74,7 @@ Every explicit task can run under three conditions:
 
 | Condition | Setup | Measures |
 |---|---|---|
-| **OFF** | Collection absent | Baseline — the paper's empty skill set; DSH's required control |
+| **OFF** | Collection absent | Baseline — the paper's empty skill set; the required control |
 | **ROUTED** | Collection installed normally | End-to-end: trigger → delegation → outcome |
 | **INJECTED** | Component text forced into the system prompt; component denied as a tool | Content quality alone, as in the paper |
 
@@ -127,10 +127,10 @@ emits:
   `plugins/`;
 - **Claude Code plugin**: `.claude-plugin/plugin.json`, `skills/`, `agents/` (`tools:` lists),
   `commands/`, `hooks/hooks.json`;
-- **per-harness model alias tables** — the pattern DSH `bin/install.sh` already uses, extended to
+- **per-harness model alias tables** — the pattern plugin installers already use, extended to
   open-model providers.
 
-The same build step can package a *target* collection (e.g. DSH) for either harness.
+The same build step can package a *target* collection (e.g. a plugin marketplace) for either harness.
 
 ## 6. Data
 
@@ -217,9 +217,8 @@ Every meta-role has its own endpoint and model in the manifest:
 Priority order:
 
 1. **Deterministic verifiers**: exact route/delegation match, file and command checks, domain
-   validators (for DSH: `schemas/validate-ledger.py`, `tests/e2e-smoke.sh` assertions, bids-validator).
-2. **Rubric judge** for dimensions without a verifier (e.g. DSH
-   `bench/rubrics/provenance-completeness.yaml`).
+   validators (a schema check, end-to-end smoke-test assertions, a format validator).
+2. **Rubric judge** for dimensions without a verifier (e.g. provenance completeness).
 3. **Cost**: tokens, wall-clock, tool calls.
 
 Outcome classes are kept separate from scores: `completed`, `tool-call-as-text` (model emitted a tool
@@ -256,7 +255,7 @@ Order and rationale: [`ROADMAP.md`](../../ROADMAP.md).
 |---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
 | 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring | 1 |
-| 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 |
+| 3 | pilots on a real collection (on `results/<study>` branches) | — | 2 |
 | 4 | `add-correction-capture` | correction-signal | 1 |
 | 5 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 4 |
 | 6 | `add-experience-wiki` | experience-wiki | 1, 4 |

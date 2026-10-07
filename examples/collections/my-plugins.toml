@@ -1,0 +1,105 @@
+# A worked collection: a Claude Code plugin marketplace, evaluated on open models under OpenCode.
+#
+# Copy to ${XDG_CONFIG_HOME:-~/.config}/wikiskill/collections/my-plugins.toml, adjust the source
+# path and the watch list to your own plugins, then:
+#
+#     wikiskill collection check my-plugins --sync
+#
+# wikiskill never writes into the source repository — `check` and `build` leave its `git status`
+# exactly as they found it.
+
+name = "my-plugins"
+
+sources = [
+  { path = "~/path/to/my-plugins/plugins", layout = "claude-plugin" },
+]
+# To evaluate, watch and refine one unit on its own, narrow the source to its plugins:
+#
+#     { path = "...", layout = "claude-plugin", plugins = ["release"] },
+
+# Only sessions that activate something listed here are logged. Everything else writes nothing.
+# Names are `<plugin>/<component>`; a harness that reports a bare name (OpenCode's `skill` tool
+# says `changelog`, not `release/changelog`) still matches.
+[watch]
+skills = [
+  "release/changelog",
+  "release/version-bump",
+  "review/code-review",
+]
+agents = [
+  "release/release-doer",
+  "project/coordinator",
+]
+commands = []
+
+# ---------------------------------------------------------------------------- meta-roles
+#
+# Each role names its own OpenAI-compatible endpoint, independently of the models under test. The
+# judge must never be a model under test: `collection check` rejects the manifest if it is.
+
+[roles.judge]
+base_url = "http://localhost:11434/v1"
+model = "gemma2:2b"
+# Or a panel of different models on the one endpoint. A rubric with `judges: 3` then asks each once,
+# and every opinion records which model gave it. No panel model may be a model under test.
+# models = ["gpt-oss:120b", "llama3.3:latest", "nemotron-3.5-lightning:latest"]
+
+[roles.maintainer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:1.7b"
+
+[roles.proposer]
+base_url = "http://localhost:11434/v1"
+model = "qwen3:1.7b"
+
+# ---------------------------------------------------------------------------- models under test
+#
+# The open models this collection's skills are compared across. Entries may be concrete
+# `provider/model` strings or aliases from the table below.
+
+[targets]
+opencode = ["ministral", "qwen-coder"]
+claude-code = ["sonnet"]
+
+# ---------------------------------------------------------------------------- alias tables
+#
+# A component declares an abstract alias; each harness resolves it to something concrete. An alias
+# with no mapping for a harness is not an error — the built component omits its model and inherits
+# its caller's, and the build reports the alias as unmapped.
+#
+# Every model here was checked against a local Ollama install. Not every local model supports tool
+# calling: an OpenCode run against one fails with `... does not support tools` before the first
+# tool call, which is exactly what `add-explicit-eval`'s preflight check is for.
+
+[aliases.opencode]
+# Tiers. Claude Code plugin agents pin Claude model names; each resolves to a tier, and the tier to a model, so
+# choosing a different small or large model is one line. Both are the one endpoint that passes
+# preflight here until a second is chosen. Evaluation strips these pins either way: a subagent runs
+# on the model under test.
+small = "opencode/big-pickle"
+large = "opencode/big-pickle"
+haiku = "small"
+sonnet = "large"
+opus = "large"
+
+ministral = "ollama/ministral-3:3b"
+qwen-coder = "ollama/qwen2.5-coder:1.5b"
+qwen-small = "ollama/qwen3:1.7b"
+maintainer = "ollama/qwen3:1.7b"
+proposer = "ollama/qwen3:1.7b"
+
+[aliases.claude-code]
+sonnet = "claude-sonnet-5"
+haiku = "claude-haiku-4-5-20251001"
+maintainer = "claude-haiku-4-5-20251001"
+
+# ---------------------------------------------------------------------------- logging bounds
+
+[logging]
+# Events held before an activation, then flushed with it. A long session past this loses its
+# earliest turns, never the activation itself.
+buffer_size = 200
+# Tool output above this is truncated; the record keeps the original length.
+output_limit_bytes = 16384
+# Replace environment values and secret-shaped strings with [REDACTED:<kind>].
+redact = true

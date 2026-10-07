@@ -4,9 +4,9 @@ A study is a directory with a `findings.toml`. The manifest names the study's ru
 role, and the tables to make from them:
 
     [study]
-    name = "dsh-pilot"
-    collection = "dsh-archive"            # where `bundle` finds runs given by id
-    models_file = "../../../pilots/models.toml"
+    name = "my-study"
+    collection = "my-plugins"             # where `bundle` finds runs given by id
+    models_file = "models.toml"
 
     [[runs]]
     id = "01M46QWP6CTEM5DN807VS7GQMW"

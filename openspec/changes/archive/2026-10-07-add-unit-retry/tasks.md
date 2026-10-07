@@ -39,5 +39,7 @@
 - [x] 5.1 `docs/data.md`: `attempts`, `retried`, `transient`, `retries`, `fills`,
   `results.superseded.jsonl`, `.attempt-<N>` directories
 - [x] 5.2 `docs/writing-suites.md` "After the first run": retried and filled units
-- [ ] 5.3 Fill the DSH ministral-3:3b archive run `01M4BGXVYQ93JES7NC9F1YQXTK` on the GPU once the
-  sweeps end, and compare it with the full rerun
+- [x] 5.3 Fill the DSH ministral-3:3b archive run `01M4BGXVYQ93JES7NC9F1YQXTK` on the GPU once the
+  sweeps end. Filled 2026-10-07: the one lost unit ran in 11 s and completed, the other 35 were kept,
+  and the run was recorded. The full rerun it would have replaced was never made, so there is none
+  to compare with

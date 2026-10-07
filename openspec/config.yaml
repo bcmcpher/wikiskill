@@ -29,7 +29,7 @@ context: |
   Compute: the development laptop is CPU-only (no discrete GPU; Ollama defaults to a 4096-token
   context). Designs are endpoint-agnostic and must not assume a local GPU.
 
-  First real collection: ~/Projects/claude/data-science-harness (DSH). This repository never edits it.
+  Collections under evaluation are never edited by this repository.
 
 rules:
   proposal:

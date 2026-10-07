@@ -5,9 +5,9 @@ suite's verifiers check, and nothing more. When you read a result, you are trust
 guide covers how to build one that deserves that trust, and how to audit one someone else built.
 
 [Bring your own collection](bring-your-own-collection.md) shows the mechanics: a template, `suite
-check`, a first run. This guide covers the judgement those steps leave to you. Its examples come
-from the data-science-harness pilot's suites in `pilots/`, which are worked examples of everything
-below.
+check`, a first run. This guide covers the judgement those steps leave to you. Its running example
+is a deposit agent: it deposits a tagged release of a dataset in a public archive and mints a DOI
+for it.
 
 ## The audit checklist
 
@@ -55,7 +55,7 @@ Do not start from prompts. Start from what the component promises that a capable
 would not do. Write each promise down, then ask what it leaves behind that a verifier can see
 without a network: a reply, a file, a tag, a commit count.
 
-The archive doer's rules, and what each leaves to check:
+The deposit agent's rules, and what each leaves to check:
 
 | rule | task | verifier |
 |---|---|---|
@@ -67,11 +67,12 @@ The archive doer's rules, and what each leaves to check:
 
 Then make sure some tasks can **only** be passed by following the rules. If a careful model passes
 every task without the component, OFF and INJECTED will tie, and the suite says nothing about the
-component. The archive suite's OFF control passes about half its units, which is what a careful
-model does unaided. Its INJECTED gain comes from the tasks only the doer's rules can pass.
+component. Expect a careful model to pass some tasks unaided, such as not inventing a tag. The
+INJECTED gain should come from the tasks only the agent's rules can pass, such as naming the missing
+credential.
 
 Write the rule-to-verifier mapping in the suite's header comment. It is the first thing an auditor
-reads. Every suite in `pilots/` opens this way.
+reads.
 
 ## 3. Build the starting state
 
@@ -80,22 +81,21 @@ Each unit starts in a fresh, empty working directory. `fixtures` are copied in f
 failure.
 
 - **Build state; don't assume it.** `git init`, write the files, commit, tag. Use placeholder
-  content where nothing reads it. The bids suite's imaging files are empty, because no task without
-  a validator opens them.
+  content where nothing reads it: a large data file no task opens can be empty.
 - **Close every way out.** Set every credential the component might use to `""` in `env`. List the
   real hosts and push commands in `guard: { deny: [...] }`. When a task needs a token that looks
   valid, point the service's URL at a closed local port, so the deposit fails the way an outage
   would. Any DOI in that reply is then invented by definition.
 - **Make recalled conventions visible.** If a correct answer could be guessed from common practice,
-  pick values that differ from it. The curate suite codes age in months and `1 = female`, so a
-  model that assumes the usual coding gets a wrong value instead of a lucky guess.
+  pick values that differ from it. A table that codes age in months and `1 = female` makes a model
+  that assumes the usual coding give a wrong value instead of a lucky guess.
 - **Declare tools in `requires`.** A task whose program is missing is `skipped`, with a reason, and
   never scored. But a run with a skipped unit is incomplete, so check `requires` on every machine
   before a sweep.
-- **Reproduce what the component expects to find.** The DSH doers call their toolbox by a path
-  relative to the DSH checkout (`plugins/<plugin>/scripts/...`). Their tasks link `plugins` in the
-  working directory to where the run installs the collection. Under OFF the link dangles, which is
-  correct.
+- **Reproduce what the component expects to find.** An agent that calls its plugin's scripts by a
+  path relative to its own repository (`plugins/<plugin>/scripts/...`) finds nothing in a fresh
+  working directory. Link `plugins` there to where the run installs the collection. Under OFF the
+  link dangles, which is correct.
 
 ## 4. Write the prompts
 
@@ -130,16 +130,16 @@ A `regex` matches one of three targets:
 **Prefer state over words.** A `command` that checks the repository cannot be fooled by phrasing. A
 regex over the reply can, in both directions.
 
-**Accept every form a correct answer can take.** The archive suite first matched only `result: …`,
-and failed correct replies written as JSON (`"result": "unminted"`). Write the pattern for both
-forms, and hand-check both.
+**Accept every form a correct answer can take.** A pattern that matches only `result: …` fails
+correct replies written as JSON (`"result": "unminted"`). Write the pattern for both forms, and
+hand-check both.
 
 **Negated regexes are the riskiest verifiers you can write.** "No DOI in the reply" also fails a
-reply that *mentions* a DOI without claiming one. In the pilot's sweep, these all failed it:
+reply that *mentions* a DOI without claiming one. All of these fail it:
 - A labelled example: "you will get a DOI such as `10.5281/zenodo.1234567`".
-- The model quoting the component's own template: "result: valid | invalid | unverified". This was
-  4 of the 8 `result: valid` failures on bids.
-- Reasoning leaked into the reply. One model, asked not to think, reasoned aloud in its answer
+- The model quoting the component's own template, such as "result: valid | invalid | unverified"
+  against a "never report `valid`" check.
+- Reasoning leaked into the reply. Some models, asked not to think, reason aloud in the answer
   instead.
 
 Each counted as a broken rule, beside the real fabrications. When a negated regex fails, read the
@@ -151,7 +151,7 @@ mid-sentence is not.
 
 Some qualities have no deterministic check. Is every entry sourced? Does the reply name every gap?
 Does a description say more than the column name? A rubric scores these as dimensions, beside the
-pass rate and never folded into it. See `pilots/gen-data-dict/rubric.yaml`.
+pass rate and never folded into it.
 
 - Each dimension gives the judge `evidence` (what to compare against what), and named `anchors`,
   worst first. The order is the scale.
@@ -187,8 +187,9 @@ work = Path(tempfile.mkdtemp(prefix=f"{task_id}-"))
 if task.fixtures:
     shutil.copytree(Path(suite_file).parent / task.fixtures, work, dirs_exist_ok=True)
 for command in task.setup:
-    subprocess.run(command, shell=True, cwd=work, check=True,
-                   env={**os.environ, **task.resolved_env()})
+    subprocess.run(
+        command, shell=True, cwd=work, check=True, env={**os.environ, **task.resolved_env()}
+    )
 input(f"starting state in {work}; make the end state to test, then press Enter")
 results, passed = verify_task(task, workdir=work, final_text=Path(reply_file).read_text())
 for result in results:
@@ -197,7 +198,7 @@ print("task passes" if passed else "task fails")
 ```
 
 ```bash
-uv run python hand_check.py pilots/archive-doer/suite.yaml mint-without-token reply.txt
+uv run python hand_check.py suite.yaml mint-without-token reply.txt
 ```
 
 On `mint-without-token`, the correct reply `result: unminted` naming `ZENODO_TOKEN` passes. A
@@ -220,5 +221,4 @@ hand-checked in the suite's comments.
 - **Watch the ceiling.** When two or more models pass nearly everything under INJECTED, the suite
   no longer separates them. Write harder tasks in a new suite file.
 - **Fix in a new file.** A verifier found wrong is fixed in the suite, and the runs made with the
-  flawed version are discarded and named in the report. The archive pilot's first v1 run was
-  discarded this way.
+  flawed version are discarded and named in the report.

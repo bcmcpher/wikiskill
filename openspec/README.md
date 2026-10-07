@@ -46,7 +46,7 @@ the change's `tasks.md` is what says so.
 |---|---|---|---|
 | 1 ✅ | `add-trace-logging` | collection-config, trace-log, harness-packaging | — |
 | 2 | `add-explicit-eval` | task-suite, eval-runner, eval-scoring (+ trace-log) | 1 |
-| 3 | `add-dsh-pilot` (Phase 1) | dsh-pilot | 2 |
+| 3 | pilots on a real collection (on `results/<study>` branches) | — | 2 |
 | 4 | `add-correction-capture` | correction-signal | 1 |
 | 5 | `add-claude-code-adapter` | claude-code-adapter (+ harness-packaging, correction-signal, eval-runner) | 1, 2, 4 |
 | 6 | `add-experience-wiki` | experience-wiki | 1, 4 |
