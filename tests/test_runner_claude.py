@@ -179,7 +179,7 @@ def test_a_loaded_skill_is_traced_to_its_file():
 def test_tokens_are_the_session_totals_subagents_included():
     # A message's own usage stops at its first block (output 0); `modelUsage` has the totals.
     tokens = backend_mod.token_totals(stream())
-    assert tokens == {"input": 78906, "output": 3619, "reasoning": 0}
+    assert tokens == {"input": 78906, "output": 3619, "reasoning": 0, "cache_read": 25394}
 
 
 def test_transcript_includes_the_subagent():
