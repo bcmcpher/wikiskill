@@ -61,6 +61,7 @@ CSV_COLUMNS = (
     "model",
     "family",
     "size_b",
+    "shape",
     "condition",
     "version",
     "task",
@@ -406,6 +407,7 @@ def _cell_row(board: leaderboard.Leaderboard, cell: leaderboard.Cell, task: str)
         "model": cell.base or cell.model,
         "family": described.get("family"),
         "size_b": described.get("size_b"),
+        "shape": described.get("shape"),
         "condition": cell.condition,
         "version": "",
         "task": task,
@@ -482,6 +484,7 @@ def _version_board(
             "model": board.base.get(model, model),
             "family": described.get("family"),
             "size_b": described.get("size_b"),
+            "shape": described.get("shape"),
         }
         control = board.control.get(model)
         if control is not None:
@@ -541,6 +544,7 @@ def _report(
                     "model": row["model"],
                     "family": catalogue.family(row["model"]) if catalogue else None,
                     "size_b": _size(catalogue, row["model"]),
+                    "shape": _shape(catalogue, row["model"]),
                     "condition": row["condition"],
                     "version": "",
                     "task": row["task_id"],
@@ -576,6 +580,11 @@ def _levels(counts: dict[str, int]) -> str:
 def _size(catalogue: Catalogue | None, model: str) -> float | None:
     info = catalogue.get(model) if catalogue else None
     return info.size_b if info else None
+
+
+def _shape(catalogue: Catalogue | None, model: str) -> str | None:
+    info = catalogue.get(model) if catalogue else None
+    return info.shape if info else None
 
 
 def _rate_columns(rate: Rate) -> dict[str, Any]:

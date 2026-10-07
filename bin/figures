@@ -6,7 +6,8 @@
 """Draw a study's figures from its `findings.csv` alone: bin/figures <study>.
 
 - `figures/<table>-rates.png` for each leaderboard table: pooled pass rates with Wilson 95%
-  intervals, one row per model and condition, grouped by family and ordered by size.
+  intervals, drawn 16:9 for a slide. Entrants run along the bottom, smallest first, conditions
+  side by side, in one panel per model shape (dense, MoE) from the catalogue.
 - `figures/<table>-lift.png` for each version-board table: each version's lift over OFF, per model.
 
 Run with `uv run --script`, which fetches matplotlib into a cached environment: plotting is never a
@@ -23,7 +24,9 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+import matplotlib.lines
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 
 COLOURS = ["#1f4e79", "#c55a11", "#548235", "#7030a0", "#bf9000", "#2e75b6"]
 
@@ -46,39 +49,130 @@ def _order(rows: list[dict[str, str]]) -> list[str]:
     return sorted(seen, key=lambda model: (*seen[model], model))
 
 
-def rates(table: str, rows: list[dict[str, str]], out: Path) -> Path | None:
+#: How each condition is drawn and named in a legend.
+CONDITION_STYLE = {
+    "off": ("#8c8c8c", "OFF: the bare model"),
+    "routed": ("#c55a11", "ROUTED: the collection, found on its own"),
+    "injected": ("#1f4e79", "INJECTED: the component in context"),
+}
+#: Panels of a rates figure, by the catalogue's `shape`, and the order they appear in.
+SHAPES = {
+    "dense": "Dense: every parameter used for every token",
+    "moe": "MoE: only a few billion active per token",
+}
+
+
+def _panel(shape: str) -> str:
+    if not shape:
+        return "Not in the catalogue"
+    return "moe" if "moe" in shape else shape
+
+
+def _label(row: dict[str, str]) -> str:
+    """The model without its provider, its size, and its setting when the entrant has one."""
+    model = row["model"] or row["entrant"]
+    # Name and tag on lines of their own, so twenty entrants fit across a slide.
+    name, _, tag = model.split("/", 1)[-1].partition(":")
+    lines = [f"{name}:", tag] if tag else [name]
+    size = _float(row["size_b"])
+    if size is not None:
+        lines.append(f"{size:g}B")
+    setting = row["entrant"].removeprefix(model).strip(" ()") if row["model"] else ""
+    if setting:
+        lines.append(setting)
+    return "\n".join(lines)
+
+
+def rates(table: str, rows: list[dict[str, str]], out: Path, title: str = "") -> Path | None:
+    """Pass rates per entrant, conditions side by side, in one panel per model shape.
+
+    Drawn at 16:9 for a slide: entrants run along the bottom, smallest first, so a figure with
+    twenty entrants stays readable, and dense and MoE models sit in panels of their own.
+    """
     pooled = [row for row in rows if not row["task"] and row["total"] not in ("", "0")]
     if not pooled:
         return None
-    models = _order(pooled)
-    conditions = sorted({row["condition"] for row in pooled})
-    height = 0.8 / max(1, len(conditions))
-    fig, ax = plt.subplots(figsize=(8, 0.45 * len(models) * max(1, len(conditions)) + 1.2))
-    for index, condition in enumerate(conditions):
-        found = {row["entrant"]: row for row in pooled if row["condition"] == condition}
-        ys, xs, low, high = [], [], [], []
-        for place, model in enumerate(models):
-            row = found.get(model)
-            if row is None:
-                continue
-            rate = float(row["rate"])
-            ys.append(place + index * height)
-            xs.append(rate)
-            low.append(rate - float(row["low"]))
-            high.append(float(row["high"]) - rate)
-        colour = COLOURS[index % len(COLOURS)]
-        ax.errorbar(xs, ys, xerr=[low, high], fmt="o", color=colour, capsize=3, label=condition)
-    ax.set_yticks([place + height * (len(conditions) - 1) / 2 for place in range(len(models))])
-    ax.set_yticklabels(models)
-    ax.invert_yaxis()
-    ax.set_xlim(-0.02, 1.02)
-    ax.set_xlabel("pass rate (Wilson 95% interval)")
-    ax.set_title(f"{table}: pass rate per model and condition")
-    ax.grid(axis="x", alpha=0.3)
-    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False)
-    fig.tight_layout()
+    by_entrant = {row["entrant"]: row for row in pooled}
+    panels: dict[str, list[str]] = defaultdict(list)
+    for entrant in _order(pooled):
+        panels[_panel(by_entrant[entrant].get("shape", ""))].append(entrant)
+    for entrants in panels.values():
+        entrants.sort(key=lambda e: (_float(by_entrant[e]["size_b"]) or float("inf"), e))
+    names = [name for name in (*SHAPES, *sorted(set(panels) - set(SHAPES))) if name in panels]
+    conditions = [c for c in CONDITION_STYLE if any(row["condition"] == c for row in pooled)]
+    conditions += sorted({row["condition"] for row in pooled} - set(conditions))
+    step = 0.7 / max(1, len(conditions))
+
+    fig, axes = plt.subplots(
+        1,
+        len(names),
+        # 16:9 at full width; narrower when a few entrants would leave a panel mostly empty.
+        figsize=(min(13.33, 4 + 1.1 * sum(len(e) for e in panels.values())), 5.6),
+        sharey=True,
+        squeeze=False,
+        gridspec_kw={"width_ratios": [len(panels[name]) + 0.6 for name in names]},
+    )
+    for ax, name in zip(axes[0], names, strict=True):
+        entrants = panels[name]
+        for index, condition in enumerate(conditions):
+            colour, _ = CONDITION_STYLE.get(condition, (COLOURS[index % len(COLOURS)], condition))
+            found = {row["entrant"]: row for row in pooled if row["condition"] == condition}
+            xs, ys, low, high = [], [], [], []
+            for place, entrant in enumerate(entrants):
+                row = found.get(entrant)
+                if row is None:
+                    continue
+                rate = float(row["rate"])
+                xs.append(place + (index - (len(conditions) - 1) / 2) * step)
+                ys.append(rate)
+                low.append(rate - float(row["low"]))
+                high.append(float(row["high"]) - rate)
+            ax.errorbar(
+                xs,
+                ys,
+                yerr=[low, high],
+                fmt="o",
+                color=colour,
+                capsize=4,
+                markersize=7,
+                elinewidth=2,
+            )
+        ax.set_xticks(range(len(entrants)))
+        ax.set_xticklabels([_label(by_entrant[e]) for e in entrants], fontsize=8.5)
+        ax.set_xlim(-0.6, len(entrants) - 0.4)
+        ax.set_title(SHAPES.get(name, name), fontsize=13)
+        ax.grid(axis="y", alpha=0.3)
+        for place in range(1, len(entrants)):
+            ax.axvline(place - 0.5, color="#dddddd", linewidth=0.8)
+    first = axes[0][0]
+    first.set_ylim(-0.03, 1.03)
+    first.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    first.set_ylabel("pass rate, with Wilson 95% interval", fontsize=12)
+    first.tick_params(axis="y", labelsize=11)
+    handles = [
+        matplotlib.lines.Line2D(
+            [],
+            [],
+            color=CONDITION_STYLE.get(c, ("black", c))[0],
+            marker="o",
+            linestyle="",
+            markersize=8,
+        )
+        for c in conditions
+    ]
+    fig.legend(
+        handles,
+        [CONDITION_STYLE.get(c, ("", c))[1] for c in conditions],
+        loc="upper center",
+        ncol=len(conditions),
+        frameon=False,
+        fontsize=12,
+    )
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", y=0.995, fontsize=10, color="#555555")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     path = out / f"{table}-rates.png"
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=150)
     plt.close(fig)
     return path
 
@@ -126,7 +220,7 @@ def main(argv: list[str]) -> int:
     out.mkdir(exist_ok=True)
     for (table, kind), rows in tables.items():
         drawn = (
-            rates(table, rows, out)
+            rates(table, rows, out, f"{study.name} · {table}")
             if kind == "leaderboard"
             else lift(table, rows, out)
             if kind == "version-board"
