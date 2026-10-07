@@ -1,5 +1,11 @@
 # The DSH pilot as a study: its runs are bundled under runs/, and every table, figure and data file
 # is regenerated from them with `wikiskill findings tables` and `bin/figures`. See README "Studies".
+#
+# Not recorded, by decision: archive on gemma4:31b at --thinking default (run
+# 01M4A6FZ6JXYSFG4AJXA78XJCK): 12 of 36 units hit the suite's 600 s per-unit timeout (infra_error),
+# so the sweep left the run incomplete. It is not rerun with a larger budget, to keep every model
+# under the same timeout_s; gemma4:31b with thinking on is reported as exceeding 600 s on those
+# tasks. A later sweep.sh invocation would retry it.
 
 [study]
 name = "dsh-pilot"
@@ -27,3 +33,47 @@ kind = "version-board"
 roles = ["v1", "candidates"]
 component = "archive/archive-doer"
 baseline = "v1"
+
+[[runs]]
+id = "01M49KYJGHTMR0FM7BFYZX6Y2A"
+role = "sweep"
+
+[[runs]]
+id = "01M49Q05KXQB37SW8M67V8NTZH"
+role = "sweep"
+
+[[runs]]
+id = "01M49QX3E0F90WMG9NFSBPJXAX"
+role = "sweep"
+
+[[runs]]
+id = "01M49VEWSNB7WQ27HAE4X02V2R"
+role = "sweep"
+
+[[runs]]
+id = "01M49Y73M2NBBS5NWX8NVPFR5M"
+role = "sweep"
+
+[[runs]]
+id = "01M4A0NM5EPG433GS3ZEGMR7AZ"
+role = "sweep"
+
+[[runs]]
+id = "01M4AVSMJSDWBSM15ZSPY59YAM"
+role = "sweep"
+
+[[runs]]
+id = "01M4AXCNZK0NM7WGDRED6NNZTT"
+role = "sweep"
+
+[[runs]]
+id = "01M4AYT1G6BRPE105ZNNFQRH90"
+role = "sweep"
+
+[[runs]]
+id = "01M4B1ZE5N7Q2WVNXAFFSNWBJ7"
+role = "sweep"
+
+[[runs]]
+id = "01M4B7WHMV7DKF0TD4178VA3S4"
+role = "sweep"

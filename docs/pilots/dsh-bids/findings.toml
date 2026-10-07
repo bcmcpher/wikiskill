@@ -1,7 +1,57 @@
 # The DSH pilot's sweep of the BIDS doer as a study: `pilots/dsh-sweep/sweep.sh` adds each complete run
 # here with role `sweep`. Tables come once there are runs to make them from. See README "Studies".
+#
+# Not recorded, by decision: bids on gemma4:31b at --thinking default (run
+# 01M4AH76KFY826GV38T6A5Q68M): 5 units hit the suite's 600 s per-unit timeout (infra_error), so the
+# sweep left the run incomplete. It is not rerun with a larger budget, to keep every model under the
+# same timeout_s; gemma4:31b with thinking on is reported as exceeding 600 s on those tasks. A later
+# sweep.sh invocation would retry it.
 
 [study]
 name = "dsh-bids"
 collection = "dsh-bids"
 models_file = "../../../pilots/models.toml"
+
+[[runs]]
+id = "01M49MM76STDSG7283Y7WVHZBS"
+role = "sweep"
+
+[[runs]]
+id = "01M49Q797WDHFZACDGAWKC6KZ7"
+role = "sweep"
+
+[[runs]]
+id = "01M49RVJZ5C7JHYYK54Q1B1RY2"
+role = "sweep"
+
+[[runs]]
+id = "01M49W4WXCS5T99AMPR5VT97BH"
+role = "sweep"
+
+[[runs]]
+id = "01M49YX703YQFQVD06C82Q22TG"
+role = "sweep"
+
+[[runs]]
+id = "01M4A1RR4ZZ3EAX1YMEPYZQ4V5"
+role = "sweep"
+
+[[runs]]
+id = "01M4AWBFZ3FAV2FHWQ79D42WYX"
+role = "sweep"
+
+[[runs]]
+id = "01M4AXR0F0M1HD2Q1K0N38NPV5"
+role = "sweep"
+
+[[runs]]
+id = "01M4AZT05XQEHFYAXNXFTJ3H8N"
+role = "sweep"
+
+[[runs]]
+id = "01M4B2W49E4AQ3E2YAVNYR40FK"
+role = "sweep"
+
+[[runs]]
+id = "01M4BA54WGDPA0EWVNTWBCBCHR"
+role = "sweep"
