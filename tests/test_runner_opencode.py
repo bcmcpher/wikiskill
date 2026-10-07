@@ -224,6 +224,7 @@ def test_a_failing_setup_is_an_infrastructure_error(backend):
 
     assert trajectory.outcome == "infra_error"
     assert "exited 3" in trajectory.reason and "nope" in trajectory.reason
+    assert not trajectory.transient, "a broken setup fails again; rerunning it would hide that"
     assert not (backend.layout.unit_dir(trajectory.unit) / "work" / "never").exists()
 
 
@@ -1115,3 +1116,12 @@ def test_normalized_events_match_the_golden_file(backend, tmp_path, name, sessio
 
     events = backend.normalize(trajectory([load(session) for session in sessions]))
     golden_events(events, f"opencode-{name}", tmp_path)
+
+
+def test_a_harness_that_cannot_start_may_be_run_again(backend, tmp_path):
+    backend.executable = str(tmp_path / "no-such-opencode")
+
+    trajectory = backend.execute(unit(condition="off"))
+
+    assert trajectory.outcome == "infra_error"
+    assert trajectory.transient

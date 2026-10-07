@@ -86,6 +86,9 @@ def build_report(
         "derived": _derived(results, manifest),
         "pooled": board.as_dict()["ranking"],
         "not_run": not_run(results, manifest),
+        # A unit that needed a second attempt ran later than its neighbours; say how many did.
+        "retried": sum(1 for result in results if int(result.get("attempts") or 1) > 1),
+        "filled": sum(len(fill.get("units") or []) for fill in manifest.get("fills") or []),
     }
 
 
@@ -322,6 +325,15 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     outcomes = report.get("outcomes") or {}
     lines += [f"- {name}: {count}" for name, count in sorted(outcomes.items())] or ["- none"]
+    if report.get("retried") or report.get("filled"):
+        lines += [
+            "",
+            (
+                f"{report.get('retried', 0)} unit(s) took more than one attempt; "
+                f"{report.get('filled', 0)} were run again by `eval --fill`. Their earlier "
+                "attempts are under `retried` in `results.jsonl`."
+            ),
+        ]
 
     lines += ["", "## Per task, model and condition", ""]
     if report.get("rows"):

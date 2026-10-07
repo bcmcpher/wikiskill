@@ -149,9 +149,11 @@ An example line, wrapped here for reading:
 evals/<run_id>/
 ├── run.json           the run's manifest, written when the run ends
 ├── results.jsonl      one line per unit, appended as each finishes
+├── results.superseded.jsonl   only after `eval --fill`: the lines a fill replaced
 ├── report.md          the human-readable report (`wikiskill report` rebuilds both from the run's files)
 ├── report.json        the same, as data
 ├── units/<task>__<model>__<condition>__r<N>/   each unit's own sandbox and transcripts
+├── units/<...>.attempt-<N>/   an earlier attempt at a unit that was run again, kept as it was
 ├── preflight/<model>/  the endpoint check before tasks run (OpenCode)
 └── candidate-source/  only for `eval --proposal`: a copy of the source with the proposal applied
 ```
@@ -162,7 +164,12 @@ evals/<run_id>/
 - `components`: `[{kind, name, source_hash}]`, the exact version of each component under test;
 - `proposal`: `null`, or the proposal id for a candidate run;
 - `preflight`, `isolation` (proof of what each condition ran under), `options` (output cap, thinking,
-  seed cache), `workers`, `duration_s`, `outcomes` (a count per outcome), `events_written`.
+  seed cache), `workers`, `retries`, `duration_s`, `outcomes` (a count per outcome),
+  `events_written`;
+- `fills`: only after `eval --fill`, one entry per fill: `at`, the `units` it ran, its `outcomes`
+  `before` and `after`, the `harness_version` and `wikiskill_version` it ran under, `retries`,
+  `duration_s` and its own `preflight`. `outcomes` and `events_written` count the run as it now
+  stands.
 
 It never contains an API key.
 
@@ -181,7 +188,22 @@ It never contains an API key.
   opinion in `rubric.opinions` names the judge `model` that gave it, and `rubric.scales` gives each
   dimension's levels from worst to best; runs before judge panels carry neither.
 
+- `transient: true` on an `infra_error` the harness caused and a rerun may not repeat: it crashed
+  or could not start, or its session could not be read back. Never on a timeout;
+- `attempts` and `retried`, only on a unit run more than once: how many times it ran, and for each
+  earlier attempt its `outcome`, `error`, `duration_ms` and where its directory was `kept`.
+
 `infra_error` and `skipped` units are reported but left out of pass rates.
+
+**Units run again.** A unit is run again only when it has no score, never because it failed:
+- `eval --retries N` (default 1) reruns a transient `infra_error` straight away, within the run;
+- `eval --fill RUN_ID --collection NAME` reruns a finished run's `infra_error` and `skipped` units,
+  under the settings its `run.json` recorded. It is refused if the suite file, the harness version,
+  a component's text or a run option has changed since, and a run with no `run.json` (killed before
+  it ended) cannot be filled. `results.jsonl` keeps one line per unit, in its order.
+
+A unit run again ran later than the rest of its run, so the report counts the units that took more
+than one attempt and the units a fill ran.
 
 `run.json` and `results.jsonl` are the files to share when pooling results with others (see the
 quickstart's [Pool your run](quickstart.md#7-pool-your-run-with-everyone-elses)).

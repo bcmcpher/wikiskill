@@ -331,3 +331,26 @@ def test_an_include_keeps_the_blank_line_after_it(tmp_path):
     (study / "report.md").write_text("<!-- include: tables/t.slim.md -->\n\n## Next\n", "utf-8")
     text = runpy.run_path(str(BUILD))["expand"](study / "report.md")
     assert "| 1 | 2 |\n\n## Next" in text
+
+
+def test_csv_rows_carry_the_catalogues_family_size_and_shape(sources, tmp_path):
+    v1, v2 = sources
+    (tmp_path / "models.toml").write_text(
+        '[models."a"]\nfamily = "qwen"\nsize_b = 30.5\nshape = "moe"\n', "utf-8"
+    )
+    root = study_with(
+        tmp_path,
+        LEADERBOARD + BOARD,
+        [("r1", "v1", v1, "v1"), ("r2", "cand", v2, "p-001")],
+    )
+    text = (root / "findings.toml").read_text()
+    (root / "findings.toml").write_text(
+        text.replace('name = "s"\n', 'name = "s"\nmodels_file = "../models.toml"\n', 1)
+    )
+    findings.bundle(findings.load(root))
+
+    rendered = findings.render(findings.load(root))
+    rows = list(csv.DictReader(rendered.files["findings.csv"].splitlines()))
+
+    assert rows, "the study renders rows"
+    assert {(r["family"], r["size_b"], r["shape"]) for r in rows} == {("qwen", "30.5", "moe")}

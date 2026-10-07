@@ -19,9 +19,10 @@ def register(sub) -> None:
     from .. import suite as suite_mod
     from ..build import HARNESSES
     from ..runner import opencode as opencode_backend
+    from ..runner import run as run_mod
 
     ev = sub.add_parser("eval", help="run a task suite in fresh isolated headless sessions")
-    ev.add_argument("--suite", required=True, help="task suite file")
+    ev.add_argument("--suite", default=None, help="task suite file (required unless --fill)")
     ev.add_argument(
         "--harness",
         choices=HARNESSES,
@@ -134,6 +135,27 @@ def register(sub) -> None:
         ),
     )
     ev.add_argument(
+        "--retries",
+        type=int,
+        default=run_mod.DEFAULT_RETRIES,
+        metavar="N",
+        help=(
+            "run a unit again, up to N times, when the harness crashed, could not start or lost "
+            f"its session (default {run_mod.DEFAULT_RETRIES}; 0 never). Timeouts and units that "
+            "ran, pass or fail, are never rerun"
+        ),
+    )
+    ev.add_argument(
+        "--fill",
+        default=None,
+        metavar="RUN_ID",
+        help=(
+            "run again only the units of this finished run that have no score (infra_error, "
+            "skipped), with its recorded suite, models and options, and write them into it. "
+            "Refused if the suite, harness or components changed since"
+        ),
+    )
+    ev.add_argument(
         "--preflight-only",
         action="store_true",
         help="check each model and stop, without running the suite",
@@ -211,6 +233,18 @@ def _eval_misuse(args: argparse.Namespace, conditions: list[str]) -> str | None:
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
+
+    if args.retries < 0:
+        return misuse("--retries cannot be negative")
+    if args.fill:
+        return _cmd_fill(args)
+    if not args.suite:
+        return misuse("--suite is required, unless --fill names a run to continue")
+    return _cmd_run(args)
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    """`eval --suite`: a new run."""
     from .. import gate as gate_mod
     from .. import report as report_mod
     from .. import suite as suite_mod
@@ -288,11 +322,17 @@ def cmd_eval(args: argparse.Namespace) -> int:
             workers=args.workers,
             on_event=lambda line: print(f"  {line}", flush=True),
             proposal=args.proposal,
+            retries=args.retries,
         )
     except ValueError as exc:
         return misuse(str(exc))
 
     report = report_mod.write(layout, run.results, run_mod.load_manifest(layout))
+    return _summary(report, run, layout)
+
+
+def _summary(report: dict, run, layout) -> int:
+    """The closing lines of `eval`: outcomes, events, the report, and what did not run."""
     print()
     for outcome, count in sorted((report.get("outcomes") or {}).items()):
         print(f"  {outcome:18} {count}")
@@ -303,6 +343,138 @@ def cmd_eval(args: argparse.Namespace) -> int:
         print(f"  not run            {len(unfinished)} (listed in the report)")
     scored_any = any(row.get("repeats") for row in report.get("rows") or [])
     return OK if scored_any else FAILED
+
+
+#: Settings a run recorded, which `--fill` takes from `run.json` and refuses on the command line.
+_FILL_REFUSES = (
+    ("--suite", lambda a: a.suite is not None),
+    ("--models", lambda a: a.models is not None),
+    ("--condition", lambda a: a.condition != "off,routed"),
+    ("--task", lambda a: a.task is not None),
+    ("--repeats", lambda a: a.repeats is not None),
+    ("--thinking", lambda a: a.thinking != "default"),
+    ("--max-output-tokens", lambda a: a.max_output_tokens != _default_output_cap()),
+    ("--no-seed-cache", lambda a: a.no_seed_cache),
+    ("--proposal", lambda a: a.proposal is not None),
+    ("--workers", lambda a: a.workers != 1),
+    ("--preflight-only", lambda a: a.preflight_only),
+    ("--foreground-agents", lambda a: a.foreground_agents),
+)
+
+
+def _default_output_cap() -> int:
+    from ..runner import opencode as opencode_backend
+
+    return opencode_backend.DEFAULT_MAX_OUTPUT_TOKENS
+
+
+def _cmd_fill(args: argparse.Namespace) -> int:
+    """`eval --fill RUN_ID`: run a finished run's unscored units again, into that run.
+
+    Everything that defines the run comes from its `run.json`; what only locates things on this
+    machine (the endpoint's key, the executables, `--collection`) comes from the command line. The
+    base URL defaults to the one the run's preflight recorded, and any other is refused.
+    """
+    from .. import gate as gate_mod
+    from .. import report as report_mod
+    from ..runner import preflight as preflight_mod
+    from ..runner import run as run_mod
+
+    target = _fill_target(args)
+    if isinstance(target, str):
+        return misuse(target)
+    coll, layout, manifest, loaded = target
+    if manifest.get("proposal"):
+        coll = gate_mod.candidate_collection(coll, manifest["proposal"], layout.root)
+    endpoint = (
+        preflight_mod.Endpoint(
+            base_url=args.base_url,
+            api_key=os.environ.get(args.api_key_env) if args.api_key_env else None,
+        )
+        if args.base_url
+        else None
+    )
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
+    problem = run_mod.fill_refusal(manifest, loaded, backend, coll)
+    if problem:
+        return misuse(f"cannot fill {args.fill}: {problem}")
+
+    todo = run_mod.unfilled(layout.read_results())
+    print(f"fill {args.fill}  suite {loaded.name}  {args.harness}  {len(todo)} unit(s) to run")
+    print(f"  results  {layout.root}")
+    if not todo:
+        print("  every unit has a score; nothing to fill")
+        return OK
+    try:
+        run, _filled = run_mod.fill_run(
+            loaded,
+            backend,
+            collection=coll,
+            layout=layout,
+            manifest=manifest,
+            retries=args.retries,
+            on_event=lambda line: print(f"  {line}", flush=True),
+        )
+    except ValueError as exc:
+        return misuse(str(exc))
+    report = report_mod.write(layout, run.results, run_mod.load_manifest(layout))
+    return _summary(report, run, layout)
+
+
+def _fill_target(args: argparse.Namespace):
+    """The run `--fill` names, its manifest and suite, with `args` set from what it recorded.
+
+    Returns ``(collection, layout, manifest, suite)``, or why the fill is refused.
+    """
+    from .. import paths
+    from .. import suite as suite_mod
+    from ..runner import base as runner_base
+    from ..runner import run as run_mod
+
+    given = [flag for flag, set_ in _FILL_REFUSES if set_(args)]
+    if given:
+        return f"--fill takes {', '.join(given)} from the run's run.json; drop them"
+    if not args.collection:
+        return "--fill needs the run's --collection, to find it"
+    coll = collection_for(args.collection)
+    assert coll is not None
+    root = paths.evals_dir(coll.name) / args.fill
+    if not root.is_dir():
+        return f"no run {args.fill} in {coll.name}"
+    layout = runner_base.RunLayout(collection=coll.name, run_id=args.fill, root=root)
+    manifest = run_mod.load_manifest(layout)
+    problem = run_mod.unfillable(manifest)
+    if problem:
+        return f"cannot fill {args.fill}: {problem}"
+
+    loaded = suite_mod.load(manifest["suite_path"], collection=coll)
+    repeats = manifest.get("repeats") or {}
+    loaded = dataclasses.replace(
+        loaded,
+        tasks=tuple(
+            dataclasses.replace(task, repeats=repeats.get(task.id, task.repeats))
+            for task in loaded.tasks
+        ),
+    )
+    options = manifest.get("options") or {}
+    args.harness = manifest.get("harness") or args.harness
+    if options.get("thinking") is not None:
+        args.thinking = options["thinking"]
+    if options.get("max_output_tokens") is not None:
+        args.max_output_tokens = options["max_output_tokens"]
+    args.no_seed_cache = options.get("seed_cache") is False
+    args.foreground_agents = bool(options.get("foreground_agents"))
+    recorded = sorted(
+        {
+            str(url)
+            for result in (manifest.get("preflight") or {}).values()
+            if (url := (result.get("details") or {}).get("base_url"))
+        }
+    )
+    if args.base_url and recorded and args.base_url not in recorded:
+        return f"{args.fill} ran against {', '.join(recorded)}, not {args.base_url}"
+    args.base_url = args.base_url or (recorded[0] if recorded else None)
+    return coll, layout, manifest, loaded
 
 
 def _eval_tasks(args: argparse.Namespace, loaded) -> tuple[list | None, str | None]:

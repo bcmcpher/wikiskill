@@ -472,6 +472,21 @@ def test_eval_refuses_to_run_with_no_models(xdg, tmp_path, capsys):
     assert "no models to run" in capsys.readouterr().err
 
 
+def test_eval_needs_a_suite_unless_it_fills_a_run(xdg, capsys):
+    assert main(["eval"]) == 2
+    assert "--suite is required" in capsys.readouterr().err
+
+
+def test_eval_fill_takes_the_runs_settings_from_its_record(xdg, capsys):
+    assert main(["eval", "--fill", "01JRUN", "--models", "x/y", "--thinking", "off"]) == 2
+    assert "--fill takes --models, --thinking from the run's run.json" in capsys.readouterr().err
+
+
+def test_eval_fill_needs_the_collection_to_find_the_run(xdg, capsys):
+    assert main(["eval", "--fill", "01JRUN"]) == 2
+    assert "--fill needs the run's --collection" in capsys.readouterr().err
+
+
 def test_eval_needs_a_collection_for_the_routed_condition(xdg, tmp_path, capsys):
     path = tmp_path / "toy.yaml"
     path.write_text(SUITE, encoding="utf-8")

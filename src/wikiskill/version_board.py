@@ -211,7 +211,7 @@ class VersionBoard:
         if self.catalogue is None:
             return {}
         info = self.catalogue.get(self.base.get(model, model))
-        return {"family": info.family if info else None, "size_b": info.size_b if info else None}
+        return info.as_dict() if info else {"family": None, "size_b": None, "shape": None}
 
     @property
     def panel(self) -> list[str]:

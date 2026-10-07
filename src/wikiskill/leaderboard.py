@@ -132,11 +132,11 @@ class Leaderboard:
     catalogue: Catalogue | None = None
 
     def described(self, cell: Cell) -> dict[str, Any]:
-        """A cell's family and size from the catalogue, when there is one."""
+        """A cell's family, size and shape from the catalogue, when there is one."""
         if self.catalogue is None:
             return {}
         info = self.catalogue.get(cell.base or cell.model)
-        return {"family": info.family if info else None, "size_b": info.size_b if info else None}
+        return info.as_dict() if info else {"family": None, "size_b": None, "shape": None}
 
     @property
     def models_in_order(self) -> list[str]:

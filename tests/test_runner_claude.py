@@ -465,6 +465,7 @@ def test_an_unisolated_session_is_infrastructure_not_a_result(tmp_path, capture)
     trajectory = backend.execute(unit())
     assert trajectory.outcome == "infra_error"
     assert "outside the collection" in trajectory.reason
+    assert not trajectory.transient, "a leak is configuration, and would leak again"
 
 
 def test_a_harness_that_produces_nothing_is_infrastructure(tmp_path, capture):
@@ -475,6 +476,7 @@ def test_a_harness_that_produces_nothing_is_infrastructure(tmp_path, capture):
     trajectory = backend.execute(unit())
     assert trajectory.outcome == "infra_error"
     assert "no session" in trajectory.reason
+    assert trajectory.transient
 
 
 def test_the_version_is_the_first_word(tmp_path, capture):
