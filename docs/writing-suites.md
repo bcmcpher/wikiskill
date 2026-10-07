@@ -213,7 +213,10 @@ hand-checked in the suite's comments.
 - **Check the condition really ran.** Under INJECTED, the transcript's messages should come from the
   component's own agent. Under OFF, no component is loaded.
 - **Separate the model from the harness.** `permission_blocked`, `step_exhausted` and `infra_error`
-  units are not task failures. The leaderboard's "Outcomes and cost" table counts them.
+  units are not task failures. The leaderboard's "Outcomes and cost" table counts them. A unit the
+  harness crashed on is run once more by default, and `eval --fill` reruns a finished run's
+  unscored units. Neither ever reruns a unit that failed, and the report counts both, so check how
+  many units needed them.
 - **Watch the ceiling.** When two or more models pass nearly everything under INJECTED, the suite
   no longer separates them. Write harder tasks in a new suite file.
 - **Fix in a new file.** A verifier found wrong is fixed in the suite, and the runs made with the

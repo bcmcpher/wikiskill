@@ -256,9 +256,11 @@ def candidate_collection(collection: Collection, proposal: str, into: Path) -> C
         )
     source = component.source
     copy = into / "candidate-source"
-    shutil.copytree(source.path, copy, symlinks=True, ignore=shutil.ignore_patterns(".git"))
-    rendered = directory(collection.name, proposal) / "rendered" / component.path.name
-    shutil.copyfile(rendered, copy / component.path.relative_to(source.path))
+    # A run being filled already has its copy, and a fill must run the text the run ran.
+    if not copy.exists():
+        shutil.copytree(source.path, copy, symlinks=True, ignore=shutil.ignore_patterns(".git"))
+        rendered = directory(collection.name, proposal) / "rendered" / component.path.name
+        shutil.copyfile(rendered, copy / component.path.relative_to(source.path))
     sources = tuple(replace(s, path=copy) if s == source else s for s in collection.sources)
     return replace(collection, sources=sources)
 

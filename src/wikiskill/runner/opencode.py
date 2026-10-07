@@ -717,7 +717,9 @@ class OpenCodeBackend(Backend):
                 workdir=workdir,
             )
         except OSError as exc:
-            return Trajectory(unit=unit, outcome="infra_error", error=str(exc), reason=str(exc))
+            return Trajectory(
+                unit=unit, outcome="infra_error", error=str(exc), reason=str(exc), transient=True
+            )
 
         duration_ms = int((time.time() - started) * 1000)
         if exit_code == 0:
@@ -742,6 +744,7 @@ class OpenCodeBackend(Backend):
                 duration_ms=duration_ms,
                 exit_code=exit_code,
                 workdir=workdir,
+                transient=True,
             )
 
         try:
@@ -756,6 +759,7 @@ class OpenCodeBackend(Backend):
                 duration_ms=duration_ms,
                 exit_code=exit_code,
                 workdir=workdir,
+                transient=True,
             )
         (root / "sessions.json").write_text(json.dumps(sessions, indent=2), encoding="utf-8")
 

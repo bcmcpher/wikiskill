@@ -375,7 +375,9 @@ class ClaudeCodeBackend(Backend):
                 workdir=workdir,
             )
         except OSError as exc:
-            return Trajectory(unit=unit, outcome="infra_error", error=str(exc), reason=str(exc))
+            return Trajectory(
+                unit=unit, outcome="infra_error", error=str(exc), reason=str(exc), transient=True
+            )
 
         duration_ms = int((time.time() - started) * 1000)
         if stderr:
@@ -395,6 +397,7 @@ class ClaudeCodeBackend(Backend):
                 duration_ms=duration_ms,
                 exit_code=exit_code,
                 workdir=workdir,
+                transient=True,
             )
 
         offered = offered_in(stream)

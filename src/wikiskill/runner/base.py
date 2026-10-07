@@ -11,6 +11,7 @@ skill.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -144,6 +145,11 @@ class RunLayout:
         return self.root / "results.jsonl"
 
     @property
+    def superseded(self) -> Path:
+        """`results.superseded.jsonl`: every line a fill replaced, with when it was replaced."""
+        return self.root / "results.superseded.jsonl"
+
+    @property
     def report_json(self) -> Path:
         return self.root / "report.json"
 
@@ -164,6 +170,46 @@ class RunLayout:
         with self.results.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
             handle.flush()
+
+    def attempt_dir(self, unit: Unit) -> Path | None:
+        """Move a unit's directory aside, as its next free ``<slug>.attempt-<n>``, before a rerun.
+
+        The crashed attempt's files stay for reading; the rerun starts from a fresh directory, as
+        the first attempt did. `None` when the unit left no directory.
+        """
+        current = self.root / "units" / unit.slug
+        if not current.exists():
+            return None
+        n = 1
+        while (aside := current.with_name(f"{unit.slug}.attempt-{n}")).exists():
+            n += 1
+        current.rename(aside)
+        return aside
+
+    def replace_results(
+        self, results: list[dict[str, Any]], superseded: list[dict[str, Any]]
+    ) -> None:
+        """Rewrite `results.jsonl` in one step, keeping the lines it replaces.
+
+        Written beside the file and renamed over it, so a reader sees the old results or the new,
+        never a mix. Replaced lines go to `results.superseded.jsonl` first: losing them is worse
+        than keeping one too many.
+        """
+        if superseded:
+            with self.superseded.open("a", encoding="utf-8") as handle:
+                for result in superseded:
+                    handle.write(
+                        json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n"
+                    )
+                handle.flush()
+                os.fsync(handle.fileno())
+        staged = self.results.with_name(self.results.name + ".tmp")
+        with staged.open("w", encoding="utf-8") as handle:
+            for result in results:
+                handle.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        staged.replace(self.results)
 
     def read_results(self) -> list[dict[str, Any]]:
         if not self.results.is_file():
@@ -232,14 +278,24 @@ class Trajectory:
     #: The normalized events, once something has needed them: made once for the judge and the raw
     #: log alike, then dropped.
     events: list[dict[str, Any]] | None = None
+    #: Set by the backend on an `infra_error` a rerun may not repeat: the harness crashed, could
+    #: not be launched, or its session could not be read back. Never set on a timeout.
+    transient: bool = False
+    #: How many times the unit ran, and what ended each earlier attempt, oldest first.
+    attempts: int = 1
+    retried: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def scored(self) -> bool:
         return self.outcome not in INFRA_OUTCOMES
 
     def as_result(self) -> dict[str, Any]:
-        """One line of `results.jsonl` — everything scoring and the report need, no trajectories."""
-        return {
+        """One line of `results.jsonl` — everything scoring and the report need, no trajectories.
+
+        `transient`, `attempts` and `retried` appear only when they say something, so a unit that
+        ran once reads as it did before retries existed.
+        """
+        result = {
             "run_id": self.unit.run_id,
             "suite": self.unit.suite,
             "task_id": self.unit.task_id,
@@ -262,6 +318,12 @@ class Trajectory:
                 "agents": list(self.unit.task.expect.agents),
             },
         }
+        if self.transient:
+            result["transient"] = True
+        if self.attempts > 1:
+            result["attempts"] = self.attempts
+            result["retried"] = self.retried
+        return result
 
 
 def skipped(unit: Unit, reason: str) -> Trajectory:
