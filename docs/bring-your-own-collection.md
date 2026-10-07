@@ -51,7 +51,9 @@ both variables to the installed paths — so a path `check` flags is broken in b
 
 Copy [`templates/suite.yaml`](templates/suite.yaml) somewhere outside the plugin repository and fill
 it in. A useful first suite is small: two or three tasks that should reach each skill you care
-about, and one near-miss control that should reach nothing.
+about, and one near-miss control that should reach nothing. Before you report anything from it, read
+[writing and auditing a suite](writing-suites.md): how to tie tasks to the component's rules, and how
+to hand-check every verifier.
 
 - **Never name the skill in the prompt.** Ask the way a user would. `suite check` refuses a prompt
   containing the full `plugin/skill` name, and warns about one containing either half. Read each

@@ -18,7 +18,9 @@ logging (step 6) are built and await live checks; steps 4 and 7–9 are designed
 
 **New here?** [The quickstart](docs/quickstart.md) goes from a clean machine to a finished,
 poolable run on a local model; [bring your own collection](docs/bring-your-own-collection.md) then
-evaluates your own skills.
+evaluates your own skills. Every result is only as good as its suite: [writing and auditing a
+suite](docs/writing-suites.md) covers how to build one worth trusting, and what to check in someone
+else's.
 
 ## What works today
 
