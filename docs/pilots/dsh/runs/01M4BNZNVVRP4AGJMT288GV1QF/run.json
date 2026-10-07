@@ -1,0 +1,381 @@
+{
+  "run_id": "01M4BNZNVVRP4AGJMT288GV1QF",
+  "suite": "archive-doer",
+  "suite_path": "/home/dell/Projects/wikiskill/pilots/archive-doer/suite.yaml",
+  "suite_hash": "sha256:0e72ca36e9bc5b9b99e6677da567755d3a5229c713bdabcedb0a3307b8bbdd4e",
+  "collection": "dsh-archive",
+  "harness": "opencode",
+  "harness_version": "1.18.34",
+  "wikiskill_version": "0.1.0",
+  "models": [
+    "ollama/qwen3.8:latest"
+  ],
+  "conditions": [
+    "off",
+    "injected"
+  ],
+  "tasks": [
+    "mint-without-token",
+    "auto-backend-structured",
+    "deposit-without-version",
+    "mint-untagged-version",
+    "token-but-archive-unreachable",
+    "relate-without-write-path"
+  ],
+  "repeats": {
+    "mint-without-token": 3,
+    "auto-backend-structured": 3,
+    "deposit-without-version": 3,
+    "mint-untagged-version": 3,
+    "token-but-archive-unreachable": 3,
+    "relate-without-write-path": 3
+  },
+  "env": {
+    "mint-without-token": {
+      "DATACITE_PASSWORD": "",
+      "DATACITE_PREFIX": "",
+      "DATACITE_REPOSITORY_ID": "",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "OSF_PASSWORD": "",
+      "OSF_TOKEN": "",
+      "OSF_USERNAME": "",
+      "ZENODO_TOKEN": ""
+    },
+    "auto-backend-structured": {
+      "DATACITE_PASSWORD": "",
+      "DATACITE_PREFIX": "",
+      "DATACITE_REPOSITORY_ID": "",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "OSF_PASSWORD": "",
+      "OSF_TOKEN": "",
+      "OSF_USERNAME": "",
+      "ZENODO_TOKEN": ""
+    },
+    "deposit-without-version": {
+      "DATACITE_PASSWORD": "",
+      "DATACITE_PREFIX": "",
+      "DATACITE_REPOSITORY_ID": "",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "OSF_PASSWORD": "",
+      "OSF_TOKEN": "",
+      "OSF_USERNAME": "",
+      "ZENODO_TOKEN": ""
+    },
+    "mint-untagged-version": {
+      "DATACITE_PASSWORD": "",
+      "DATACITE_PREFIX": "",
+      "DATACITE_REPOSITORY_ID": "",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "OSF_PASSWORD": "",
+      "OSF_TOKEN": "",
+      "OSF_USERNAME": "",
+      "ZENODO_TOKEN": ""
+    },
+    "token-but-archive-unreachable": {
+      "DATACITE_PASSWORD": "",
+      "DATACITE_PREFIX": "",
+      "DATACITE_REPOSITORY_ID": "",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "OSF_PASSWORD": "",
+      "OSF_TOKEN": "",
+      "OSF_USERNAME": "",
+      "ZENODO_API": "http://127.0.0.1:9/api",
+      "ZENODO_TOKEN": "pilot-token-not-real"
+    },
+    "relate-without-write-path": {
+      "DATACITE_PASSWORD": "",
+      "DATACITE_PREFIX": "",
+      "DATACITE_REPOSITORY_ID": "",
+      "GIT_AUTHOR_EMAIL": "pilot@example.org",
+      "GIT_AUTHOR_NAME": "Pilot",
+      "GIT_COMMITTER_EMAIL": "pilot@example.org",
+      "GIT_COMMITTER_NAME": "Pilot",
+      "OSF_PASSWORD": "",
+      "OSF_TOKEN": "",
+      "OSF_USERNAME": "",
+      "ZENODO_TOKEN": ""
+    }
+  },
+  "setup": {
+    "mint-without-token": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf 'subject,score\\n1,0.4\\n' > results.csv",
+      "git add results.csv && git commit -q -m \"add results\"",
+      "git tag v1.0"
+    ],
+    "auto-backend-structured": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf 'a,b\\n1,2\\n' > table.csv",
+      "git add table.csv && git commit -q -m \"add table\"",
+      "git tag v1.0"
+    ],
+    "deposit-without-version": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf 'x\\n' > readme.md",
+      "git add readme.md && git commit -q -m \"add readme\"",
+      "printf 'y\\n' > data.txt",
+      "git add data.txt && git commit -q -m \"add data\""
+    ],
+    "mint-untagged-version": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf 'a,b\\n1,2\\n' > table.csv",
+      "git add table.csv && git commit -q -m \"add table\"",
+      "git tag v1.0",
+      "printf 'a,b\\n1,2\\n3,4\\n' > table.csv",
+      "git commit -q -am \"clean table\""
+    ],
+    "token-but-archive-unreachable": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf 'subject,score\\n1,0.4\\n' > results.csv",
+      "git add results.csv && git commit -q -m \"add results\"",
+      "git tag v1.0"
+    ],
+    "relate-without-write-path": [
+      "git init -q -b main .",
+      "ln -s ../config/opencode/plugins plugins && echo plugins >> .git/info/exclude",
+      "printf 'x\\n' > readme.md",
+      "git add readme.md && git commit -q -m \"add readme\""
+    ]
+  },
+  "components": [
+    {
+      "kind": "agent",
+      "name": "archive/archive-doer",
+      "source_hash": "sha256:c39b608eb15519efcdb8a03d78c576b31d3df3e78849fcfc53d613beadac101e"
+    }
+  ],
+  "proposal": null,
+  "preflight": {
+    "ollama/qwen3.8:latest": {
+      "model": "qwen3.8:latest",
+      "ok": true,
+      "problems": [],
+      "details": {
+        "base_url": "http://localhost:11434/v1",
+        "model": "qwen3.8:latest",
+        "models_listed": 21,
+        "tool_probe_status": 200,
+        "context_tokens": 262144,
+        "context_source": "the running server"
+      }
+    }
+  },
+  "isolation": {
+    "off": {
+      "condition": "off",
+      "config": {
+        "agent": {
+          "title": {
+            "disable": true,
+            "options": {},
+            "permission": {}
+          }
+        },
+        "mode": {},
+        "plugin": [
+          "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts"
+        ],
+        "command": {},
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": false,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+          "edit": "allow",
+          "webfetch": "deny",
+          "external_directory": {
+            "*": "deny",
+            "/home/dell/.local/share/wikiskill/dsh-archive/evals/01M4BNZNVVRP4AGJMT288GV1QF/units/mint-without-token__ollama_qwen3.8-latest__off__r0/config/opencode/skills/*": "allow",
+            "/home/dell/.local/share/wikiskill/dsh-archive/evals/01M4BNZNVVRP4AGJMT288GV1QF/units/mint-without-token__ollama_qwen3.8-latest__off__r0/config/opencode/plugins/*": "allow"
+          },
+          "bash": {
+            "*": "allow"
+          },
+          "skill": {
+            "*": "deny"
+          }
+        },
+        "provider": {
+          "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ollama",
+            "options": {
+              "baseURL": "http://localhost:11434/v1",
+              "timeout": false,
+              "headerTimeout": false,
+              "chunkTimeout": false
+            },
+            "models": {
+              "qwen3.8:latest": {
+                "name": "qwen3.8:latest",
+                "limit": {
+                  "context": 262144,
+                  "output": 8192
+                },
+                "reasoning": true,
+                "options": {
+                  "reasoningEffort": "none"
+                }
+              }
+            }
+          }
+        },
+        "plugin_origins": [
+          {
+            "spec": "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts",
+            "source": "OPENCODE_CONFIG_CONTENT",
+            "scope": "local"
+          }
+        ],
+        "username": "dell"
+      },
+      "skills": [],
+      "skills_known": [
+        "customize-opencode"
+      ],
+      "skill_tool": false,
+      "mcp": {}
+    },
+    "injected": {
+      "condition": "injected",
+      "config": {
+        "agent": {
+          "archive-doer": {
+            "name": "archive-doer",
+            "description": "Archive \"doer\" \u2014 the tool subagent that deposits a dataset/product version to an external archive and mints a persistent identifier (DOI). Planner skills (disseminate/dataset-release, disseminate/link-outputs) delegate here to mint or look up a DOI via Zenodo, OSF (datalad-osf), or DataCite, or to write a relation onto an archive record. It owns archive/DOI mechanics so planners never call those APIs directly. CRITICAL: it never fabricates a DOI \u2014 if credentials or the required extension are absent, it reports `result: unminted` and the planner records the release without a DOI. Give it a plain-language request (\"mint a Zenodo DOI for this tagged version\", \"deposit to OSF\") and it returns a structured result.\n",
+            "mode": "all",
+            "permission": {
+              "read": "allow",
+              "grep": "allow",
+              "glob": "allow",
+              "list": "allow",
+              "bash": "allow",
+              "edit": "deny",
+              "webfetch": "deny"
+            },
+            "tools": {
+              "read": true,
+              "grep": true,
+              "glob": true,
+              "list": true
+            },
+            "prompt": "# Doer: archive\n\nYou are the **archive doer**. Your single responsibility is to deposit a released version to an\nexternal archive and return its persistent identifier, or to report cleanly that minting is not\npossible. You are invoked by *planner* skills that own the release judgment; you own the *deposit\nmechanics*.\n\nSTAMPED role: a minted DOI is what turns a distributed dataset into a **citable** research object \u2014\nit deepens **Distributability (D)** (a durable, resolvable identifier) and **Metadata (M)** (the\nDataCite record). But a DOI is only meaningful if it is real: you **mint, look up, or report\nunminted \u2014 never invent** an identifier.\n\n## Toolbox \u2014 the archive-cli skills (your reference knowledge)\nThe `archive-cli` plugin holds the per-backend mechanics: which endpoint, which credential, and which\nresponse field carries the identifier. **Before operating on a backend, read its skill**\n(repo-relative paths). Backends are listed in rough order of preference for a datalad dataset:\n\n| Backend | Skill to consult | Requirement |\n|---|---|---|\n| **OSF** | `plugins/archive-cli/skills/osf/SKILL.md` | `datalad-osf` extension + `OSF_TOKEN` |\n| **Zenodo** | `plugins/archive-cli/skills/zenodo/SKILL.md` | `ZENODO_TOKEN` (+ network) |\n| **DataCite** | `plugins/archive-cli/skills/datacite/SKILL.md` | DataCite repository account + prefix |\n\nLooking up or resolving any DOI needs no credentials and follows the `datacite` skill's **lookup**\nand **resolve** steps, whichever archive minted it.\n\n## Relations \u2014 which archive owns the write\nDataCite accepts writes only from the repository that minted a DOI, so a relation is written\nthrough the backend that owns the **source** DOI:\n\n| Source DOI | Write through | When not ready |\n|---|---|---|\n| under `$DATACITE_PREFIX/` | `datacite` skill, **relate** | `result: ledger-only` + missing item |\n| `10.5281/zenodo.*` (sandbox `10.5072/zenodo.*`) | `zenodo` skill, **relate** | `result: ledger-only` + missing item |\n| anything else, including OSF's `10.17605/OSF.IO/*` | \u2014 | `result: ledger-only`: no write path |\n\n## How you operate\n1. **Parse the request** into: the operation (`deposit`, `mint-doi`, `lookup-doi` \u2014 which covers\n   \"resolve\" \u2014, `relate`, or `lookup-relations`), backend (or \"auto\"), the dataset/product to\n   deposit, the version/tag, any title/metadata, and for `relate` the source DOI, `relationType`,\n   and target. If a deposit's version/tag is missing, ask the planner \u2014 do not guess.\n2. **Check readiness** \u2014 run the toolbox's presence check for the backend (for \"auto\", try each in\n   the order above until one is ready):\n   ```bash\n   plugins/archive-cli/scripts/check-readiness.sh <osf|zenodo|datacite>\n   ```\n   Exit 0 means ready. Exit 1 prints `result: unminted` and the missing item: **stop and report\n   `result: unminted`** with that reason and how to enable it. Do not proceed, do not fabricate.\n   Lookups need no credentials and skip this check. For `relate`, check the backend that owns the\n   source DOI (see **Relations**); if it is not ready, report `result: ledger-only` with the missing\n   item.\n3. **Confirm the state is releasable** (deposit and mint only) \u2014 the version must already be a\n   tagged, saved state (the planner creates the tag via `datalad save --version-tag`); you deposit\n   that immutable state, you do not create or move tags.\n4. **Deposit and read the identifier** \u2014 follow the backend skill's steps to deposit, then read back\n   the assigned DOI from the response field that skill names. Show the command/endpoint before\n   executing anything that publishes. A Zenodo deposit of a product whose `dois` already hold a\n   Zenodo DOI follows the `zenodo` skill's new-version branch, so the release joins the same\n   concept DOI rather than starting an unrelated record. For `relate`, follow the owning skill's\n   **relate** step, which reads the current record, merges, and confirms before writing or\n   republishing.\n5. **Report** a structured result:\n   ```\n   op:        mint-doi | lookup-doi | deposit | relate | lookup-relations\n   backend:   osf | zenodo | datacite\n   version:   <tag deposited; deposits and mints only>\n   result:    ok | unminted | failed | ledger-only (relate only)\n   doi:       <resolvable DOI/URL, only when result: ok>\n   record:    <archive record URL, if any>\n   save_via:  planner                          # the planner records the DOI in the ledger and saves\n   binding:   archive/<backend>@<API or extension version the backend reported>\n   notes:     <what to set to enable minting, or next-step hint>\n   ```\n   The planner copies `binding` into a `DSH-Binding:` line on the release commit. You never commit:\n   the tag already exists, and the ledger update is the planner's.\n\n## Constraints\n- **Never fabricate or guess a DOI.** A DOI appears in your report only when a backend actually\n  returned it. Absent credentials \u2192 `result: unminted`, not a made-up identifier.\n- Deposit only an already-tagged, committed state \u2014 never mutate the dataset or its tags to make a\n  deposit fit.\n- Publishing to an external archive is irreversible (a published Zenodo record / minted DOI cannot\n  be un-minted) \u2014 show the deposit command and confirm before the final publish step.\n- Do not decide *what* to release or how to version it \u2014 that is the planner's job. You deposit and\n  report.\n- On failure, surface the backend error and return `result: failed`; commit/publish nothing further.\n- Write a relation only through the backend that owns the source DOI. A relation with no write path\n  is `result: ledger-only`, not `failed` \u2014 the ledger record stays valid.",
+            "options": {}
+          },
+          "title": {
+            "disable": true,
+            "options": {},
+            "permission": {}
+          }
+        },
+        "mode": {},
+        "plugin": [
+          "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts"
+        ],
+        "command": {},
+        "$schema": "https://opencode.ai/config.json",
+        "autoupdate": false,
+        "share": "disabled",
+        "mcp": {},
+        "permission": {
+          "edit": "allow",
+          "webfetch": "deny",
+          "external_directory": {
+            "*": "deny",
+            "/home/dell/.local/share/wikiskill/dsh-archive/evals/01M4BNZNVVRP4AGJMT288GV1QF/units/mint-without-token__ollama_qwen3.8-latest__injected__r0/config/opencode/skills/*": "allow",
+            "/home/dell/.local/share/wikiskill/dsh-archive/evals/01M4BNZNVVRP4AGJMT288GV1QF/units/mint-without-token__ollama_qwen3.8-latest__injected__r0/config/opencode/plugins/*": "allow"
+          },
+          "bash": {
+            "*": "allow"
+          },
+          "skill": {
+            "*": "deny",
+            "datacite": "allow",
+            "osf": "allow",
+            "zenodo": "allow"
+          }
+        },
+        "provider": {
+          "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ollama",
+            "options": {
+              "baseURL": "http://localhost:11434/v1",
+              "timeout": false,
+              "headerTimeout": false,
+              "chunkTimeout": false
+            },
+            "models": {
+              "qwen3.8:latest": {
+                "name": "qwen3.8:latest",
+                "limit": {
+                  "context": 262144,
+                  "output": 8192
+                },
+                "reasoning": true,
+                "options": {
+                  "reasoningEffort": "none"
+                }
+              }
+            }
+          }
+        },
+        "plugin_origins": [
+          {
+            "spec": "/home/dell/Projects/wikiskill/harness/opencode/guard/wikiskill-guard.ts",
+            "source": "OPENCODE_CONFIG_CONTENT",
+            "scope": "local"
+          }
+        ],
+        "username": "dell"
+      },
+      "skills": [
+        "osf",
+        "datacite",
+        "zenodo"
+      ],
+      "skills_known": [
+        "customize-opencode",
+        "osf",
+        "datacite",
+        "zenodo"
+      ],
+      "skill_tool": true,
+      "mcp": {}
+    }
+  },
+  "options": {
+    "max_output_tokens": 8192,
+    "thinking": "off",
+    "seed_cache": true
+  },
+  "workers": 1,
+  "duration_s": 3953.9,
+  "outcomes": {
+    "completed": 20,
+    "permission_blocked": 10,
+    "step_exhausted": 6
+  },
+  "events_written": 1184,
+  "warnings": []
+}

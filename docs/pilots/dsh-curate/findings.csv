@@ -1,217 +1,271 @@
-table,kind,entrant,model,family,size_b,condition,version,task,passed,total,rate,low,high,lift,direction,outcomes,median_s,median_tokens_in,median_tokens_out,runs
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 12}",17.2735,4748.5,1643.5,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",27.306,8511.5,2404,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",3.513,4532.5,88.5,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,,0,12,0,0,0.242494,,,"{""completed"": 12}",4.6265,7039,111.5,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 12}",22.71,6693.5,1117,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,,6,12,0.5,0.253782,0.746218,,,"{""completed"": 12}",45.229,9596,2342.5,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",12.924,4822,286,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",24.076,7625.5,553,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,,5,12,0.416667,0.19326,0.680489,,,"{""completed"": 12}",11.197,557.5,524.5,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",16.323,9145,678,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",57.5795,4610.5,2775,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,,5,12,0.416667,0.19326,0.680489,,,"{""completed"": 12}",138.952,7292,6606.5,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",68.6685,6947.5,1179.5,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,,10,12,0.833333,0.551969,0.953035,,,"{""completed"": 12}",162.249,10055.5,3187,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",5.395,4810,301.5,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 10, ""step_exhausted"": 2}",18.493,11466.5,1225,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",5.2285,6392,110,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",21.55,13251.5,872.5,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,,4,12,0.333333,0.13812,0.609378,,,"{""completed"": 12}",12.7435,843.5,586,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,,6,12,0.5,0.253782,0.746218,,,"{""completed"": 12}",26.015,9543.5,1112,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 12}",75.9825,7253,3562,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,,5,12,0.416667,0.19326,0.680489,,,"{""completed"": 12}",148.342,12882.5,6979,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",37.378,6963,333,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,,7,12,0.583333,0.319511,0.80674,,,"{""completed"": 12}",50.8005,10038,531,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",14.491,6213,1183,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",27.589,4764,2739,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",15.914,4606,1494,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",15.377,4733,1431,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",28.513,7580,2459,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",28.13,6964,2437,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",34.655,13009,3273,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",25.097,9443,2190,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.645,4507,92,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",4.07,4694,108,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",2.909,4387,33,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.295,4523,59,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.848,7039,51,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",4.784,7065,119,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",4.624,6860,111,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",7.337,7144,293,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",16.22,6686,770,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",75.595,7157,4203,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",17.786,6655,850,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",37.411,6802,1982,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",42.355,9563,2188,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",90.752,10017,4948,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",40.785,9310,2091,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",36.526,9248,1861,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",16.16,6750,408,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",12.87,4970,285,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",12.136,4808,273,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",12.451,4655,241,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",17.335,7449,362,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",29.804,7922,642,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",45.903,14098,1165,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",17.699,7566,368,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",9.22,482,416,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",33.427,3247,1565,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",10.722,451,496,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",11.889,625,562,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",17.813,9154,776,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",33.403,10105,1596,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",11.303,8420,433,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,meanings-in-request,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",19.136,8916,839,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",36.693,6288,1321,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",212.969,4886,11303,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",57.016,4551,2831,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",58.143,4598,2719,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",164.257,7426,8040,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",174.231,7534,8356,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",66.817,7127,3160,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",129.077,6931,6248,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",60.342,7028,1233,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",114.467,7564,2157,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",68,6862,1081,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",65.679,6822,1000,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,partial-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",216.319,10396,4879,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",239.14,10500,5002,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",100.9,9674,1753,1
-sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",149.458,9703,2895,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.239,4460,108,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",5.29,4816,272,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",11.179,5509,837,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.87,4513,186,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",4.023,7104,140,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 2, ""step_exhausted"": 1}",28.874,21676,1842,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",16.259,12056,1035,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 2, ""step_exhausted"": 1}",47.971,9185,3574,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",11.164,6782,418,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",3.435,6260,25,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.44,6244,28,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.669,6275,38,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",20.456,13258,765,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",33.608,14593,1493,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",22.503,12475,934,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",30.092,13245,1298,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",10.853,783,474,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",28.102,2819,1265,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",13.088,820,597,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",8.887,594,365,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",26.484,9880,1187,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",25.569,9603,1139,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",26.461,9163,1058,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",24.25,10128,1085,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",38.248,6643,1726,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",100.148,8104,4989,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",78.126,7038,3590,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",73.839,7653,3534,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",136.416,12495,6110,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",231.082,14923,10437,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",79.509,10697,4459,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",161.67,14294,8989,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",36.517,7040,309,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",50.153,7594,644,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",36.678,6827,321,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",37.977,6886,343,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",62.779,10387,809,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",52.987,10302,611,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",42.907,9390,314,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,meanings-in-request,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",45.817,9609,391,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,meanings-in-request,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,partial-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 2, ""step_exhausted"": 1}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,meanings-in-request,,,0,,,,,"{""completed"": 2, ""step_exhausted"": 1}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
-judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,injected,,meanings-in-request,,,0.333333,,,,,"{""completed"": 3}",,,,1
+table,kind,entrant,model,family,size_b,shape,condition,version,task,passed,total,rate,low,high,lift,direction,outcomes,median_s,median_tokens_in,median_tokens_out,runs
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 12}",17.2735,4748.5,1643.5,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",27.306,8511.5,2404,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",3.513,4532.5,88.5,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,,0,12,0,0,0.242494,,,"{""completed"": 12}",4.6265,7039,111.5,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 12}",22.71,6693.5,1117,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,,6,12,0.5,0.253782,0.746218,,,"{""completed"": 12}",45.229,9596,2342.5,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",12.924,4822,286,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",24.076,7625.5,553,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,,5,12,0.416667,0.19326,0.680489,,,"{""completed"": 12}",11.197,557.5,524.5,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",16.323,9145,678,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",57.5795,4610.5,2775,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,,5,12,0.416667,0.19326,0.680489,,,"{""completed"": 12}",138.952,7292,6606.5,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",68.6685,6947.5,1179.5,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,,10,12,0.833333,0.551969,0.953035,,,"{""completed"": 12}",162.249,10055.5,3187,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",5.395,4810,301.5,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 10, ""step_exhausted"": 2}",18.493,11466.5,1225,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,,0,12,0,0,0.242494,,,"{""completed"": 12}",5.2285,6392,110,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",21.55,13251.5,872.5,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,,4,12,0.333333,0.13812,0.609378,,,"{""completed"": 12}",12.7435,843.5,586,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,,6,12,0.5,0.253782,0.746218,,,"{""completed"": 12}",26.015,9543.5,1112,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,,1,12,0.0833333,0.0148651,0.35388,,,"{""completed"": 12}",75.9825,7253,3562,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,,5,12,0.416667,0.19326,0.680489,,,"{""completed"": 12}",148.342,12882.5,6979,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",37.378,6963,333,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,,7,12,0.583333,0.319511,0.80674,,,"{""completed"": 12}",50.8005,10038,531,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",7.0335,4689,270,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,,2,12,0.166667,0.0469651,0.448031,,,"{""completed"": 12}",10.1315,7306.5,406,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",7.9615,4949,337.5,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,,0,12,0,0,0.242494,,,"{""completed"": 12}",16.3015,8668,652,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,,3,12,0.25,0.0889417,0.532305,,,"{""completed"": 12}",14.158,4915.5,536,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,,6,12,0.5,0.253782,0.746218,,,"{""completed"": 12}",32.0625,8174,1222,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",14.491,6213,1183,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",27.589,4764,2739,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",15.914,4606,1494,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",15.377,4733,1431,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",28.513,7580,2459,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",28.13,6964,2437,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",34.655,13009,3273,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",25.097,9443,2190,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.645,4507,92,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",4.07,4694,108,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",2.909,4387,33,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.295,4523,59,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.848,7039,51,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",4.784,7065,119,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",4.624,6860,111,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",7.337,7144,293,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",16.22,6686,770,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",75.595,7157,4203,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",17.786,6655,850,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",37.411,6802,1982,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",42.355,9563,2188,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",90.752,10017,4948,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",40.785,9310,2091,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",36.526,9248,1861,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",16.16,6750,408,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",12.87,4970,285,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",12.136,4808,273,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",12.451,4655,241,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",17.335,7449,362,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",29.804,7922,642,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",45.903,14098,1165,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",17.699,7566,368,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",9.22,482,416,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",33.427,3247,1565,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",10.722,451,496,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",11.889,625,562,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",17.813,9154,776,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",33.403,10105,1596,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",11.303,8420,433,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,meanings-in-request,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",19.136,8916,839,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",36.693,6288,1321,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",212.969,4886,11303,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",57.016,4551,2831,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",58.143,4598,2719,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",164.257,7426,8040,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",174.231,7534,8356,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",66.817,7127,3160,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",129.077,6931,6248,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",60.342,7028,1233,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",114.467,7564,2157,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",68,6862,1081,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",65.679,6822,1000,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,partial-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",216.319,10396,4879,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",239.14,10500,5002,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",100.9,9674,1753,1
+sweep,leaderboard,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",149.458,9703,2895,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.239,4460,108,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",5.29,4816,272,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",11.179,5509,837,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.87,4513,186,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",4.023,7104,140,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 2, ""step_exhausted"": 1}",28.874,21676,1842,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",16.259,12056,1035,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 2, ""step_exhausted"": 1}",47.971,9185,3574,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",11.164,6782,418,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",3.435,6260,25,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.44,6244,28,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.669,6275,38,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",20.456,13258,765,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",33.608,14593,1493,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",22.503,12475,934,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",30.092,13245,1298,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",10.853,783,474,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,keep-existing-entries,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",28.102,2819,1265,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",13.088,820,597,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",8.887,594,365,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",26.484,9880,1187,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",25.569,9603,1139,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",26.461,9163,1058,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",24.25,10128,1085,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",38.248,6643,1726,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",100.148,8104,4989,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,no-codebook,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",78.126,7038,3590,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",73.839,7653,3534,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",136.416,12495,6110,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",231.082,14923,10437,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",79.509,10697,4459,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",161.67,14294,8989,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",36.517,7040,309,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",50.153,7594,644,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",36.678,6827,321,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",37.977,6886,343,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",62.779,10387,809,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,keep-existing-entries,3,3,1,0.438503,1,,,"{""completed"": 3}",52.987,10302,611,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",42.907,9390,314,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,meanings-in-request,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",45.817,9609,391,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",9.434,6489,277,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",6.555,4626,263,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",8.841,4795,429,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",5.25,4635,169,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",12.058,7332,537,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",7.456,7496,214,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",11.01,7316,479,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",7.14,7133,223,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",10.739,7001,520,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",3.137,4566,47,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",6.697,4837,265,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",3.88,4643,83,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",45.877,12215,1281,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",50.16,14238,2153,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,no-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",3.98,7075,22,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",8.596,7329,286,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",14.697,7112,640,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,keep-existing-entries,0,3,0,0,0.561497,,,"{""completed"": 3}",20.731,5675,909,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,no-codebook,3,3,1,0.438503,1,,,"{""completed"": 3}",13.619,4906,526,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,meanings-in-request,0,3,0,0,0.561497,,,"{""completed"": 3}",12.948,4859,345,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,partial-codebook,0,3,0,0,0.561497,,,"{""completed"": 3}",33.078,8163,1441,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,keep-existing-entries,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",26.416,8359,1098,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,no-codebook,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",33.816,7962,1236,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,meanings-in-request,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",22.736,8578,782,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,meanings-in-request,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,partial-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 2, ""step_exhausted"": 1}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 2, ""step_exhausted"": 1}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,keep-existing-entries,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,no-codebook,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,keep-existing-entries,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/gemma4:31b,ollama/gemma4:31b,gemma,30.7,dense,injected,,meanings-in-request,,,0.333333,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,no-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,keep-existing-entries,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,no-codebook,,,1,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,meanings-in-request,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,partial-codebook,,,0,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,keep-existing-entries,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,no-codebook,,,0.666667,,,,,"{""completed"": 3}",,,,1
+judge,report,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,meanings-in-request,,,0.666667,,,,,"{""completed"": 3}",,,,1

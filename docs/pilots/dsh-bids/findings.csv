@@ -1,155 +1,197 @@
-table,kind,entrant,model,family,size_b,condition,version,task,passed,total,rate,low,high,lift,direction,outcomes,median_s,median_tokens_in,median_tokens_out,runs
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",11.6575,4257,839,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,,4,18,0.222222,0.0900093,0.452146,,,"{""completed"": 17, ""step_exhausted"": 1}",30.718,5686,3124.5,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",3.717,4438,98.5,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,,7,18,0.388889,0.203052,0.61381,,,"{""completed"": 18}",4.427,5679,141,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 18}",9.5705,6253,389,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",47.5555,7542.5,2425,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 18}",33.0895,8931,952.5,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,,13,18,0.722222,0.491273,0.875002,,,"{""completed"": 18}",23.8605,6183.5,581,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 16, ""permission_blocked"": 2}",16.8495,1415.5,820.5,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",35.0955,3445.5,1397,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 13, ""permission_blocked"": 5}",27.034,4227.5,1659,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",66.424,4777,4443,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",3.3165,4232,118,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",2.363,4080.5,23,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",3.596,6255,36,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,,6,18,0.333333,0.162788,0.562505,,,"{""completed"": 18}",7.0215,7204.5,207.5,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,,5,18,0.277778,0.124998,0.508727,,,"{""completed"": 12, ""permission_blocked"": 6}",25.088,2186,1202,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,,10,18,0.555556,0.337164,0.754405,,,"{""completed"": 18}",31.2985,4210.5,1466,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 13, ""permission_blocked"": 5}",25.6125,5346,1506.5,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",71.1565,7977.5,4404.5,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 9, ""permission_blocked"": 8, ""step_exhausted"": 1}",32.0385,7145.5,364.5,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,,11,18,0.611111,0.38619,0.796948,,,"{""completed"": 15, ""step_exhausted"": 3}",39.0835,8046,511,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",17.118,4213,708,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",12.082,4298,979,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",8.579,4224,627,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",41.372,8355,4522,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",10.864,4200,967,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",12.3,46,764,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,validate-without-validator,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",27.94,8176,2721,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",5.06,4072,343,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",33.496,5158,3442,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",5.287,4067,318,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 2, ""step_exhausted"": 1}",90.394,9149,9930,1
-sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",67.145,6963,6767,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.744,4396,100,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",3.117,4413,57,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",3.234,4470,62,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",5.662,4704,258,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",3.644,4509,92,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.859,4395,108,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,validate-without-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",4.473,5676,126,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,not-a-bids-dataset,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",4.137,5669,128,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",4.381,5663,169,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",3.844,5667,95,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",4.675,5679,171,1
-sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",6.478,5768,317,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",5.624,6253,160,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",17.972,6504,844,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",14.394,6356,655,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",7.675,6249,276,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",18.728,6397,898,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",6.64,6253,214,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",50.087,7735,2687,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",30.909,7085,1596,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",28.196,7113,1440,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",50.03,8000,2687,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",49.59,7350,2685,1
-sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",45.667,14083,2246,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",10.124,7883,163,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",38.826,8983,1175,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",33.587,5613,969,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,validate-and-fix,0,3,0,0,0.561497,,,"{""completed"": 3}",51.55,9741,1567,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",20.565,8095,517,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",39.606,8969,1197,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",17.165,6016,422,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",20.949,5855,557,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",30.09,6308,852,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",28.07,4338,851,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,ignored-contents,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",17.143,5812,436,1
-sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",27.846,12051,607,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",12.957,1352,550,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",7.878,337,290,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",25.903,1630,1306,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,validate-and-fix,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",28.577,2811,1413,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",20.934,849,1024,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",10.12,779,449,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,validate-without-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",35.42,3300,1164,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",8.714,626,378,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",36.798,3336,1870,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",53.281,4133,2537,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",41.599,2947,1289,1
-sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",33.532,10013,1500,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",18.721,4452,1111,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",29.692,4220,1854,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",35.069,4608,2205,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 1, ""permission_blocked"": 2}",52.124,4280,3402,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",28.01,4167,1736,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 2, ""permission_blocked"": 1}",24.001,4114,1458,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",74.366,4834,4993,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",16.317,4093,960,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",60.06,4641,4015,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",61.12,4718,4091,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",90.25,4918,6058,1
-sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",86.984,12191,5118,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.481,4233,131,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",2.49,4222,40,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",2.476,4155,37,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",7.869,7917,478,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",3.268,4205,112,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.372,4231,132,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",13.538,6803,1089,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",4.905,5796,203,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",2.311,4074,23,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",4.347,5715,174,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",2.251,4062,23,1
-sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",2.249,4059,23,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.638,6255,37,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",3.688,6255,41,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",6.436,6564,149,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",3.287,6251,16,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",3.434,6253,23,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",4.3,6298,73,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",7.311,6915,232,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",6.75,6914,183,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",6.283,6788,149,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",7.293,6893,259,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",9.438,8665,298,1
-sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,injected,,invalid-with-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",18.089,11978,721,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",20.209,2222,916,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,not-a-bids-dataset,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",8.454,429,338,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",24.263,1496,1209,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,validate-and-fix,0,3,0,0,0.561497,,,"{""permission_blocked"": 3}",31.016,3600,1488,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,ignored-contents,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 1, ""permission_blocked"": 2}",33.498,3888,1592,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 2, ""permission_blocked"": 1}",21.799,2045,1023,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,validate-without-validator,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",30.118,5129,1227,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",18.84,1896,935,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",36.372,4972,1784,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",30.876,2461,1587,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",31.638,3831,1553,1
-sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,injected,,invalid-with-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",45.456,10157,2189,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",17.522,4791,996,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 1, ""permission_blocked"": 2}",47.572,6471,2875,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",26.554,5583,1562,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,validate-and-fix,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 1, ""permission_blocked"": 2}",96.729,10174,5756,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 2, ""permission_blocked"": 1}",29.566,5077,1781,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",19.909,4821,1130,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",83.177,9001,5042,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",17.184,4553,989,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",70.865,8017,4393,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",70.388,7617,4362,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",83.103,9158,5067,1
-sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",69.483,8435,4292,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",29.656,7163,390,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",17.977,6332,103,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",19.36,6816,129,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""permission_blocked"": 2, ""step_exhausted"": 1}",95.221,8706,1485,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,ignored-contents,0,3,0,0,0.561497,,,"{""permission_blocked"": 3}",35.736,7128,339,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""permission_blocked"": 3}",163.143,35258,1731,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",34.016,6782,460,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",13.386,5428,54,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,structural-gaps,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",42.312,8108,594,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,validate-and-fix,0,3,0,0,0.561497,,,"{""step_exhausted"": 3}",152.409,20163,2718,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",36.667,7984,434,1
-sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",52.667,16352,502,1
+table,kind,entrant,model,family,size_b,shape,condition,version,task,passed,total,rate,low,high,lift,direction,outcomes,median_s,median_tokens_in,median_tokens_out,runs
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",11.6575,4257,839,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,,4,18,0.222222,0.0900093,0.452146,,,"{""completed"": 17, ""step_exhausted"": 1}",30.718,5686,3124.5,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",3.717,4438,98.5,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,,7,18,0.388889,0.203052,0.61381,,,"{""completed"": 18}",4.427,5679,141,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 18}",9.5705,6253,389,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",47.5555,7542.5,2425,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 18}",33.0895,8931,952.5,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,,13,18,0.722222,0.491273,0.875002,,,"{""completed"": 18}",23.8605,6183.5,581,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 16, ""permission_blocked"": 2}",16.8495,1415.5,820.5,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",35.0955,3445.5,1397,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 13, ""permission_blocked"": 5}",27.034,4227.5,1659,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",66.424,4777,4443,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",3.3165,4232,118,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",2.363,4080.5,23,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",3.596,6255,36,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,,6,18,0.333333,0.162788,0.562505,,,"{""completed"": 18}",7.0215,7204.5,207.5,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,,5,18,0.277778,0.124998,0.508727,,,"{""completed"": 12, ""permission_blocked"": 6}",25.088,2186,1202,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,,10,18,0.555556,0.337164,0.754405,,,"{""completed"": 18}",31.2985,4210.5,1466,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 13, ""permission_blocked"": 5}",25.6125,5346,1506.5,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,,12,18,0.666667,0.437495,0.837212,,,"{""completed"": 18}",71.1565,7977.5,4404.5,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 9, ""permission_blocked"": 8, ""step_exhausted"": 1}",32.0385,7145.5,364.5,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,,11,18,0.611111,0.38619,0.796948,,,"{""completed"": 15, ""step_exhausted"": 3}",39.0835,8046,511,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,,2,18,0.111111,0.0310195,0.327998,,,"{""completed"": 18}",10.958,4805,551.5,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,,7,18,0.388889,0.203052,0.61381,,,"{""completed"": 18}",9.0995,5709.5,405.5,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 18}",5.9805,4587.5,205,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,,8,18,0.444444,0.245595,0.662836,,,"{""completed"": 18}",13.893,6080.5,685,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,,3,18,0.166667,0.0583658,0.39222,,,"{""completed"": 12, ""permission_blocked"": 6}",16.815,5928.5,767,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,,15,18,0.833333,0.60778,0.941634,,,"{""completed"": 18}",23.8395,6624.5,1204,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",17.118,4213,708,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",12.082,4298,979,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",8.579,4224,627,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",41.372,8355,4522,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",10.864,4200,967,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",12.3,46,764,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,validate-without-validator,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",27.94,8176,2721,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",5.06,4072,343,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",33.496,5158,3442,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",5.287,4067,318,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 2, ""step_exhausted"": 1}",90.394,9149,9930,1
+sweep,leaderboard,ollama/qwen3:1.7b,ollama/qwen3:1.7b,qwen,2,dense,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",67.145,6963,6767,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.744,4396,100,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",3.117,4413,57,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",3.234,4470,62,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",5.662,4704,258,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",3.644,4509,92,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.859,4395,108,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,validate-without-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",4.473,5676,126,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,not-a-bids-dataset,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",4.137,5669,128,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",4.381,5663,169,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",3.844,5667,95,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",4.675,5679,171,1
+sweep,leaderboard,ollama/llama3.2:3b,ollama/llama3.2:3b,llama,3.2,dense,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",6.478,5768,317,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",5.624,6253,160,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",17.972,6504,844,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",14.394,6356,655,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",7.675,6249,276,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",18.728,6397,898,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",6.64,6253,214,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",50.087,7735,2687,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",30.909,7085,1596,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",28.196,7113,1440,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",50.03,8000,2687,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",49.59,7350,2685,1
+sweep,leaderboard,ollama/gemma4:latest,ollama/gemma4:latest,gemma,8,dense,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",45.667,14083,2246,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",10.124,7883,163,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",38.826,8983,1175,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",33.587,5613,969,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,validate-and-fix,0,3,0,0,0.561497,,,"{""completed"": 3}",51.55,9741,1567,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",20.565,8095,517,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",39.606,8969,1197,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",17.165,6016,422,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",20.949,5855,557,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",30.09,6308,852,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",28.07,4338,851,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,ignored-contents,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",17.143,5812,436,1
+sweep,leaderboard,ollama/granite4.1:8b,ollama/granite4.1:8b,granite,8.8,dense,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",27.846,12051,607,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",12.957,1352,550,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",7.878,337,290,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",25.903,1630,1306,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,validate-and-fix,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",28.577,2811,1413,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",20.934,849,1024,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",10.12,779,449,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,validate-without-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",35.42,3300,1164,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",8.714,626,378,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",36.798,3336,1870,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",53.281,4133,2537,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",41.599,2947,1289,1
+sweep,leaderboard,ollama/gpt-oss:20b,ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",33.532,10013,1500,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",18.721,4452,1111,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",29.692,4220,1854,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",35.069,4608,2205,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 1, ""permission_blocked"": 2}",52.124,4280,3402,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",28.01,4167,1736,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 2, ""permission_blocked"": 1}",24.001,4114,1458,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",74.366,4834,4993,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",16.317,4093,960,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",60.06,4641,4015,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",61.12,4718,4091,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",90.25,4918,6058,1
+sweep,leaderboard,ollama/qwen3:30b-a3b,ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",86.984,12191,5118,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.481,4233,131,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",2.49,4222,40,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",2.476,4155,37,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",7.869,7917,478,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",3.268,4205,112,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.372,4231,132,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",13.538,6803,1089,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",4.905,5796,203,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",2.311,4074,23,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",4.347,5715,174,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",2.251,4062,23,1
+sweep,leaderboard,ollama/qwen3:1.7b (thinking off),ollama/qwen3:1.7b,qwen,2,dense,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",2.249,4059,23,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.638,6255,37,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",3.688,6255,41,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",6.436,6564,149,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",3.287,6251,16,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",3.434,6253,23,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",4.3,6298,73,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",7.311,6915,232,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",6.75,6914,183,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",6.283,6788,149,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",7.293,6893,259,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",9.438,8665,298,1
+sweep,leaderboard,ollama/gemma4:latest (thinking off),ollama/gemma4:latest,gemma,8,dense,injected,,invalid-with-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",18.089,11978,721,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",20.209,2222,916,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,not-a-bids-dataset,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",8.454,429,338,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",24.263,1496,1209,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,validate-and-fix,0,3,0,0,0.561497,,,"{""permission_blocked"": 3}",31.016,3600,1488,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,ignored-contents,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 1, ""permission_blocked"": 2}",33.498,3888,1592,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 2, ""permission_blocked"": 1}",21.799,2045,1023,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,validate-without-validator,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",30.118,5129,1227,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",18.84,1896,935,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,structural-gaps,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",36.372,4972,1784,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",30.876,2461,1587,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",31.638,3831,1553,1
+sweep,leaderboard,ollama/gpt-oss:20b (thinking off),ollama/gpt-oss:20b,gpt-oss,20.9,moe,injected,,invalid-with-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",45.456,10157,2189,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",17.522,4791,996,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 1, ""permission_blocked"": 2}",47.572,6471,2875,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",26.554,5583,1562,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,validate-and-fix,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 1, ""permission_blocked"": 2}",96.729,10174,5756,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 2, ""permission_blocked"": 1}",29.566,5077,1781,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",19.909,4821,1130,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",83.177,9001,5042,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",17.184,4553,989,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",70.865,8017,4393,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",70.388,7617,4362,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",83.103,9158,5067,1
+sweep,leaderboard,ollama/qwen3:30b-a3b (thinking off),ollama/qwen3:30b-a3b,qwen,30.5,moe,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",69.483,8435,4292,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",29.656,7163,390,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",17.977,6332,103,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",19.36,6816,129,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""permission_blocked"": 2, ""step_exhausted"": 1}",95.221,8706,1485,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""permission_blocked"": 3}",35.736,7128,339,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""permission_blocked"": 3}",163.143,35258,1731,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,validate-without-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",34.016,6782,460,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",13.386,5428,54,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,structural-gaps,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",42.312,8108,594,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,validate-and-fix,0,3,0,0,0.561497,,,"{""step_exhausted"": 3}",152.409,20163,2718,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",36.667,7984,434,1
+sweep,leaderboard,ollama/gemma4:31b (thinking off),ollama/gemma4:31b,gemma,30.7,dense,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",52.667,16352,502,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",5.014,4462,143,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,not-a-bids-dataset,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",13.104,4778,701,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",19.831,5042,1145,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,validate-and-fix,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",17.169,5083,927,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",7.76,4875,308,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",7.003,4497,285,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,validate-without-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",8.766,5767,388,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",5.701,5725,205,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",16.415,5672,912,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,validate-and-fix,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",17.815,5694,1009,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",8.776,5766,395,1
+sweep,leaderboard,ollama/granite4.1:3b,ollama/granite4.1:3b,granite,3.4,dense,injected,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",9.572,5732,444,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",4.226,4542,113,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,not-a-bids-dataset,0,3,0,0,0.561497,,,"{""completed"": 3}",6.178,4618,230,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",9.059,5180,391,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",17.492,4537,230,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",11.154,5223,535,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 3}",3.487,4541,63,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,validate-without-validator,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",21.302,6030,1168,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",9.747,6131,404,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",14.048,5895,730,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",10.072,4754,484,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 3}",12.592,6165,597,1
+sweep,leaderboard,ollama/ministral-3:3b,ollama/ministral-3:3b,mistral,3.8,dense,injected,,invalid-with-validator,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",30.393,7523,1255,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,validate-without-validator,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",30.726,5807,1556,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,not-a-bids-dataset,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",10.91,5341,352,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,structural-gaps,0,3,0,0,0.561497,,,"{""completed"": 3}",41.557,10857,2164,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,validate-and-fix,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",73.932,12582,3925,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,ignored-contents,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",9.253,5078,296,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,off,,invalid-with-validator,0,3,0,0,0.561497,,,"{""completed"": 1, ""permission_blocked"": 2}",17.951,6940,847,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,validate-without-validator,2,3,0.666667,0.20766,0.938508,,,"{""completed"": 3}",17.314,7129,768,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,not-a-bids-dataset,3,3,1,0.438503,1,,,"{""completed"": 3}",11.669,6071,477,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,structural-gaps,3,3,1,0.438503,1,,,"{""completed"": 3}",25.199,6216,1291,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,validate-and-fix,3,3,1,0.438503,1,,,"{""completed"": 3}",23.591,6066,1219,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,ignored-contents,1,3,0.333333,0.0614919,0.79234,,,"{""completed"": 3}",28.059,6233,1450,1
+sweep,leaderboard,ollama/qwen3-coder:30b,ollama/qwen3-coder:30b,qwen,30.5,moe,injected,,invalid-with-validator,3,3,1,0.438503,1,,,"{""completed"": 3}",39.57,14361,1613,1

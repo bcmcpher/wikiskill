@@ -6,20 +6,26 @@
 | qwen3:1.7b | qwen | off | 8/18 (44%, 25-66%) | 0 | 14.7 |
 | qwen3:1.7b (thinking off) | qwen | injected | 9/18 (50%, 29-71%) | 0 | 6.3 |
 | qwen3:1.7b (thinking off) | qwen | off | 8/18 (44%, 25-66%) | 0 | 3.3 |
+| qwen3.8:latest (thinking off) | qwen | injected | 18/18 (100%, 82-100%) | 0 | 62.9 |
+| qwen3.8:latest (thinking off) | qwen | off | 9/18 (50%, 29-71%) | 0 | 138.7 |
+| qwen3-coder:30b | qwen | injected | 18/18 (100%, 82-100%) | 0 | 16.3 |
+| qwen3-coder:30b | qwen | off | 5/18 (28%, 12-51%) | 0 | 16.2 |
 | qwen3:30b-a3b | qwen | injected | 17/18 (94%, 74-99%) | 0 | 39.0 |
 | qwen3:30b-a3b | qwen | off | 9/18 (50%, 29-71%) | 0 | 12.1 |
 | qwen3:30b-a3b (thinking off) | qwen | injected | 17/18 (94%, 74-99%) | 0 | 34.7 |
 | qwen3:30b-a3b (thinking off) | qwen | off | 9/18 (50%, 29-71%) | 0 | 11.1 |
 | llama3.2:3b | llama | injected | 8/18 (44%, 25-66%) | 0 | 4.8 |
 | llama3.2:3b | llama | off | 7/18 (39%, 20-61%) | 0 | 3.7 |
+| granite4.1:3b | granite | injected | 16/18 (89%, 67-97%) | 0 | 8.6 |
+| granite4.1:3b | granite | off | 9/18 (50%, 29-71%) | 0 | 9.1 |
+| granite4.1:8b | granite | injected | 16/18 (89%, 67-97%) | 0 | 21.8 |
+| granite4.1:8b | granite | off | 9/18 (50%, 29-71%) | 0 | 9.1 |
 | gemma4:latest | gemma | injected | 17/18 (94%, 74-99%) | 0 | 31.5 |
 | gemma4:latest | gemma | off | 9/18 (50%, 29-71%) | 0 | 11.1 |
 | gemma4:latest (thinking off) | gemma | injected | 14/18 (78%, 55-91%) | 0 | 11.3 |
 | gemma4:latest (thinking off) | gemma | off | 9/18 (50%, 29-71%) | 0 | 3.7 |
 | gemma4:31b (thinking off) | gemma | injected | 18/18 (100%, 82-100%) | 0 | 21.2 |
 | gemma4:31b (thinking off) | gemma | off | 9/18 (50%, 29-71%) | 0 | 115.4 |
-| granite4.1:8b | granite | injected | 16/18 (89%, 67-97%) | 0 | 21.8 |
-| granite4.1:8b | granite | off | 9/18 (50%, 29-71%) | 0 | 9.1 |
 | gpt-oss:20b | gpt-oss | injected | 17/18 (94%, 74-99%) | 0 | 18.9 |
 | gpt-oss:20b | gpt-oss | off | 8/18 (44%, 25-66%) | 0 | 10.2 |
 | gpt-oss:20b (thinking off) | gpt-oss | injected | 16/18 (89%, 67-97%) | 0 | 25.4 |

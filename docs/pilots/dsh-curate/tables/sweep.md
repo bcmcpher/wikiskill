@@ -3,7 +3,7 @@
 ### Leaderboard: gen-data-dict
 
 - suite_hash: `96c241a491b4`
-- runs: 12 (`01M49NSVBE22B3NB91MTQ7REE6`, `01M49QD087NFCEF27MX8QQQ2KT`, `01M49SZ61QM7QP35PC6QVDM8SS`, `01M49X6N67WXS0MQ3JHH8VZB9V`, `01M49ZTQBMS5J4GRHDJMF3MGPX`, `01M4A3DZT8R8XEKZXK1FEJ2P7T`, `01M4AQWR634WDSTA2M6FY8P8PX`, `01M4AWHHDW4CW1JVSCR3Q4K9CZ`, `01M4AY136ZCYBANX8HP4128C3F`, `01M4B0WYFKMCX3CWHCASCX1BES`, `01M4B4QEC4PME0ZHHAD3DTF5J3`, `01M4BDBK8QYZNVM9NQP4BAM26B`)
+- runs: 15 (`01M49NSVBE22B3NB91MTQ7REE6`, `01M49QD087NFCEF27MX8QQQ2KT`, `01M49SZ61QM7QP35PC6QVDM8SS`, `01M49X6N67WXS0MQ3JHH8VZB9V`, `01M49ZTQBMS5J4GRHDJMF3MGPX`, `01M4A3DZT8R8XEKZXK1FEJ2P7T`, `01M4AQWR634WDSTA2M6FY8P8PX`, `01M4AWHHDW4CW1JVSCR3Q4K9CZ`, `01M4AY136ZCYBANX8HP4128C3F`, `01M4B0WYFKMCX3CWHCASCX1BES`, `01M4B4QEC4PME0ZHHAD3DTF5J3`, `01M4BDBK8QYZNVM9NQP4BAM26B`, `01M4BG7NFAWBKPQCZRB6V705YA`, `01M4BJCCKQEBEAYHBMESN3H602`, `01M4BMXT08829E1A95QBHKXRS5`)
 - `curate/gen-data-dict`: `d06353e169e0`
 
 A unit passes on its verifiers, or, for a task with none, when its first activation is the expected component. Intervals are Wilson 95%. Units that did not run are counted beside the rate, never in it.
@@ -20,14 +20,17 @@ A unit passes on its verifiers, or, for a task with none, when its first activat
 | 2≈ | ollama/gemma4:31b (thinking off) | gemma | 30.7 | 7/12 (58%, 32-81%) | 0 | 50.8 | 1 | 256k |
 | 3≈ | ollama/gemma4:latest | gemma | 8 | 6/12 (50%, 25-75%) | 0 | 45.2 | 1 | 128k |
 | 4≈ | ollama/gpt-oss:20b (thinking off) | gpt-oss | 20.9 | 6/12 (50%, 25-75%) | 0 | 26.0 | 1 | 128k |
-| 5≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 5/12 (42%, 19-68%) | 0 | 139.0 | 1 | 256k |
-| 6≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 5/12 (42%, 19-68%) | 0 | 148.3 | 1 | 256k |
-| 7 | ollama/gemma4:latest (thinking off) | gemma | 8 | 2/12 (17%, 5-45%) | 0 | 21.6 | 1 | 128k |
-| 8 | ollama/gpt-oss:20b | gpt-oss | 20.9 | 2/12 (17%, 5-45%) | 0 | 16.3 | 1 | 128k |
-| 9 | ollama/granite4.1:8b | granite | 8.8 | 2/12 (17%, 5-45%) | 0 | 24.1 | 1 | 128k |
-| 10 | ollama/qwen3:1.7b | qwen | 2 | 2/12 (17%, 5-45%) | 0 | 27.3 | 1 | 40k |
-| 11 | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 1/12 (8%, 1-35%) | 0 | 18.5 | 1 | 40k |
-| 12 | ollama/llama3.2:3b | llama | 3.2 | 0/12 (0%, 0-24%) | 0 | 4.6 | 1 | 128k |
+| 5≈ | ollama/qwen3-coder:30b | qwen | 30.5 | 6/12 (50%, 25-75%) | 0 | 32.1 | 1 | 256k |
+| 6≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 5/12 (42%, 19-68%) | 0 | 139.0 | 1 | 256k |
+| 7≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 5/12 (42%, 19-68%) | 0 | 148.3 | 1 | 256k |
+| 8 | ollama/gemma4:latest (thinking off) | gemma | 8 | 2/12 (17%, 5-45%) | 0 | 21.6 | 1 | 128k |
+| 9 | ollama/gpt-oss:20b | gpt-oss | 20.9 | 2/12 (17%, 5-45%) | 0 | 16.3 | 1 | 128k |
+| 10 | ollama/granite4.1:3b | granite | 3.4 | 2/12 (17%, 5-45%) | 0 | 10.1 | 1 | 128k |
+| 11 | ollama/granite4.1:8b | granite | 8.8 | 2/12 (17%, 5-45%) | 0 | 24.1 | 1 | 128k |
+| 12 | ollama/qwen3:1.7b | qwen | 2 | 2/12 (17%, 5-45%) | 0 | 27.3 | 1 | 40k |
+| 13 | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 1/12 (8%, 1-35%) | 0 | 18.5 | 1 | 40k |
+| 14 | ollama/llama3.2:3b | llama | 3.2 | 0/12 (0%, 0-24%) | 0 | 4.6 | 1 | 128k |
+| 15 | ollama/ministral-3:3b | mistral | 3.8 | 0/12 (0%, 0-24%) | 0 | 16.3 | 1 | 256k |
 
 ##### off
 
@@ -37,14 +40,17 @@ A unit passes on its verifiers, or, for a task with none, when its first activat
 | 2≈ | ollama/gpt-oss:20b (thinking off) | gpt-oss | 20.9 | 4/12 (33%, 14-61%) | 0 | 12.7 | 1 | 128k |
 | 3≈ | ollama/gemma4:31b | gemma | 30.7 | 3/12 (25%, 9-53%) | 0 | 68.7 | 1 | 256k |
 | 4≈ | ollama/gemma4:31b (thinking off) | gemma | 30.7 | 3/12 (25%, 9-53%) | 0 | 37.4 | 1 | 256k |
-| 5≈ | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 2/12 (17%, 5-45%) | 0 | 5.4 | 1 | 40k |
-| 6≈ | ollama/gemma4:latest | gemma | 8 | 1/12 (8%, 1-35%) | 0 | 22.7 | 1 | 128k |
-| 7≈ | ollama/qwen3:1.7b | qwen | 2 | 1/12 (8%, 1-35%) | 0 | 17.3 | 1 | 40k |
-| 8≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 1/12 (8%, 1-35%) | 0 | 76.0 | 1 | 256k |
-| 9≈ | ollama/gemma4:latest (thinking off) | gemma | 8 | 0/12 (0%, 0-24%) | 0 | 5.2 | 1 | 128k |
-| 10≈ | ollama/granite4.1:8b | granite | 8.8 | 0/12 (0%, 0-24%) | 0 | 12.9 | 1 | 128k |
-| 11≈ | ollama/llama3.2:3b | llama | 3.2 | 0/12 (0%, 0-24%) | 0 | 3.5 | 1 | 128k |
-| 12≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 0/12 (0%, 0-24%) | 0 | 57.6 | 1 | 256k |
+| 5≈ | ollama/granite4.1:3b | granite | 3.4 | 3/12 (25%, 9-53%) | 0 | 7.0 | 1 | 128k |
+| 6≈ | ollama/ministral-3:3b | mistral | 3.8 | 3/12 (25%, 9-53%) | 0 | 8.0 | 1 | 256k |
+| 7≈ | ollama/qwen3-coder:30b | qwen | 30.5 | 3/12 (25%, 9-53%) | 0 | 14.2 | 1 | 256k |
+| 8≈ | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 2/12 (17%, 5-45%) | 0 | 5.4 | 1 | 40k |
+| 9≈ | ollama/gemma4:latest | gemma | 8 | 1/12 (8%, 1-35%) | 0 | 22.7 | 1 | 128k |
+| 10≈ | ollama/qwen3:1.7b | qwen | 2 | 1/12 (8%, 1-35%) | 0 | 17.3 | 1 | 40k |
+| 11≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 1/12 (8%, 1-35%) | 0 | 76.0 | 1 | 256k |
+| 12≈ | ollama/gemma4:latest (thinking off) | gemma | 8 | 0/12 (0%, 0-24%) | 0 | 5.2 | 1 | 128k |
+| 13≈ | ollama/granite4.1:8b | granite | 8.8 | 0/12 (0%, 0-24%) | 0 | 12.9 | 1 | 128k |
+| 14≈ | ollama/llama3.2:3b | llama | 3.2 | 0/12 (0%, 0-24%) | 0 | 3.5 | 1 | 128k |
+| 15≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 0/12 (0%, 0-24%) | 0 | 57.6 | 1 | 256k |
 
 `≈` marks a model whose interval overlaps the leader's: its place is not a finding.
 
@@ -58,12 +64,20 @@ Medians are of the units that ran.
 | ollama/qwen3:1.7b | off | 12 | 0 | 17.3 | 4748/1644 |
 | ollama/qwen3:1.7b (thinking off) | injected | 10 | 2 | 18.5 | 11466/1225 |
 | ollama/qwen3:1.7b (thinking off) | off | 12 | 0 | 5.4 | 4810/302 |
+| ollama/qwen3-coder:30b | injected | 12 | 0 | 32.1 | 8174/1222 |
+| ollama/qwen3-coder:30b | off | 12 | 0 | 14.2 | 4916/536 |
 | ollama/qwen3:30b-a3b | injected | 12 | 0 | 139.0 | 7292/6606 |
 | ollama/qwen3:30b-a3b | off | 12 | 0 | 57.6 | 4610/2775 |
 | ollama/qwen3:30b-a3b (thinking off) | injected | 12 | 0 | 148.3 | 12882/6979 |
 | ollama/qwen3:30b-a3b (thinking off) | off | 12 | 0 | 76.0 | 7253/3562 |
 | ollama/llama3.2:3b | injected | 12 | 0 | 4.6 | 7039/112 |
 | ollama/llama3.2:3b | off | 12 | 0 | 3.5 | 4532/88 |
+| ollama/granite4.1:3b | injected | 12 | 0 | 10.1 | 7306/406 |
+| ollama/granite4.1:3b | off | 12 | 0 | 7.0 | 4689/270 |
+| ollama/granite4.1:8b | injected | 12 | 0 | 24.1 | 7626/553 |
+| ollama/granite4.1:8b | off | 12 | 0 | 12.9 | 4822/286 |
+| ollama/ministral-3:3b | injected | 12 | 0 | 16.3 | 8668/652 |
+| ollama/ministral-3:3b | off | 12 | 0 | 8.0 | 4949/338 |
 | ollama/gemma4:latest | injected | 12 | 0 | 45.2 | 9596/2342 |
 | ollama/gemma4:latest | off | 12 | 0 | 22.7 | 6694/1117 |
 | ollama/gemma4:latest (thinking off) | injected | 12 | 0 | 21.6 | 13252/872 |
@@ -72,8 +86,6 @@ Medians are of the units that ran.
 | ollama/gemma4:31b | off | 12 | 0 | 68.7 | 6948/1180 |
 | ollama/gemma4:31b (thinking off) | injected | 12 | 0 | 50.8 | 10038/531 |
 | ollama/gemma4:31b (thinking off) | off | 12 | 0 | 37.4 | 6963/333 |
-| ollama/granite4.1:8b | injected | 12 | 0 | 24.1 | 7626/553 |
-| ollama/granite4.1:8b | off | 12 | 0 | 12.9 | 4822/286 |
 | ollama/gpt-oss:20b | injected | 12 | 0 | 16.3 | 9145/678 |
 | ollama/gpt-oss:20b | off | 12 | 0 | 11.2 | 558/524 |
 | ollama/gpt-oss:20b (thinking off) | injected | 12 | 0 | 26.0 | 9544/1112 |
@@ -83,18 +95,18 @@ Medians are of the units that ran.
 
 ##### injected
 
-| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b | ollama/gemma4:31b (thinking off) | ollama/granite4.1:8b | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| keep-existing-entries | verifier | 0/3 | 0/3 | 2/3 | 2/3 | 0/3 | 3/3 | 1/3 | 2/3 | 3/3 | 0/3 | 1/3 | 2/3 |
-| meanings-in-request | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 2/3 | 1/3 | 0/3 | 1/3 | 2/3 |
-| no-codebook | verifier | 2/3 | 1/3 | 3/3 | 3/3 | 0/3 | 3/3 | 1/3 | 3/3 | 3/3 | 2/3 | 0/3 | 2/3 |
-| partial-codebook | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 |
+| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3-coder:30b | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/granite4.1:3b | ollama/granite4.1:8b | ollama/ministral-3:3b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b | ollama/gemma4:31b (thinking off) | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| keep-existing-entries | verifier | 0/3 | 0/3 | 2/3 | 2/3 | 2/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 1/3 | 2/3 | 3/3 | 1/3 | 2/3 |
+| meanings-in-request | verifier | 0/3 | 0/3 | 2/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 2/3 | 1/3 | 1/3 | 2/3 |
+| no-codebook | verifier | 2/3 | 1/3 | 2/3 | 3/3 | 3/3 | 0/3 | 2/3 | 2/3 | 0/3 | 3/3 | 1/3 | 3/3 | 3/3 | 0/3 | 2/3 |
+| partial-codebook | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 |
 
 ##### off
 
-| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b | ollama/gemma4:31b (thinking off) | ollama/granite4.1:8b | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| keep-existing-entries | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 1/3 | 0/3 | 3/3 | 3/3 | 0/3 | 2/3 | 1/3 |
-| meanings-in-request | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
-| no-codebook | verifier | 1/3 | 2/3 | 0/3 | 1/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 3/3 |
-| partial-codebook | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
+| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3-coder:30b | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/granite4.1:3b | ollama/granite4.1:8b | ollama/ministral-3:3b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b | ollama/gemma4:31b (thinking off) | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| keep-existing-entries | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 1/3 | 0/3 | 3/3 | 3/3 | 2/3 | 1/3 |
+| meanings-in-request | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
+| no-codebook | verifier | 1/3 | 2/3 | 3/3 | 0/3 | 1/3 | 0/3 | 3/3 | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 3/3 |
+| partial-codebook | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
