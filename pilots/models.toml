@@ -9,6 +9,11 @@
 # Dropped after preflight on 2026-10-06: `qwen2.5-coder:1.5b` answers the tool-call probe with text,
 # `mistral:latest` does not answer it within 400s, and `olmo-3:32b` cannot be given tools.
 # `llama3.2:3b` and `llama3.1:8b` replace the first two; OLMo has no tool-calling model to replace it.
+#
+# Held out of every sweep as judges, never under test (`pilots/dsh-sweep/v2.sh`): `gpt-oss:120b`, the
+# gen-data-dict judge, kept so curate's judged runs stay comparable; and `nemotron-3.5-lightning`,
+# the maintainer arm's second judge (`pilots/dsh-maint/`), chosen because no other catalogue model
+# shares its family or its hybrid architecture.
 
 [models."qwen3:1.7b"] # 40960, tools thinking
 family = "qwen"
