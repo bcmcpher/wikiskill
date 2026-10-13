@@ -325,6 +325,8 @@ Read this first: it decides what kind of task to write.
      activated is the expected one. This is `route@1`. It is measured only under ROUTED, because
      the route is impossible under OFF and denied under INJECTED.
    - **A task with neither** is "not measured". It is never reported as zero.
+   - **A task with no `expect`** is `skipped` under INJECTED, whatever its verifiers. INJECTED puts
+     the expected component into context, and such a task names none.
 6. Over repeats, a task passes on a model and condition when it passes in more than half of its
    repeats. A tie counts as a failure.
 
@@ -338,7 +340,7 @@ A unit that did not run is never a failure. Its outcome says why:
 | `tool_call_as_text` | The model wrote a tool call as text instead of making it. | Yes |
 | `api_error` | The model endpoint returned an error. | Yes |
 | `infra_error` | Setup failed, the harness crashed, or the unit timed out. | No |
-| `skipped` | A `requires` tool is missing on this machine. | No |
+| `skipped` | A `requires` tool is missing, the model failed preflight, or the task has no `expect` under INJECTED. | No |
 
 The report's `pass basis` column says whether each rate is based on `verifier` or `route`. The two
 are never compared with each other.
@@ -394,6 +396,10 @@ the authority. [`templates/suite.yaml`](templates/suite.yaml) is a template to c
 | `env` | Merged. The task's value wins for a name set in both. |
 | `requires`, `guard` | The task's value replaces the default. |
 
+An empty value does not clear a default. `setup: []`, `requires: []` and `guard: {}` count as
+unset, so the task gets the default. To start a task from an empty directory, give it a `setup` of
+its own, such as `[git init -q]`.
+
 **A task:**
 
 | Field | Required | Type | Meaning |
@@ -435,17 +441,19 @@ skill from a plain request? It is cheap, and it only means something under ROUTE
   expect: { skill: changelog }
 ```
 
-**An outcome task** has verifiers, and usually also `expect`. The verifiers decide pass or fail
-under every condition, so it is the task that measures content value. The route is reported beside
-it.
+**An outcome task** has verifiers and `expect`. The verifiers decide pass or fail under every
+condition, so it is the task that measures content value. The route is reported beside it. Without
+`expect`, INJECTED has no component to put into context, and skips the task.
 
 **A control** is a near-miss: a neighbouring request the skill should leave alone. It has no
 `expect` for the skill under test, and its verifiers check that the skill's footprint is absent.
-A control catches a description that is too greedy.
+A control catches a description that is too greedy. It runs under OFF and ROUTED; INJECTED skips it,
+which is correct, because a control measures routing.
 
 **A refusal task** sets up a state where the right action is to stop or to say no, such as a
 missing credential or nothing to do. These tasks often show the largest content value, because a
-model without the skill tends to push on and invent something.
+model without the skill tends to push on and invent something. Give a refusal task `expect`, so
+that INJECTED runs it and content value can be measured.
 
 A useful first suite has two or three routing or outcome tasks per skill, one control, and one
 refusal task. Grow it after you have read the first run.
@@ -465,9 +473,22 @@ suites/
 ├── changelog.yaml
 └── fixtures/
     └── changelog-repo/
-        ├── CHANGELOG.md          # an existing changelog with a v1.0 section
+        ├── CHANGELOG.md          # an existing changelog with a 1.0.0 section
         └── pyproject.toml        # version = "1.0.0"
 ```
+
+The fixture's `CHANGELOG.md` already lists the 1.0.0 release:
+
+```markdown
+# Changelog
+
+## [1.0.0] - 2026-09-01
+
+### Added
+- Legacy importer for old project files.
+```
+
+A verifier that reads this file must look only at what the model adds. Section 3.8 shows how.
 
 **Setup** builds state that depends on commands, such as git history. Pass the git identity on the
 command line, because the unit's environment does not have your `~/.gitconfig`:
@@ -497,12 +518,17 @@ Follow these rules for the starting state:
   relative path finds nothing in a fresh directory. Link `plugins` to where the run installs the
   collection. Under OFF the link is broken, which is correct.
 
-`guard.deny` takes glob patterns, matched against the whole shell command. `*` matches anything
-and `?` matches one character:
+`guard.deny` takes glob patterns. `*` matches anything and `?` matches one character. A pattern
+must match a whole command. Each part of a command split on `&&`, `||`, `;`, `|` or a newline is
+also matched, so `cd x && git push` is denied by `git push*`:
 
 ```yaml
-guard: { deny: ["git push*", "git tag*", "curl *", "gh release*"] }
+guard: { deny: ["git push*", "curl *", "gh release*"] }
 ```
+
+Deny only what must never run, and make each pattern as narrow as that action. `git tag*` also
+denies `git tag --list`, which a changelog skill runs to find the last release. A correct run then
+ends `permission_blocked`. Catch a local action such as creating a tag with a verifier instead.
 
 The runner already denies by default anything that leaves the sandbox. `guard.deny` adds the
 task's own rules on top. A denied command gives the unit `permission_blocked`, which is scored.
@@ -542,7 +568,7 @@ suite loads.
 |---|---|
 | `pattern` | The regular expression. |
 | `target` | `final_text` (default): the model's last answer. `transcript`: all text of every session in the unit, subagents included. `file`: the file at `path`. |
-| `path` | Required when `target` is `file`. A missing file fails the check. |
+| `path` | Required when `target` is `file`. A missing file fails the check, so with `negate: true` it passes. |
 
 No regex flags are set. Put flags inside the pattern: `(?i)` ignores case, `(?m)` makes `^` and `$`
 match at each line, and `(?s)` lets `.` match a newline.
@@ -587,12 +613,17 @@ Follow these rules for verifiers:
 #   only commits since the last tag  → notes-since-last-tag → v2 (no "legacy importer")
 #   Keep a Changelog headings        → notes-since-last-tag → v0
 #   never commit, never tag          → notes-since-last-tag → v3, v4
-#   say so when nothing changed      → nothing-since-tag    → v0, v1
+#   say so when nothing changed      → nothing-since-tag    → v0, v1, v2
 #   control: version bump            → bump-is-not-a-changelog
 #
+# v0-v2 of notes-since-last-tag read only the text above the fixture's "## [1.0.0]" heading,
+# so the 1.0.0 section, which lists the legacy importer, never decides them.
+#
 # Hand-checked on 2026-10-12. A correct end state passes every task. Each wrong one fails:
-#   notes-since-last-tag     pre-tag commit listed → v2; a commit → v3; a new tag → v4
-#   nothing-since-tag        a changelog written anyway → v1; a reply claiming entries → v0
+#   notes-since-last-tag     pre-tag commit listed → v2; a commit → v3; a new tag → v4;
+#                            entries appended below 1.0.0 → v0, v1
+#   nothing-since-tag        a reply claiming entries → v0; a changelog written anyway → v1;
+#                            a changelog written and committed → v2
 #   bump-is-not-a-changelog  CHANGELOG.md edited too → v1; no bump → v0
 
 suite: changelog
@@ -602,7 +633,7 @@ defaults:
   repeats: 3
   timeout_s: 600
   max_steps: 20
-  guard: { deny: ["git push*", "git tag*", "gh release*"] }
+  guard: { deny: ["git push*", "gh release*"] }
   setup:
     - git init -q
     - git add -A && git -c user.name=t -c user.email=t@example.invalid commit -qm "Initial import"
@@ -624,9 +655,14 @@ tasks:
     fixtures: fixtures/changelog-repo
     expect: { skill: changelog }
     verifiers:
-      - { kind: regex, target: file, path: CHANGELOG.md, pattern: '(?m)^### (Added|Fixed)' }
-      - { kind: regex, target: file, path: CHANGELOG.md, pattern: '(?i)CSV export' }
-      - { kind: regex, target: file, path: CHANGELOG.md, pattern: '(?i)legacy importer', negate: true }
+      - kind: command
+        run: sed '/^## \[1\.0\.0\]/,$d' CHANGELOG.md | grep -Eq '^### (Added|Fixed)'
+      - kind: command
+        run: sed '/^## \[1\.0\.0\]/,$d' CHANGELOG.md | grep -qi 'CSV export'
+      - kind: command
+        run: >-
+          test -f CHANGELOG.md &&
+          ! sed '/^## \[1\.0\.0\]/,$d' CHANGELOG.md | grep -qi 'legacy importer'
       - { kind: command, run: 'test "$(git rev-list --count HEAD)" = 4' }
       - { kind: command, run: 'test "$(git tag)" = v1.0' }
 
@@ -634,6 +670,7 @@ tasks:
     prompt: Add this release's entries to CHANGELOG.md. Don't commit anything; I'll review it.
     split: train
     fixtures: fixtures/changelog-repo
+    expect: { skill: changelog }
     setup:                                   # replaces the default: HEAD is the tag
       - git init -q
       - git add -A && git -c user.name=t -c user.email=t@example.invalid commit -qm "Initial import"
@@ -641,6 +678,7 @@ tasks:
     verifiers:
       - { kind: regex, pattern: '(?i)(no|nothing) (new )?(changes|commits|entries)' }
       - { kind: command, run: 'test -z "$(git status --porcelain)"' }
+      - { kind: command, run: 'test "$(git rev-list --count HEAD)" = 1' }
 
   - id: bump-is-not-a-changelog
     prompt: Bump the patch version in pyproject.toml.
@@ -653,18 +691,31 @@ tasks:
 
 Some notes on this suite:
 
-- `nothing-since-tag` has no `expect`. A correct model may or may not load the skill to decide that
-  there is nothing to do, and the suite does not care which.
-- The control does not name the skill it should avoid. Its second verifier checks the skill's
-  footprint: an untouched `CHANGELOG.md`.
+- The first three verifiers of `notes-since-last-tag` are `command` verifiers, not `regex`.
+  `sed '/^## \[1\.0\.0\]/,$d'` prints only the lines above the fixture's 1.0.0 heading: the new
+  entries. A regex over the whole file would also read the 1.0.0 section. It would find
+  `### Added` there whatever the model wrote, and fail every run on "legacy importer". New entries
+  appended below 1.0.0 fail, as Keep a Changelog puts the newest release first.
+- The `test -f CHANGELOG.md &&` in v2 makes a missing file fail. Without it, the negation passes
+  when there is nothing to read.
+- These verifiers are block mappings, and their commands are plain or folded (`>-`) scalars. A
+  flow mapping `{ … }` cannot hold them unquoted: `[`, `]` and `,` have a meaning inside one.
+- `nothing-since-tag` has an `expect`, so INJECTED runs it and measures its content value. Its
+  verdict comes from the verifiers alone, under every condition; the route is only reported.
+- `nothing-since-tag` checks both the tree and the commit count. A clean tree alone passes a
+  changelog that was written and then committed.
+- The control has no `expect`, so INJECTED skips it. It does not name the skill it should avoid.
+  Its second verifier checks the skill's footprint: an untouched `CHANGELOG.md`.
+- The guard denies only what would leave the machine. Tag creation is local, and v4 catches it. A
+  `git tag*` pattern would also deny `git tag --list`, which the skill needs.
 - The default `setup` makes the commit count 4. The verifier `test "$(git rev-list --count HEAD)" =
   4` detects any commit the model makes.
 - The two `setup` lines with `feat:` and `fix:` are in single quotes. Unquoted, YAML reads
   `-m "feat: add CSV export"` as a mapping, and `suite check` refuses it. Quote any command that
   contains `: `.
-- `suite check` passes this suite with one warning: the prompt of `notes-since-last-tag` contains
-  `changelog`, half of the route's name. Here the word names the file the user wants edited, not the
-  skill, so the warning is accepted. Record a judgement like this in the header comment.
+- `suite check` passes this suite with two warnings: the prompts of `notes-since-last-tag` and
+  `nothing-since-tag` contain `changelog`, half of the route's name. Here the word names the file
+  the user wants edited, not the skill, so the warnings are accepted. Record a judgement like this in the header comment.
 
 ### 3.9 Add a rubric for what verifiers cannot see
 
@@ -724,7 +775,7 @@ manifest. Then:
   tune decisions. `test` tasks are held out to confirm a change at the end. wikiskill records the
   split but does not yet filter evidence by it, so keep the separation yourself: do not let a
   proposal be judged only on the tasks that motivated it. The refine stage's leakage check (section
-  5.3) does stop a proposal from copying any task's content.
+  5.3) refuses some of a task's content, but not its prompt or its `command` verifiers.
 - **`repeats`** sets how many times each task runs per model and condition. With one repeat, almost
   every difference is noise. Three is the useful minimum. `wikiskill eval --repeats N` overrides the
   suite without changing its hash, so you can add repeats later and still pool.
@@ -791,7 +842,9 @@ wikiskill eval --suite suites/changelog.yaml --collection my-skills \
 ```
 
 The number of units is tasks × models × conditions × repeats. The example suite above, on two
-models, is 4 × 2 × 3 × 3 = 72 units. Run a long matrix in a `tmux` session.
+models, is 4 × 2 × 3 × 3 = 72 units. The control's 6 INJECTED units are `skipped`, as it has no
+`expect`. The routing task's 12 OFF and INJECTED units run, but only ROUTED measures it. Run a long
+matrix in a `tmux` session.
 
 Options that change the result:
 
@@ -847,8 +900,8 @@ Results go to `~/.local/share/wikiskill/<collection>/evals/<run-id>/`:
  "tokens": {"input": 7120, "output": 512, "reasoning": 830, "cache_read": 6300},
  "activations": [{"kind": "skill", "name": "changelog"}],
  "expected": {"primary": "changelog", "agents": []},
- "verifiers": [{"kind": "regex", "passed": true, "detail": "/(?m)^### (Added|Fixed)/ found in CHANGELOG.md"},
-               {"kind": "regex", "passed": false, "detail": "/(?i)legacy importer/ found in CHANGELOG.md"}],
+ "verifiers": [{"kind": "command", "passed": true, "detail": "`sed … | grep -Eq …` exited 0, expected 0"},
+               {"kind": "command", "passed": false, "detail": "`test -f … legacy importer'` exited 1, expected 0"}],
  "passed": false}
 ```
 
@@ -1018,10 +1071,12 @@ included. It answers with `no_action` or a small set of exact find-and-replace e
 
 - The reply is about the one component it was asked about.
 - It cites that component's patterns and the evidence labels it was shown, and no others.
-- **Leakage:** the added text carries no evaluation content. Task ids, verifier literals of 8 or more
-  characters, rubric anchor text, and long user notes from any suite that evaluated the component
-  are refused. A skill that has memorised its test is not a better skill. `--allow-leak` accepts a
-  match you judge harmless, and records that you did.
+- **Leakage:** the added text carries no evaluation content. It is refused when it contains, from
+  any suite that evaluated the component, a task id with `-`, `_` or a digit, a literal of 8 or more
+  characters from a `regex` verifier, or rubric anchor text, or a long user note. A skill that has
+  memorised its test is not a better skill. Prompts and `command` verifiers are not checked, so read
+  the patch against them yourself. `--allow-overlap` accepts a match you judge harmless, and records
+  that you did.
 - Model-specific advice is marked as such, and rests on patterns scoped to those models.
 - The patch applies to your source repository, checked with `git apply --check`, which writes
   nothing.
@@ -1064,7 +1119,7 @@ Use the same `--repeats` and `--thinking` for both runs.
 ### 5.5 Replay: get a recommendation
 
 ```bash
-wikiskill proposal replay p-001 <baseline-run-id> <candidate-run-id>
+wikiskill proposal replay p-001 <baseline-run-id> <candidate-run-id> --collection my-skills
 ```
 
 Replay runs nothing. It checks that the two runs are what they claim, then compares them for each
@@ -1082,14 +1137,15 @@ model and each task:
 
 Replay **recommends acceptance** only when a motivating case improved on some model and no task fell
 past the tolerance on any model. It writes `replay.md` and `replay.json` into the proposal
-directory. Read them with `wikiskill proposal show p-001`.
+directory. Read them with `wikiskill proposal show p-001 --collection my-skills`.
 
 ### 5.6 Decide and apply
 
 Only you reach a final state:
 
 ```bash
-wikiskill proposal decide p-001 accept --note "fixes pre-tag leakage on both models; no regressions"
+wikiskill proposal decide p-001 accept --collection my-skills \
+  --note "fixes pre-tag leakage on both models; no regressions"
 ```
 
 The decision is `accept`, `reject` or `withdraw`. Each decision is added to `wiki/skill-impact.md`.
@@ -1099,13 +1155,16 @@ component sees it.
 To put an accepted proposal into your repository:
 
 ```bash
-wikiskill proposal apply p-001             # prints how to apply it; writes nothing
-wikiskill proposal apply p-001 --branch    # commits it on a new branch wikiskill/<component>/p-001
+# Print how to apply it; write nothing.
+wikiskill proposal apply p-001 --collection my-skills
+# Commit it on a new branch, wikiskill/<component>/p-001.
+wikiskill proposal apply p-001 --collection my-skills --branch
 ```
 
 `--branch` returns you to your branch afterwards. Review and merge the new branch yourself.
 
-`wikiskill proposal list` shows every proposal with its state and recommendation.
+`wikiskill proposal list --collection my-skills` shows every proposal with its state and
+recommendation.
 
 ### 5.7 Compare many versions
 
