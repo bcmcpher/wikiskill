@@ -35,7 +35,7 @@
   },
   "$defs": {
     "split": {
-      "description": "Which split a task belongs to. Refinement reads train, tuning reads val, and test is held out.",
+      "description": "Which split a task belongs to: train for refinement, val for tuning, test held out. Recorded with every result; review, refine and replay do not yet filter by it.",
       "enum": ["train", "val", "test"]
     },
     "requires": {
