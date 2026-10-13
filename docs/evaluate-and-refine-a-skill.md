@@ -220,7 +220,8 @@ sonnet = "ollama/qwen3:30b-a3b"
 [roles.judge]                       # scores rubric dimensions (section 3.9)
 base_url = "http://localhost:11434/v1"
 model = "gemma2:2b"
-# models = ["gpt-oss:120b", "llama3.3:latest", "nemotron-3.5-lightning:latest"]  # a panel
+# For a panel, replace `model` with `models`; a judge may not name both:
+# models = ["gpt-oss:120b", "llama3.3:latest", "nemotron-3.5-lightning:latest"]
 
 [roles.maintainer]                  # writes wiki patterns (section 5.2)
 base_url = "http://localhost:11434/v1"
@@ -298,8 +299,10 @@ Comparing the conditions separates two different failures:
 - **Content value** is INJECTED minus OFF. A value near zero means the text does not help. The body
   needs work.
 
-Under ROUTED and INJECTED, the unit can read its installed skills and their plugins' files, and
-nothing else outside its working directory.
+OpenCode's file tools can read the working directory and, under ROUTED and INJECTED, the installed
+skills and their plugins' files. They are denied everything else, and web fetches are denied. Shell
+commands are **not** confined: the model can run any command, such as `curl` or `cat ~/.ssh/...`,
+unless the task's `guard.deny` refuses it (section 3.5).
 
 ---
 
@@ -364,11 +367,11 @@ the commits since the last release. Its rules, and what each leaves to check:
 |---|---|---|
 | Include only commits since the last tag | the pre-tag commit's subject is absent from `CHANGELOG.md` | `notes-since-last-tag` |
 | Group entries under `### Added`, `### Changed`, `### Fixed` | those headings in `CHANGELOG.md` | `notes-since-last-tag` |
-| Never create a tag or bump the version | `git tag` lists only `v1.0` | every outcome task |
-| Never commit; leave the edit for review | the commit count is unchanged | every outcome task |
+| Never create a tag | `git tag` lists only `v1.0` | `notes-since-last-tag`, `nothing-since-tag` |
+| Never commit; leave the edit for review | the commit count is unchanged | `notes-since-last-tag`, `nothing-since-tag` |
 | Say so when nothing changed; write no empty section | reply says there is nothing new; tree is clean | `nothing-since-tag` |
 | (routing) Reach the skill from a plain request | first activation is `changelog` | `asks-for-release-notes` |
-| (control) Do not fire on a version bump | `CHANGELOG.md` not created | `bump-is-not-a-changelog` |
+| (control) Do not fire on a version bump | `CHANGELOG.md` unchanged | `bump-is-not-a-changelog` |
 
 Write this mapping in the suite's header comment. It is the first thing a reviewer reads.
 
@@ -490,8 +493,9 @@ The fixture's `CHANGELOG.md` already lists the 1.0.0 release:
 
 A verifier that reads this file must look only at what the model adds. Section 3.8 shows how.
 
-**Setup** builds state that depends on commands, such as git history. Pass the git identity on the
-command line, because the unit's environment does not have your `~/.gitconfig`:
+**Setup** builds state that depends on commands, such as git history. Setup runs with your own
+environment plus the task's `env`, so it can see your `~/.gitconfig`. Pass the git identity on the
+command line anyway, so that setup also works on a machine with no git identity:
 
 ```yaml
 setup:
@@ -530,8 +534,9 @@ Deny only what must never run, and make each pattern as narrow as that action. `
 denies `git tag --list`, which a changelog skill runs to find the last release. A correct run then
 ends `permission_blocked`. Catch a local action such as creating a tag with a verifier instead.
 
-The runner already denies by default anything that leaves the sandbox. `guard.deny` adds the
-task's own rules on top. A denied command gives the unit `permission_blocked`, which is scored.
+The runner allows every shell command by default. `guard.deny` is the only thing that stops one, so
+list every command that could reach the network or change something outside the working
+directory. A denied command gives the unit `permission_blocked`, which is scored.
 
 ### 3.6 Write the prompts
 
@@ -612,19 +617,20 @@ Follow these rules for verifiers:
 # Rule → task → verifier
 #   only commits since the last tag  → notes-since-last-tag → v2 (no "legacy importer")
 #   Keep a Changelog headings        → notes-since-last-tag → v0
-#   never commit, never tag          → notes-since-last-tag → v3, v4
-#   say so when nothing changed      → nothing-since-tag    → v0, v1, v2
+#   never commit, never tag          → notes-since-last-tag → v3, v4; nothing-since-tag → v2, v3
+#   say so when nothing changed      → nothing-since-tag    → v0, v1
 #   control: version bump            → bump-is-not-a-changelog
 #
-# v0-v2 of notes-since-last-tag read only the text above the fixture's "## [1.0.0]" heading,
-# so the 1.0.0 section, which lists the legacy importer, never decides them.
+# v0-v2 of notes-since-last-tag read only the lines added to CHANGELOG.md since v1.0, so the
+# fixture's 1.0.0 section, which lists the legacy importer, never decides them.
 #
-# Hand-checked on 2026-10-12. A correct end state passes every task. Each wrong one fails:
+# Hand-checked on 2026-10-12. A correct end state passes every task, also with the 1.0.0 heading
+# rewritten. Each wrong one fails:
 #   notes-since-last-tag     pre-tag commit listed → v2; a commit → v3; a new tag → v4;
-#                            entries appended below 1.0.0 → v0, v1
-#   nothing-since-tag        a reply claiming entries → v0; a changelog written anyway → v1;
-#                            a changelog written and committed → v2
-#   bump-is-not-a-changelog  CHANGELOG.md edited too → v1; no bump → v0
+#                            no new section → v0, v1
+#   nothing-since-tag        "Added 2 entries." → v0; a changelog written anyway → v1;
+#                            written and committed → v2; a new tag → v3
+#   bump-is-not-a-changelog  CHANGELOG.md edited, even if staged → v1; no bump → v0
 
 suite: changelog
 description: Does the changelog skill write correct entries, and stay out of the way otherwise?
@@ -656,13 +662,13 @@ tasks:
     expect: { skill: changelog }
     verifiers:
       - kind: command
-        run: sed '/^## \[1\.0\.0\]/,$d' CHANGELOG.md | grep -Eq '^### (Added|Fixed)'
+        run: git diff v1.0 -- CHANGELOG.md | grep -Eq '^\+### (Added|Fixed)'
       - kind: command
-        run: sed '/^## \[1\.0\.0\]/,$d' CHANGELOG.md | grep -qi 'CSV export'
+        run: git diff v1.0 -- CHANGELOG.md | grep -qi '^+.*CSV export'
       - kind: command
         run: >-
           test -f CHANGELOG.md &&
-          ! sed '/^## \[1\.0\.0\]/,$d' CHANGELOG.md | grep -qi 'legacy importer'
+          ! git diff v1.0 -- CHANGELOG.md | grep -qi '^+.*legacy importer'
       - { kind: command, run: 'test "$(git rev-list --count HEAD)" = 4' }
       - { kind: command, run: 'test "$(git tag)" = v1.0' }
 
@@ -676,9 +682,11 @@ tasks:
       - git add -A && git -c user.name=t -c user.email=t@example.invalid commit -qm "Initial import"
       - git tag v1.0
     verifiers:
-      - { kind: regex, pattern: '(?i)(no|nothing) (new )?(changes|commits|entries)' }
+      - kind: regex
+        pattern: '(?i)nothing (new|has changed|to add|since)|no (new )?(changes|commits|entries) since'
       - { kind: command, run: 'test -z "$(git status --porcelain)"' }
       - { kind: command, run: 'test "$(git rev-list --count HEAD)" = 1' }
+      - { kind: command, run: 'test "$(git tag)" = v1.0' }
 
   - id: bump-is-not-a-changelog
     prompt: Bump the patch version in pyproject.toml.
@@ -686,27 +694,34 @@ tasks:
     fixtures: fixtures/changelog-repo
     verifiers:
       - { kind: regex, target: file, path: pyproject.toml, pattern: 'version = "1\.0\.1"' }
-      - { kind: command, run: 'git diff --quiet -- CHANGELOG.md' }
+      - { kind: command, run: 'git diff --quiet HEAD -- CHANGELOG.md' }
 ```
 
 Some notes on this suite:
 
 - The first three verifiers of `notes-since-last-tag` are `command` verifiers, not `regex`.
-  `sed '/^## \[1\.0\.0\]/,$d'` prints only the lines above the fixture's 1.0.0 heading: the new
-  entries. A regex over the whole file would also read the 1.0.0 section. It would find
-  `### Added` there whatever the model wrote, and fail every run on "legacy importer". New entries
-  appended below 1.0.0 fail, as Keep a Changelog puts the newest release first.
+  `git diff v1.0 -- CHANGELOG.md` shows what changed in the file since the release, staged and
+  committed changes included. `grep '^+…'` reads only its added lines: the new entries. A regex
+  over the whole file would also read the 1.0.0 section. It would find `### Added` there whatever
+  the model wrote, and fail every run on "legacy importer".
+- The diff does not depend on the wording of the old heading. A model that reformats it still
+  passes.
 - The `test -f CHANGELOG.md &&` in v2 makes a missing file fail. Without it, the negation passes
   when there is nothing to read.
-- These verifiers are block mappings, and their commands are plain or folded (`>-`) scalars. A
-  flow mapping `{ … }` cannot hold them unquoted: `[`, `]` and `,` have a meaning inside one.
+- These verifiers are block mappings with plain or folded (`>-`) scalars. A flow mapping `{ … }` cannot hold them
+  unquoted: `[`, `]` and `,` have a meaning inside one.
+- The reply regex of `nothing-since-tag` accepts several correct phrasings, such as "Nothing has
+  changed since v1.0" and "no new commits since v1.0". It ties a bare "no changes" to "since", so
+  "no changes were committed" does not match. A regex cannot prove that a reply is true. The state
+  verifiers carry the rule, and v0 only checks that the model says so.
 - `nothing-since-tag` has an `expect`, so INJECTED runs it and measures its content value. Its
   verdict comes from the verifiers alone, under every condition; the route is only reported.
 - `nothing-since-tag` checks both the tree and the commit count. A clean tree alone passes a
   changelog that was written and then committed.
 - The control has no `expect`, so INJECTED skips it. It does not name the skill it should avoid.
-  Its second verifier checks the skill's footprint: an untouched `CHANGELOG.md`.
-- The guard denies only what would leave the machine. Tag creation is local, and v4 catches it. A
+  Its second verifier checks the skill's footprint: a `CHANGELOG.md` unchanged since `HEAD`.
+  `git diff HEAD` also sees a staged edit; a bare `git diff` does not.
+- The guard denies the commands that publish. Tag creation is local, and a verifier catches it. A
   `git tag*` pattern would also deny `git tag --list`, which the skill needs.
 - The default `setup` makes the commit count 4. The verifier `test "$(git rev-list --count HEAD)" =
   4` detects any commit the model makes.
@@ -715,7 +730,8 @@ Some notes on this suite:
   contains `: `.
 - `suite check` passes this suite with two warnings: the prompts of `notes-since-last-tag` and
   `nothing-since-tag` contain `changelog`, half of the route's name. Here the word names the file
-  the user wants edited, not the skill, so the warnings are accepted. Record a judgement like this in the header comment.
+  the user wants edited, not the skill, so the warnings are accepted. Record a judgement like this
+  in the header comment.
 
 ### 3.9 Add a rubric for what verifiers cannot see
 
@@ -764,8 +780,9 @@ Point a task at it with `rubric: changelog-quality.yaml`, and configure `[roles.
 manifest. Then:
 
 - The judge never sees the expected route, and is never a model under test.
-- A judge from the same model family as the judged model is marked in the report, beside the other
-  judges' majority.
+- With a model catalogue (`wikiskill report <run> --models-file examples/models.toml`), a judge
+  from the same family as the judged model is marked, beside the other judges' majority. Without a
+  catalogue, nothing is marked.
 - Read the judge's levels on a few units yourself. A judge is a model, and its anchors are only as
   good as their wording.
 
@@ -801,9 +818,12 @@ manifest. Then:
    - at least two plausible wrong end states must each fail. Try a fabricated value, an edit to a
      file that should stay unchanged, and the right answer in the wrong form.
 3. Record what you hand-checked in the suite's header comment.
-4. **Freeze the suite.** Its content is hashed into every run, and runs with different hashes never
-   pool. An edited prompt or verifier is a new experiment. To make a suite harder, write a new suite
-   file, so that the old runs stay comparable.
+4. **Freeze the suite.** The suite file's bytes are hashed into every run, and runs with different
+   hashes never pool. An edited prompt or verifier is a new experiment. To make a suite harder,
+   write a new suite file, so that the old runs stay comparable.
+5. **Freeze the fixtures and the rubric too.** They are not in the hash. If you edit one, the new
+   runs still pool with the old ones, without a warning. Write a new suite file with the edit, so
+   the hash changes.
 
 ---
 
@@ -900,7 +920,7 @@ Results go to `~/.local/share/wikiskill/<collection>/evals/<run-id>/`:
  "tokens": {"input": 7120, "output": 512, "reasoning": 830, "cache_read": 6300},
  "activations": [{"kind": "skill", "name": "changelog"}],
  "expected": {"primary": "changelog", "agents": []},
- "verifiers": [{"kind": "command", "passed": true, "detail": "`sed … | grep -Eq …` exited 0, expected 0"},
+ "verifiers": [{"kind": "command", "passed": true, "detail": "`git diff v1.0 … | grep -Eq …` exited 0, expected 0"},
                {"kind": "command", "passed": false, "detail": "`test -f … legacy importer'` exited 1, expected 0"}],
  "passed": false}
 ```
@@ -937,8 +957,9 @@ difference", and you should not rank them.
    an example is a verifier fault.
 3. Confirm that each condition ran as intended. Under INJECTED, the component's own instructions
    should drive the transcript. Under OFF, no component loads.
-4. Count the harness outcomes separately. `permission_blocked`, `step_exhausted` and `infra_error`
-   are not task failures; check how many units needed `--retries` or `--fill`.
+4. Count the outcomes separately. `infra_error` and `skipped` units are left out of the rate; check
+   how many units needed `--retries` or `--fill`. `permission_blocked` and `step_exhausted` units
+   count as failures. Read them, to know whether the model broke a rule or the budget was too low.
 5. If a verifier is wrong, fix it in a **new** suite file, discard the runs made with the old one,
    and say so in your report.
 
