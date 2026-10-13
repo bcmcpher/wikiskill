@@ -205,6 +205,8 @@ DIMENSIONS = ("diagnosis", "specificity", "regression_risk", "generality")
 def table(maint_root: str, out_dir: str) -> int:
     rows = []
     for state in sorted(Path(maint_root).glob("*/results/*.json")):
+        if "." in state.stem:  # <unit>.judge.<model>.json, <unit>.replay.<model>.json
+            continue
         record = json.loads(state.read_text(encoding="utf-8"))
         root = state.parent.parent
         unit = state.stem
