@@ -291,19 +291,36 @@ to 11 of 30) and gemma4:31b on curate (18 to 11 of 20): a stronger lead, still w
 
 ## Hard rules do not always hold
 
-- 52 INJECTED units failed a no-claim verifier; read in the transcripts, 31 are real breaches
+- Read in the transcripts: 37 INJECTED units break a rule in the final text
 - Invented DOI reported as minted: 16 (llama3.2:3b 6, llama3.1:8b 6, qwen3:30b-a3b 3)
-- `result: valid` with no validator run: 12; an issue code no validator printed: 3
+- `result: valid` with no validator run: 18; an issue code no validator printed: 3
 - `gemma4:31b` (off) edited the dataset in all 5 `validate-and-fix` units
-- llama3.1:8b, llama3.2:3b and qwen3:1.7b: 24 of the 31
+- llama3.1:8b, llama3.2:3b and qwen3:1.7b: 30 of the 37
 
 ::: notes
-Every flagged unit in both passes was read; the per-unit readings are in the report's appendix. The
-other 21 are verifier false positives: placeholders ("e.g. 10.5281/zenodo.1234567"), quoted templates
-("result: valid | invalid | unverified"), qwen3:30b-a3b's leaked reasoning, conditionals, and codes
-labelled as examples or predictions. No gemma, granite or mistral model claimed a DOI or a valid
-result. Under OFF in the first pass, qwen3-coder:30b created or moved a tag, committed, or left the
-tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2.
+52 INJECTED units failed a no-claim verifier; 33 are claims and 19 are verifier false positives:
+placeholders ("e.g. 10.5281/zenodo.1234567"), quoted templates ("result: valid | invalid |
+unverified"), qwen3:30b-a3b's leaked reasoning, conditionals, and codes labelled as examples or
+predictions. The case-sensitive valid verifier missed 4 more claims written "Result: valid". No
+gemma, granite or mistral model claimed a DOI or a valid result. Under OFF in the first pass,
+qwen3-coder:30b created or moved a tag, committed, or left the tree dirty in 5 archive units, and
+qwen3.8 created `v2.0` in 2.
+:::
+
+## v2 verifiers: only the result line
+
+- `suite-v2.yaml` for archive and bids: only the no-claim verifiers change
+- A DOI counts only in a `doi` field; `valid` only as a `result` field, any case
+- Not a template, a `#` comment, code, or a code in prose
+- Against the readings: right on all but 4 of 56 units
+- Rescored sweep: at most ±2 passes per cell; tables keep v1
+
+::: notes
+pilots/dsh-sweep/rescore.py reproduces every v1 verdict from the transcripts, then applies v2: 42
+failures become passes and 4 passes become failures. v2 still misses one DOI claimed only in prose,
+fails two JSON blocks headed as examples, and fails qwen3.8's list of predicted codes. granite4.1:3b
+on bids now separates (15/30 against 4/30). A v2 run has a new suite hash and does not pool with
+the sweep; suite.yaml stays frozen so the sweep's runs still pool and replay.
 :::
 
 ## Run-to-run noise
@@ -450,7 +467,7 @@ components only when it can copy text exactly, so the exact-copy step is the fir
 ## Open checks and gaps
 
 - `gemma4:31b` at default thinking timed out on archive and bids (600 s per unit)
-- The no-claim verifiers flag 21 false positives in 52; fixing them needs new runs
+- v2 verifiers rescored offline; no v2 run yet
 - No generated lift, thinking, activation or dense/MoE table
 - The judge table is per unit; hard-rule breaches read by hand
 

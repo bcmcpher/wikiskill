@@ -7,10 +7,11 @@ Merge `main` into this branch for new wikiskill code.
 | path | what |
 |---|---|
 | `pilots/<unit>/suite.yaml`, `dsh-<unit>.toml` | each unit's suite and collection manifest |
+| `pilots/{archive,bids}-doer/suite-v2.yaml` | the doers' suites with result-line verifiers; `dsh-sweep/rescore.py` rescores the sweep with them |
 | `pilots/gen-data-dict/rubric.yaml` | curate's judge rubric |
 | `pilots/data-science-harness.toml` | a manifest for the whole DSH marketplace |
 | `pilots/models.toml` | the model catalogue: family, size and shape |
-| `pilots/dsh-sweep/` | the model sweep (`sweep.sh`) and its completeness check |
+| `pilots/dsh-sweep/` | the model sweep (`sweep.sh`, `v2.sh`), its completeness check, and the noise, token and rescoring scripts |
 | `docs/pilots/dsh`, `dsh-bids`, `dsh-curate` | the studies: bundled runs, tables, figures, report, slides |
 | `openspec/changes/add-dsh-pilot/` | the pilot's design and its open tasks |
 
