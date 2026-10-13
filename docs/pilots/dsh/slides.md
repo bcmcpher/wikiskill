@@ -306,6 +306,22 @@ result. Under OFF in the first pass, qwen3-coder:30b created or moved a tag, com
 tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2.
 :::
 
+## Run-to-run noise
+
+- First-pass entrants: 3 repeats on 10-06/07, 2 more on 10-11, same settings
+- Mean day-to-day spread 6.4 points; sampling alone gives 5.0–7.0
+- No cell differs between days (Fisher p < 0.05: 0 of 92)
+- 362 of 488 model × task pairs pass or fail every unit on both days
+- Pooling the two passes is sound
+
+::: notes
+`pilots/dsh-sweep/noise.py`. The null resamples each (cell, task) at its own pooled pass rate. Mean
+signed change: archive +0.5, bids +0.4, curate −3.0 points; curate's judge also ran on both days, so
+a judge shift cannot be told apart. `wikiskill compare` of gemma4:latest's two days, the design's
+noise rerun, finds no detectable difference in any cell. Models added in the second pass ran on one
+day only.
+:::
+
 ## Terms: thinking and tokens
 
 | term | what it means here |

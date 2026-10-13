@@ -137,7 +137,7 @@ Any such change should go back through a candidate run before it is relied on.
 **Status.** A draft for a proof of concept. The sweep ran in two passes. The first (2026-10-06 to
 10-07) ran eleven models at 3 repeats. The second (2026-10-09 to 10-11, `pilots/dsh-sweep/v2.sh`)
 added five more models at 5 repeats, and added 2 repeats to every model already recorded, so every
-cell now pools 5 repeats over at least two days. That is half the design's 10, so intervals are
+cell now has 5 repeats; the first pass's cells span two days (see "Run-to-run noise"). That is half the design's 10, so intervals are
 about ±17 points at 50% on the doers and ±21 on curate. Most places in each ranking are still not
 findings.
 
@@ -253,6 +253,30 @@ the appendix.
     `qwen3.8`'s codes labelled as predictions because no validator ran.
   So the raw verifier counts overstate breaches by about two thirds. A verifier that matched only
   the structured result line would fix this, but needs a new suite file and new runs.
+
+### Run-to-run noise (4.5)
+
+Every first-pass entrant ran 3 repeats on 2026-10-06 or 10-07, and 2 more on 2026-10-11 with the
+same suite hash and settings. `pilots/dsh-sweep/noise.py` splits each of the 92 suite × entrant ×
+condition cells into the two days and compares them.
+
+- **The day-to-day spread is what sampling alone predicts.** The mean |second day − first day| is
+  6.4 points (median 5.6, largest 37.5). Resampling each (cell, task) at its own pooled pass rate
+  gives a mean of 5.9 points (90% range 5.0–7.0), and 21% of those draws spread at least as far.
+- **No cell differs between days.** No cell has a Fisher p below 0.05, where about 5 would by
+  chance. The smallest is `qwen3-coder:30b` on curate INJECTED, 6/12 then 1/8 (p = 0.16).
+- **No drift on the doers, a small one on curate.** The mean signed change is +0.5 points on
+  archive and +0.4 on bids, but −3.0 on curate. Curate is the only suite with a judge, and
+  `gpt-oss:120b` also judged on both days, so a judge shift cannot be told from a model shift.
+- **Tasks are stable.** Of 488 (cell, task) pairs, 362 pass every unit or fail every unit on both
+  days. Only 2 flip from all-pass to all-fail or back, both `granite4.1:8b` on bids. The other 124
+  are mixed on at least one day.
+- **The design's gemma4 rerun.** `wikiskill compare` of `gemma4:latest`'s two days, at
+  `--thinking default`, finds no detectable difference in any of the six suite × condition cells.
+  Archive INJECTED, for example, is 17/18 then 12/12.
+
+So pooling the two passes is sound, and the intervals in the tables are the right measure of
+uncertainty. The models added in the second pass ran on one day only, so this does not cover them.
 
 ### Tokens per unit (first pass only, heavily qualified)
 
@@ -421,8 +445,6 @@ The full table is `../dsh-maint/tables/maint.md`.
 - **gemma4:31b at `--thinking default` on archive and bids.** Not recorded: 12 and 5 units hit the
   600 s per-unit timeout in the first pass. The timeout is not raised, so every model runs under
   the same budget.
-- **Noise (4.5).** Every cell now pools runs from at least two days. A per-day spread is not yet
-  computed.
 
 ## Reporting gaps
 

@@ -128,8 +128,10 @@ catalogue models then passed, and the sweep's seven again before launch.
   hash no longer matches v1 (see the scope note).
 - [ ] 4.4 Thinking arm: `--thinking off` for the models that can think (from 4.1), same suite and
   repeats.
-- [ ] 4.5 Noise: rerun `gemma4` on the v1 settings on a different day. Use `wikiskill compare`
-  for the run-to-run spread.
+- [x] 4.5 Noise: rerun `gemma4` on the v1 settings on a different day. Use `wikiskill compare`
+  for the run-to-run spread. Done on the sweep instead: `v2.sh 1b` reran every first-pass entrant
+  four or five days later; `pilots/dsh-sweep/noise.py` gives the spread, and `compare` of gemma4's two
+  days finds no difference.
 - [ ] 4.6 Declare a `sweep` leaderboard table over roles `sweep` and `v1` in the study, then run
   `wikiskill findings bundle`, `findings tables` and `bin/figures`. Answer the design's six
   questions from the per-model table.
