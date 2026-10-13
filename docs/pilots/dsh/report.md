@@ -278,32 +278,39 @@ condition cells into the two days and compares them.
 So pooling the two passes is sound, and the intervals in the tables are the right measure of
 uncertainty. The models added in the second pass ran on one day only, so this does not cover them.
 
-### Tokens per unit (first pass only, heavily qualified)
+### Tokens per unit (heavily qualified)
 
-These figures come from the first pass (3 repeats, the first eleven models), computed from the
-bundled `results.jsonl` with a one-off script. They were not recomputed for the second pass. The
-full tables' "Outcomes and cost" sections give the current median input and output per model and
-condition. "Per pass" is a cell's total output divided by its passed units.
+Each unit records `tokens` summed over every model call it made, child sessions included. The
+figures below pool both passes and come from `pilots/dsh-sweep/tokens.py tokens`, which reads the
+bundled `results.jsonl`; its full table is in the appendix ("Tokens per unit, both passes").
+"Per pass" is a cell's total output divided by its passed units. "Context" is `input` +
+`cache_read`, the prompt the model actually read, over the units that record `cache_read`.
 
-- **INJECTED usually costs more per unit, and less per pass.** The doer adds steps, but passes rise
-  faster:
-  - On bids, output per pass for `granite4.1:8b` falls from about 9.2k (OFF) to 0.9k (INJECTED).
-  - For `gemma4:latest` on bids it falls from 8.3k to 3.5k.
-  - Per unit, `qwen3:30b-a3b` on bids rises from a median of 1.7k to 4.4k.
+- **INJECTED usually costs more per unit, and less per pass.** Output per unit is higher under
+  INJECTED in 48 of 67 suite × entrant pairs, and output per pass is lower in 36 of 61:
+  - On bids, output per pass for `granite4.1:8b` falls from 7.0k (OFF) to 1.0k (INJECTED), and for
+    `gemma4:latest` from 12.2k to 3.8k.
+  - `qwen3:30b-a3b` on bids rises from a median of 1.6k to 4.5k per unit, but falls from 28.8k to
+    6.4k per pass.
 - **The doer can make a model cheaper per unit as well.** On archive, `gemma4:31b` (thinking off)
-  falls from a median of 1.6k to 0.2k per unit.
+  falls from a median of 1.6k to 0.2k output per unit, and its median context from 271k to 17k. `qwen3.8` falls from 3.6k to 2.7k, and its context from 96k
+  to 21k.
+- **The doer usually adds context.** Context is larger under INJECTED in 50 of 67 pairs, typically
+  from about 6k to 25–60k, as the agent's prompt and its skills are loaded. The exceptions include the two
+  above, whose OFF units read far more context.
 - **Thinking off cuts output where it takes effect.** On archive INJECTED, `gemma4:latest` falls
-  from a median of 1.6k to 0.3k. On bids INJECTED, `qwen3:30b-a3b` does not move (4.4k against
-  4.4k): its reasoning moves into the reply rather than stopping (see below).
-- **`qwen3:30b-a3b` is the most verbose model.** Its median is 6.6k output per unit on curate
-  INJECTED, against 3.2k for `gemma4:31b`.
+  from a median of 1.6k to 0.3k, `qwen3.8` from 2.7k to 1.2k, and `glm-4.7-flash` from 1.0k to
+  0.5k. On bids INJECTED, `qwen3:30b-a3b` does not move (4.5k against 4.4k), and `gpt-oss:20b`
+  rises (1.4k to 1.5k): neither stops thinking (see below).
+- **`qwen3:30b-a3b` is the most verbose model.** Its median is 6.2k output per unit on curate
+  INJECTED (6.5k at `off`), against 3.7k for `gemma4:31b` and `qwen3.8`, which pass twice as often.
 
 What these numbers are not:
-- **Not the context processed.** `input` counts only the prompt the server evaluated afresh. The
-  prefix Ollama reused from its cache is not counted. In one 7-step bids unit, `input` summed to
-  4.9k against 34k read from the cache. The second pass's runs record `cache_read` as well.
+- **Not always the context.** `input` alone counts only the prompt the server evaluated afresh.
+  Context is reported only where `cache_read` was recorded: every second-pass unit, and the first
+  pass's last runs. For the first-pass entrants that is 12 of 30 units per cell (8 of 20 on curate).
 - **Output without its split.** `tokens.reasoning` is 0 in every unit, although the transcripts do
-  hold reasoning parts. `output` is visible text plus reasoning.
+  hold reasoning parts. `output` is visible text plus reasoning; the next section estimates the split.
 - **Not comparable across families.** Each family has its own tokenizer, so counts compare within a
   model (OFF against INJECTED, thinking on against off), not across models.
 - **Truncated at the edges.** Output is capped at 8192 tokens per turn, and `step_exhausted` units
@@ -370,35 +377,44 @@ panels.
   mistral and llama, and two of the MoE models are qwen. `qwen3:30b-a3b` moves its reasoning into
   the reply at `off`, so pairs at `off` are not clean on thinking.
 
-### What `--thinking off` did, per model (first pass)
+### What `--thinking off` did, per model
 
-Every run at `off` sends `reasoningEffort: none`. The first pass's transcripts show three different
-outcomes. Each unit's reasoning parts were counted. Its visible text and tool-call arguments were
-estimated at 4 characters a token, and compared with the `output` it reports. The figures are
-medians per unit over all three suites, from a one-off script over the first pass's runs; the
-second pass's models (`glm-4.7-flash`, and `qwen3.8` at default) were not measured.
+Every run at `off` sends `reasoningEffort: none`. `pilots/dsh-sweep/tokens.py thinking` reads every
+unit's transcript, child sessions included, over all three suites and both passes. It estimates
+the visible text plus tool-call arguments, and the reasoning parts' text, at 4 characters a token,
+and compares them with the `output` the unit reports. The figures are medians per unit; reasoning
+parts are counted per unit, and a final reply "thinks aloud" if it opens with "Okay", "The user
+wants", "Let me" or the like.
 
-| model | default: output / visible / reasoning parts | off: output / visible / reasoning parts | what off did |
-|---|---|---|---|
-| `gemma4:latest` | 1363 / 250 / 366 | 153 / 164 / 0 | stopped thinking |
-| `gemma4:31b` | 2057 / 286 / 123 | 390 / 279 / 0 | stopped thinking |
-| `qwen3:1.7b` | 1490 / 191 / 481 | 147 / 150 / 0 | stopped thinking |
-| `gpt-oss:20b` | 725 / 371 / 244 | 1083 / 472 / 306 | ignored: still thinks |
-| `qwen3:30b-a3b` | 2441 / 123 / 299 | 2291 / 2428 / 0 | moved the reasoning into the reply |
-| `qwen3.8:latest` | not run | 1483 / 1059 / 0 | stopped thinking |
+| model | default: output / visible / reasoning | off: output / visible / reasoning | units with reasoning, default → off | final reply thinks aloud at off | what off did |
+|---|---|---|---|---|---|
+| `gemma4:latest` | 1527 / 228 / 1165 | 168 / 154 / 0 | 160 → 0 | 7 of 160 | stopped thinking |
+| `gemma4:31b` | 2010 / 263 / 1352 | 406 / 270 / 0 | 40 → 0 | 0 | stopped thinking |
+| `qwen3:1.7b` | 1502 / 172 / 1274 | 168 / 130 / 0 | 160 → 0 | 0 | stopped thinking |
+| `qwen3.8:latest` | 2727 / 775 / 1524 | 1402 / 1028 / 0 | 160 → 0 | 1 of 160 | stopped thinking |
+| `glm-4.7-flash:latest` | 1281 / 555 / 598 | 865 / 659 / 0 | 160 → 0 | 2 of 160 | stopped thinking |
+| `gpt-oss:20b` | 799 / 360 / 160 | 1086 / 432 / 313 | 160 → 160 | 2 of 160 | ignored: thinks more |
+| `qwen3:30b-a3b` | 2414 / 103 / 2367 | 2242 / 2316 / 0 | 160 → 0 | 160 of 160 | moved the reasoning into the reply |
 
-- **`qwen3:30b-a3b` still reasons at `off`.** Its reasoning becomes visible text instead. Its
-  replies open with "Okay, let's see. The user wants…" and think aloud before the answer.
-- **That leaked reasoning trips final-text verifiers.** Both of its bids `result: valid` failures
-  at `off` in the first pass were the reasoning quoting the doer's template, not a claim. The
-  archive DOI failure at `off` is real: the reply reasons its way to a "simulated success" and
-  reports `result: ok` with an invented DOI.
-- **`gpt-oss:20b` ignores `none`.** It goes on producing reasoning parts. gpt-oss's effort levels
-  are low, medium and high.
-- **`qwen3.8` stops thinking at `off`.** None of its first-pass units has a reasoning part. It
-  narrates its plan between tool calls, but rarely in its final reply, so its final-text verifiers
-  are not tripped the way `qwen3:30b-a3b`'s are.
-- **So the thinking arm holds for gemma4, `qwen3:1.7b` and `qwen3.8`.**
+`gemma4:31b`'s default row is curate only (40 units); it timed out on the doers at default.
+Output is close to visible plus reasoning in every row, so the estimates account for the reported
+output. They replace the first draft's figures, whose reasoning column was computed differently.
+
+- **Five models stop thinking at `off`.** Their reasoning parts vanish and output falls to about
+  the visible text: by 89% for `gemma4:latest` and `qwen3:1.7b`, 80% for `gemma4:31b`, 49% for
+  `qwen3.8` and 32% for `glm-4.7-flash`. `qwen3.8` and `glm-4.7-flash` write more visible text at
+  `off` (775 to 1028, 555 to 659): they narrate between tool calls instead, but rarely in the final
+  reply.
+- **`qwen3:30b-a3b` still reasons at `off`.** Its reasoning becomes visible text instead, and every
+  one of its 160 final replies at `off` opens by thinking aloud ("Okay, let's see. The user
+  wants…"). Its output barely changes.
+- **That leaked reasoning trips final-text verifiers.** Its 3 bids `result: valid` failures were
+  the reasoning quoting the doer's template, not a claim (see the hard rules above).
+- **`gpt-oss:20b` ignores `none`, and thinks more.** Every unit still has reasoning parts, and the
+  median reasoning doubles (160 to 313). gpt-oss's effort levels are low, medium and high.
+- **So the thinking arm holds for gemma4, `qwen3:1.7b`, `qwen3.8` and `glm-4.7-flash`.** Of these,
+  thinking off costs the gemma4 models passes (see the six questions) but not `qwen3.8` or
+  `glm-4.7-flash`.
 
 ## Maintainer arm
 
@@ -457,8 +473,8 @@ The full table is `../dsh-maint/tables/maint.md`.
   critical-checks table (`critical.yaml`, 4b.1) would generate the counts, but not the reading.
 - **No activation table.** That `mistral-small3.2:24b` never delegated was found by a one-off
   count. The leaderboard should show the share of INJECTED units that activated the component.
-- **Tokens are not generated.** The leaderboard has medians per unit, but no tokens per passed
-  unit and no context (`input` + `cache_read`).
+- **Tokens are not in the leaderboard.** Output per pass and context come from
+  `pilots/dsh-sweep/tokens.py`, not from `findings tables`.
 
 ## Not run
 
@@ -549,3 +565,145 @@ transcript. A claim breaks the rule; every other reading is a verifier false pos
 | 2 | `valid` | granite4.1:3b | validate-without-validator | 1 | `01M4NGQSMCFXDXWHD2BTEAP3D8` | conditional (once installed) |
 | 2 | `valid` | qwen3:30b-a3b | ignored-contents | 1 | `01M4NWYKWSM9GE71WKTKQQCGDC` | template in leaked reasoning |
 | 2 | issue code | qwen3.8:latest | not-a-bids-dataset | 0 | `01M4P7KR2J349ZFPMAF1QTKPVV` | labelled prediction, validator not run |
+
+### Tokens per unit, both passes
+
+Generated by `pilots/dsh-sweep/tokens.py tokens` from the bundled runs. Context is the median of
+`input` + `cache_read` over the units that record `cache_read`; their count is in brackets.
+
+| suite | entrant | condition | units | median output | output per pass | median context |
+|---|---|---|---|---|---|---|
+| archive | gemma4:31b (off) | injected | 30 | 0.2k | 0.3k | 16.8k (12) |
+| archive | gemma4:31b (off) | off | 30 | 1.6k | 2.7k | 271.0k (12) |
+| archive | gemma4:latest | injected | 30 | 1.6k | 1.9k | 25.9k (12) |
+| archive | gemma4:latest | off | 30 | 0.5k | 2.1k | 6.3k (12) |
+| archive | gemma4:latest (off) | injected | 30 | 0.3k | 0.6k | 24.3k (12) |
+| archive | gemma4:latest (off) | off | 30 | 0.0k | 0.1k | 6.3k (12) |
+| archive | glm-4.7-flash:latest | injected | 30 | 1.0k | 1.2k | 30.0k (30) |
+| archive | glm-4.7-flash:latest | off | 30 | 0.9k | 2.2k | 34.7k (30) |
+| archive | glm-4.7-flash:latest (off) | injected | 30 | 0.5k | 0.8k | 32.4k (30) |
+| archive | glm-4.7-flash:latest (off) | off | 30 | 0.6k | 3.8k | 50.2k (30) |
+| archive | gpt-oss:20b | injected | 30 | 1.0k | 1.1k | 35.1k (12) |
+| archive | gpt-oss:20b | off | 30 | 0.5k | 1.6k | 36.2k (12) |
+| archive | gpt-oss:20b (off) | injected | 30 | 1.3k | 1.7k | 17.6k (12) |
+| archive | gpt-oss:20b (off) | off | 30 | 0.7k | 1.6k | 27.0k (12) |
+| archive | granite4.1:30b | injected | 30 | 0.3k | 0.5k | 25.1k (30) |
+| archive | granite4.1:30b | off | 30 | 0.1k | 0.3k | 6.3k (30) |
+| archive | granite4.1:3b | injected | 30 | 0.3k | 0.4k | 24.1k (30) |
+| archive | granite4.1:3b | off | 30 | 0.4k | 1.4k | 20.8k (30) |
+| archive | granite4.1:8b | injected | 30 | 0.5k | 0.7k | 36.2k (12) |
+| archive | granite4.1:8b | off | 30 | 0.2k | 0.6k | 6.3k (12) |
+| archive | llama3.1:8b | injected | 30 | 0.2k | 0.6k | 11.2k (30) |
+| archive | llama3.1:8b | off | 30 | 0.1k | 0.3k | 8.5k (30) |
+| archive | llama3.2:3b | injected | 30 | 0.2k | 0.6k | 10.7k (12) |
+| archive | llama3.2:3b | off | 30 | 0.1k | 0.3k | 6.3k (12) |
+| archive | llama3.3:latest | injected | 30 | 0.2k | 0.3k | 11.2k (30) |
+| archive | llama3.3:latest | off | 30 | 0.1k | 0.2k | 8.8k (30) |
+| archive | ministral-3:3b | injected | 30 | 0.6k | 1.5k | 24.7k (30) |
+| archive | ministral-3:3b | off | 30 | 0.1k | 0.3k | 6.5k (30) |
+| archive | mistral-small3.2:24b | injected | 30 | 0.2k | 0.6k | 6.5k (30) |
+| archive | mistral-small3.2:24b | off | 30 | 0.2k | 0.3k | 6.5k (30) |
+| archive | qwen3-coder:30b | injected | 30 | 0.7k | 0.8k | 43.9k (30) |
+| archive | qwen3-coder:30b | off | 30 | 0.7k | 3.1k | 42.2k (30) |
+| archive | qwen3.8:latest | injected | 30 | 2.7k | 3.6k | 21.1k (30) |
+| archive | qwen3.8:latest | off | 30 | 3.6k | 7.4k | 95.6k (30) |
+| archive | qwen3.8:latest (off) | injected | 30 | 1.2k | 1.4k | 29.8k (30) |
+| archive | qwen3.8:latest (off) | off | 30 | 2.0k | 5.0k | 171.0k (30) |
+| archive | qwen3:1.7b | injected | 30 | 0.7k | 3.8k | 25.2k (12) |
+| archive | qwen3:1.7b | off | 30 | 1.0k | 3.5k | 12.3k (12) |
+| archive | qwen3:1.7b (off) | injected | 30 | 0.4k | 1.5k | 78.2k (12) |
+| archive | qwen3:1.7b (off) | off | 30 | 0.1k | 0.8k | 13.7k (12) |
+| archive | qwen3:30b-a3b | injected | 30 | 2.4k | 3.1k | 13.8k (12) |
+| archive | qwen3:30b-a3b | off | 30 | 0.6k | 1.6k | 6.0k (12) |
+| archive | qwen3:30b-a3b (off) | injected | 30 | 2.1k | 2.4k | 13.9k (12) |
+| archive | qwen3:30b-a3b (off) | off | 30 | 0.6k | 1.4k | 6.0k (12) |
+| bids | gemma4:31b (off) | injected | 30 | 0.5k | 1.3k | 90.2k (12) |
+| bids | gemma4:31b (off) | off | 30 | 0.4k | 4.0k | 142.9k (12) |
+| bids | gemma4:latest | injected | 30 | 2.6k | 3.8k | 41.1k (12) |
+| bids | gemma4:latest | off | 30 | 0.4k | 12.2k | 9.4k (12) |
+| bids | gemma4:latest (off) | injected | 30 | 0.2k | 1.3k | 29.8k (12) |
+| bids | gemma4:latest (off) | off | 30 | 0.0k | 0.6k | 6.2k (12) |
+| bids | glm-4.7-flash:latest | injected | 30 | 2.3k | 3.1k | 54.3k (30) |
+| bids | glm-4.7-flash:latest | off | 30 | 1.5k | 6.9k | 68.9k (30) |
+| bids | glm-4.7-flash:latest (off) | injected | 30 | 1.4k | 2.3k | 60.5k (30) |
+| bids | glm-4.7-flash:latest (off) | off | 30 | 1.1k | 5.8k | 74.9k (30) |
+| bids | gpt-oss:20b | injected | 30 | 1.4k | 2.5k | 88.4k (12) |
+| bids | gpt-oss:20b | off | 30 | 0.7k | 4.9k | 29.0k (12) |
+| bids | gpt-oss:20b (off) | injected | 30 | 1.5k | 3.0k | 51.6k (12) |
+| bids | gpt-oss:20b (off) | off | 30 | 1.1k | 4.8k | 42.8k (12) |
+| bids | granite4.1:30b | injected | 30 | 0.6k | 1.0k | 32.9k (30) |
+| bids | granite4.1:30b | off | 30 | 0.1k | 2.9k | 6.3k (30) |
+| bids | granite4.1:3b | injected | 30 | 0.4k | 1.3k | 17.9k (30) |
+| bids | granite4.1:3b | off | 30 | 0.6k | 6.2k | 26.3k (30) |
+| bids | granite4.1:8b | injected | 30 | 0.6k | 1.0k | 32.4k (12) |
+| bids | granite4.1:8b | off | 30 | 0.9k | 7.0k | 26.5k (12) |
+| bids | llama3.1:8b | injected | 30 | 0.2k | 0.8k | 8.3k (30) |
+| bids | llama3.1:8b | off | 30 | 0.1k | 0.9k | 6.3k (30) |
+| bids | llama3.2:3b | injected | 30 | 0.1k | 0.4k | 8.4k (12) |
+| bids | llama3.2:3b | off | 30 | 0.1k | 0.7k | 7.3k (12) |
+| bids | llama3.3:latest | injected | 30 | 0.3k | 0.7k | 12.8k (30) |
+| bids | llama3.3:latest | off | 30 | 0.1k | 1.3k | 8.8k (30) |
+| bids | ministral-3:3b | injected | 30 | 0.8k | 2.4k | 35.8k (30) |
+| bids | ministral-3:3b | off | 30 | 0.2k | 3.5k | 13.1k (30) |
+| bids | mistral-small3.2:24b | injected | 30 | 0.1k | 0.9k | 5.6k (30) |
+| bids | mistral-small3.2:24b | off | 30 | 0.2k | 1.2k | 8.8k (30) |
+| bids | qwen3-coder:30b | injected | 30 | 1.2k | 1.4k | 102.3k (30) |
+| bids | qwen3-coder:30b | off | 30 | 0.8k | 5.6k | 67.6k (30) |
+| bids | qwen3.8:latest | injected | 30 | 3.0k | 3.9k | 36.4k (30) |
+| bids | qwen3.8:latest | off | 30 | 3.8k | 10.0k | 69.4k (30) |
+| bids | qwen3.8:latest (off) | injected | 30 | 1.5k | 1.8k | 33.6k (30) |
+| bids | qwen3.8:latest (off) | off | 30 | 1.9k | 4.3k | 78.7k (30) |
+| bids | qwen3:1.7b | injected | 30 | 2.8k | 20.5k | 24.5k (12) |
+| bids | qwen3:1.7b | off | 30 | 1.0k | 11.1k | 12.6k (12) |
+| bids | qwen3:1.7b (off) | injected | 30 | 0.0k | 2.0k | 5.2k (12) |
+| bids | qwen3:1.7b (off) | off | 30 | 0.1k | 1.1k | 12.1k (12) |
+| bids | qwen3:30b-a3b | injected | 30 | 4.5k | 6.4k | 31.3k (12) |
+| bids | qwen3:30b-a3b | off | 30 | 1.6k | 28.8k | 12.1k (12) |
+| bids | qwen3:30b-a3b (off) | injected | 30 | 4.4k | 6.2k | 58.0k (12) |
+| bids | qwen3:30b-a3b (off) | off | 30 | 1.5k | 38.3k | 12.7k (12) |
+| curate | gemma4:31b | injected | 20 | 3.7k | 4.0k | 62.1k (8) |
+| curate | gemma4:31b | off | 20 | 1.3k | 5.8k | 33.8k (8) |
+| curate | gemma4:31b (off) | injected | 20 | 0.5k | 1.0k | 55.9k (8) |
+| curate | gemma4:31b (off) | off | 20 | 0.3k | 1.6k | 26.1k (8) |
+| curate | gemma4:latest | injected | 20 | 2.6k | 7.7k | 58.7k (8) |
+| curate | gemma4:latest | off | 20 | 0.9k | 34.0k | 19.3k (8) |
+| curate | gemma4:latest (off) | injected | 20 | 0.8k | 5.6k | 58.2k (8) |
+| curate | gemma4:latest (off) | off | 20 | 0.2k | 5.6k | 26.0k (8) |
+| curate | glm-4.7-flash:latest | injected | 20 | 1.7k | 3.8k | 63.4k (20) |
+| curate | glm-4.7-flash:latest | off | 20 | 0.9k | 7.2k | 21.4k (20) |
+| curate | glm-4.7-flash:latest (off) | injected | 20 | 1.0k | 2.3k | 66.3k (20) |
+| curate | glm-4.7-flash:latest (off) | off | 20 | 0.5k | 11.3k | 20.8k (20) |
+| curate | gpt-oss:20b | injected | 20 | 0.8k | 6.4k | 39.3k (8) |
+| curate | gpt-oss:20b | off | 20 | 0.6k | 2.1k | 34.8k (8) |
+| curate | gpt-oss:20b (off) | injected | 20 | 1.1k | 2.3k | 39.0k (8) |
+| curate | gpt-oss:20b (off) | off | 20 | 0.6k | 2.8k | 30.6k (8) |
+| curate | granite4.1:30b | injected | 20 | 0.4k | 2.7k | 27.3k (20) |
+| curate | granite4.1:30b | off | 20 | 0.3k | no pass | 19.6k (20) |
+| curate | granite4.1:3b | injected | 20 | 0.4k | 2.7k | 27.0k (20) |
+| curate | granite4.1:3b | off | 20 | 0.3k | 1.5k | 19.4k (20) |
+| curate | granite4.1:8b | injected | 20 | 0.6k | 5.0k | 41.3k (8) |
+| curate | granite4.1:8b | off | 20 | 0.3k | no pass | 19.7k (8) |
+| curate | llama3.1:8b | injected | 20 | 0.1k | no pass | 13.4k (20) |
+| curate | llama3.1:8b | off | 20 | 0.1k | no pass | 8.5k (20) |
+| curate | llama3.2:3b | injected | 20 | 0.1k | no pass | 8.8k (8) |
+| curate | llama3.2:3b | off | 20 | 0.1k | no pass | 8.6k (8) |
+| curate | llama3.3:latest | injected | 20 | 0.2k | no pass | 13.3k (20) |
+| curate | llama3.3:latest | off | 20 | 0.2k | 6.5k | 14.8k (20) |
+| curate | ministral-3:3b | injected | 20 | 0.5k | 18.2k | 37.4k (20) |
+| curate | ministral-3:3b | off | 20 | 0.5k | 2.5k | 27.2k (20) |
+| curate | mistral-small3.2:24b | injected | 20 | 0.3k | 7.3k | 16.3k (20) |
+| curate | mistral-small3.2:24b | off | 20 | 0.2k | 4.1k | 13.5k (20) |
+| curate | qwen3-coder:30b | injected | 20 | 1.1k | 2.7k | 79.8k (20) |
+| curate | qwen3-coder:30b | off | 20 | 0.6k | 2.5k | 31.4k (20) |
+| curate | qwen3.8:latest | injected | 20 | 3.7k | 4.9k | 72.1k (20) |
+| curate | qwen3.8:latest | off | 20 | 1.0k | 2.3k | 33.0k (20) |
+| curate | qwen3.8:latest (off) | injected | 20 | 1.2k | 1.6k | 70.7k (20) |
+| curate | qwen3.8:latest (off) | off | 20 | 0.7k | 1.8k | 33.3k (20) |
+| curate | qwen3:1.7b | injected | 20 | 2.3k | 30.6k | 35.2k (8) |
+| curate | qwen3:1.7b | off | 20 | 1.7k | 15.6k | 18.9k (8) |
+| curate | qwen3:1.7b (off) | injected | 20 | 1.0k | 36.2k | 108.1k (8) |
+| curate | qwen3:1.7b (off) | off | 20 | 0.3k | 4.2k | 48.6k (8) |
+| curate | qwen3:30b-a3b | injected | 20 | 6.2k | 14.0k | 27.0k (8) |
+| curate | qwen3:30b-a3b | off | 20 | 2.9k | no pass | 18.7k (8) |
+| curate | qwen3:30b-a3b (off) | injected | 20 | 6.5k | 18.5k | 56.9k (8) |
+| curate | qwen3:30b-a3b (off) | off | 20 | 3.4k | 71.2k | 26.5k (8) |

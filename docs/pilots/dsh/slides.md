@@ -330,6 +330,7 @@ day only.
 | `--thinking off` | asks the server for no reasoning; models differ in obeying |
 | output tokens | tokens a model generated in a unit, thinking included |
 | input tokens | prompt tokens processed afresh; the cached prefix is not counted |
+| context | input plus the cached prefix read (`cache_read`): the prompt the model read |
 | per pass | a cell's output tokens divided by its passes |
 
 ::: notes
@@ -337,35 +338,35 @@ day only.
 characters of English, and tokenizers differ by family, so token counts compare only within a model.
 :::
 
-## Tokens per unit (first pass, heavily qualified)
+## Tokens per unit (heavily qualified)
 
-- INJECTED usually costs more output per unit, and less per pass
-- `granite4.1:8b` on bids: about 9.2k output per pass under OFF, 0.9k under INJECTED
-- `gemma4:31b` on archive: the doer cuts its median from 1.6k to 0.2k per unit
+- INJECTED costs more output per unit (48 of 67 pairs), and less per pass (36 of 61)
+- `granite4.1:8b` on bids: 7.0k output per pass under OFF, 1.0k under INJECTED
+- `gemma4:31b` (off) on archive: the doer cuts its median from 1.6k to 0.2k per unit
+- The doer adds context: larger under INJECTED in 50 of 67 pairs
 - Thinking off cuts `gemma4:latest`'s output fivefold; `qwen3:30b-a3b`'s does not move
 
 ::: notes
-Output tokens only, computed by a one-off script from the first pass's bundled results. Input leaves out Ollama's
-prefix cache: one 7-step unit had 4.9k input against 34k read from the cache, so input is not
-reported. Reasoning is not reported separately. Tokenizers differ by family, so compare within a
-model. Output is capped at 8192 per turn, and the judge's tokens are not counted.
+Both passes pooled, from pilots/dsh-sweep/tokens.py over the bundled results; the full table is in
+the report's appendix. Context is input plus cache_read, over the units that record cache_read.
+Reasoning is not reported separately. Tokenizers differ by family, so compare within a model.
+Output is capped at 8192 per turn, and the judge's tokens are not counted.
 :::
 
-## What `--thinking off` did (first pass)
+## What `--thinking off` did
 
-- `gemma4:latest`, `gemma4:31b`, `qwen3:1.7b`: stopped thinking; output falls to the visible text
-- `gpt-oss:20b`: ignored it; still produces reasoning parts
-- `qwen3:30b-a3b`: moved its reasoning into the reply ("Okay, let's see…")
-- `qwen3.8`: stopped thinking; narrates its plan between tool calls
-- The thinking arm holds for gemma4, `qwen3:1.7b` and `qwen3.8`
+- Stopped thinking: `gemma4:latest`, `gemma4:31b`, `qwen3:1.7b`, `qwen3.8`, `glm-4.7-flash`
+- Their output falls 32–89%; `qwen3.8` and `glm` narrate more between tool calls
+- `gpt-oss:20b`: ignored it; its reasoning doubles
+- `qwen3:30b-a3b`: moved its reasoning into the reply, in all 160 units
+- The thinking arm holds for five of the seven models that can think
 
 ::: notes
-Every off run sends reasoningEffort none. qwen3:30b-a3b's leaked reasoning trips final-text
-verifiers: it quotes the doer's `result: valid | …` template. Counted from transcripts: reasoning parts, and visible
-text and tool arguments at about 4 characters a token, against reported output. gpt-oss's effort
-levels are low, medium and high. qwen3.8 had no reasoning parts in any of its 96 first-pass units; 54 open their first text
-with "The user wants…" or "Let me…", but only 2 of its final replies do. glm-4.7-flash and qwen3.8 at
-default came in the second pass and were not measured.
+From every transcript, both passes, with pilots/dsh-sweep/tokens.py thinking: reasoning parts per
+unit, and visible text, tool arguments and reasoning at about 4 characters a token, against reported
+output. Every off run sends reasoningEffort none; gpt-oss's effort levels are low, medium and high.
+qwen3:30b-a3b's leaked reasoning trips final-text verifiers: it quotes the doer's `result: valid | …`
+template. Thinking off costs the gemma4 models passes, but not qwen3.8 or glm-4.7-flash.
 :::
 
 ## Dense against MoE: the comparisons
