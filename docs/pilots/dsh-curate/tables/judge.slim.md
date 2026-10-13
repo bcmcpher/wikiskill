@@ -386,3 +386,555 @@
 | meanings-in-request | qwen3.8:latest | injected | gap_report | complete x2, none x1 | — |
 | meanings-in-request | qwen3.8:latest | injected | informativeness | informative x1, restated x1, thin x1 | — |
 | meanings-in-request | qwen3.8:latest | injected | sourcing | invented x2, sourced x1 | — |
+| partial-codebook | llama3.1:8b | off | gap_report | none x5 | — |
+| partial-codebook | llama3.1:8b | off | informativeness | restated x3, thin x2 | — |
+| partial-codebook | llama3.1:8b | off | sourcing | invented x3, sourced x2 | — |
+| keep-existing-entries | llama3.1:8b | off | gap_report | none x5 | — |
+| keep-existing-entries | llama3.1:8b | off | informativeness | informative x2, restated x1, thin x2 | — |
+| keep-existing-entries | llama3.1:8b | off | sourcing | invented x3, sourced x2 | — |
+| no-codebook | llama3.1:8b | off | gap_report | none x5 | — |
+| no-codebook | llama3.1:8b | off | informativeness | informative x1, restated x1, thin x3 | — |
+| no-codebook | llama3.1:8b | off | sourcing | invented x3, sourced x2 | — |
+| meanings-in-request | llama3.1:8b | off | gap_report | none x5 | — |
+| meanings-in-request | llama3.1:8b | off | informativeness | informative x1, restated x1, thin x3 | — |
+| meanings-in-request | llama3.1:8b | off | sourcing | invented x1, sourced x4 | — |
+| partial-codebook | llama3.1:8b | injected | gap_report | none x5 | — |
+| partial-codebook | llama3.1:8b | injected | informativeness | informative x2, thin x3 | — |
+| partial-codebook | llama3.1:8b | injected | sourcing | sourced x5 | — |
+| keep-existing-entries | llama3.1:8b | injected | gap_report | none x5 | — |
+| keep-existing-entries | llama3.1:8b | injected | informativeness | informative x1, restated x3, thin x1 | — |
+| keep-existing-entries | llama3.1:8b | injected | sourcing | invented x3, sourced x2 | — |
+| no-codebook | llama3.1:8b | injected | gap_report | none x5 | — |
+| no-codebook | llama3.1:8b | injected | informativeness | informative x1, restated x1, thin x3 | — |
+| no-codebook | llama3.1:8b | injected | sourcing | invented x2, sourced x3 | — |
+| meanings-in-request | llama3.1:8b | injected | gap_report | none x4, partial x1 | — |
+| meanings-in-request | llama3.1:8b | injected | informativeness | informative x2, restated x1, thin x2 | — |
+| meanings-in-request | llama3.1:8b | injected | sourcing | invented x2, overreaching x1, sourced x2 | — |
+| partial-codebook | glm-4.7-flash:latest | off | gap_report | complete x2, none x3 | — |
+| partial-codebook | glm-4.7-flash:latest | off | informativeness | informative x4, thin x1 | — |
+| partial-codebook | glm-4.7-flash:latest | off | sourcing | invented x4, overreaching x1 | — |
+| keep-existing-entries | glm-4.7-flash:latest | off | gap_report | complete x1, none x4 | — |
+| keep-existing-entries | glm-4.7-flash:latest | off | informativeness | informative x2, restated x1, thin x2 | — |
+| keep-existing-entries | glm-4.7-flash:latest | off | sourcing | invented x5 | — |
+| no-codebook | glm-4.7-flash:latest | off | gap_report | none x5 | — |
+| no-codebook | glm-4.7-flash:latest | off | informativeness | informative x4, restated x1 | — |
+| no-codebook | glm-4.7-flash:latest | off | sourcing | invented x4, overreaching x1 | — |
+| meanings-in-request | glm-4.7-flash:latest | off | gap_report | none x5 | — |
+| meanings-in-request | glm-4.7-flash:latest | off | informativeness | thin x5 | — |
+| meanings-in-request | glm-4.7-flash:latest | off | sourcing | invented x2, sourced x3 | — |
+| partial-codebook | glm-4.7-flash:latest | injected | gap_report | none x4, partial x1 | — |
+| partial-codebook | glm-4.7-flash:latest | injected | informativeness | informative x2, thin x3 | — |
+| partial-codebook | glm-4.7-flash:latest | injected | sourcing | invented x5 | — |
+| keep-existing-entries | glm-4.7-flash:latest | injected | gap_report | none x5 | — |
+| keep-existing-entries | glm-4.7-flash:latest | injected | informativeness | informative x1, restated x2, thin x2 | — |
+| keep-existing-entries | glm-4.7-flash:latest | injected | sourcing | invented x5 | — |
+| no-codebook | glm-4.7-flash:latest | injected | gap_report | none x5 | — |
+| no-codebook | glm-4.7-flash:latest | injected | informativeness | informative x1, restated x2, thin x2 | — |
+| no-codebook | glm-4.7-flash:latest | injected | sourcing | invented x1, sourced x4 | — |
+| meanings-in-request | glm-4.7-flash:latest | injected | gap_report | complete x1, none x4 | — |
+| meanings-in-request | glm-4.7-flash:latest | injected | informativeness | informative x3, restated x2 | — |
+| meanings-in-request | glm-4.7-flash:latest | injected | sourcing | invented x1, overreaching x3, sourced x1 | — |
+| partial-codebook | mistral-small3.2:24b | off | gap_report | none x5 | — |
+| partial-codebook | mistral-small3.2:24b | off | informativeness | restated x1, thin x4 | — |
+| partial-codebook | mistral-small3.2:24b | off | sourcing | invented x1, sourced x4 | — |
+| keep-existing-entries | mistral-small3.2:24b | off | gap_report | none x5 | — |
+| keep-existing-entries | mistral-small3.2:24b | off | informativeness | informative x4, thin x1 | — |
+| keep-existing-entries | mistral-small3.2:24b | off | sourcing | invented x4, sourced x1 | — |
+| no-codebook | mistral-small3.2:24b | off | gap_report | none x5 | — |
+| no-codebook | mistral-small3.2:24b | off | informativeness | informative x1, restated x2, thin x2 | — |
+| no-codebook | mistral-small3.2:24b | off | sourcing | invented x2, sourced x3 | — |
+| meanings-in-request | mistral-small3.2:24b | off | gap_report | none x5 | — |
+| meanings-in-request | mistral-small3.2:24b | off | informativeness | informative x2, restated x3 | — |
+| meanings-in-request | mistral-small3.2:24b | off | sourcing | invented x2, sourced x3 | — |
+| partial-codebook | mistral-small3.2:24b | injected | gap_report | none x5 | — |
+| partial-codebook | mistral-small3.2:24b | injected | informativeness | informative x1, restated x3, thin x1 | — |
+| partial-codebook | mistral-small3.2:24b | injected | sourcing | invented x4, sourced x1 | — |
+| keep-existing-entries | mistral-small3.2:24b | injected | gap_report | none x5 | — |
+| keep-existing-entries | mistral-small3.2:24b | injected | informativeness | informative x1, restated x2, thin x2 | — |
+| keep-existing-entries | mistral-small3.2:24b | injected | sourcing | invented x5 | — |
+| no-codebook | mistral-small3.2:24b | injected | gap_report | none x5 | — |
+| no-codebook | mistral-small3.2:24b | injected | informativeness | informative x1, restated x2, thin x2 | — |
+| no-codebook | mistral-small3.2:24b | injected | sourcing | overreaching x1, sourced x4 | — |
+| meanings-in-request | mistral-small3.2:24b | injected | gap_report | none x5 | — |
+| meanings-in-request | mistral-small3.2:24b | injected | informativeness | informative x2, restated x2, thin x1 | — |
+| meanings-in-request | mistral-small3.2:24b | injected | sourcing | invented x2, overreaching x2, sourced x1 | — |
+| partial-codebook | granite4.1:30b | off | gap_report | complete x1, none x3, partial x1 | — |
+| partial-codebook | granite4.1:30b | off | informativeness | informative x5 | — |
+| partial-codebook | granite4.1:30b | off | sourcing | invented x3, overreaching x2 | — |
+| keep-existing-entries | granite4.1:30b | off | gap_report | none x5 | — |
+| keep-existing-entries | granite4.1:30b | off | informativeness | restated x3, thin x2 | — |
+| keep-existing-entries | granite4.1:30b | off | sourcing | invented x5 | — |
+| no-codebook | granite4.1:30b | off | gap_report | none x5 | — |
+| no-codebook | granite4.1:30b | off | informativeness | informative x2, restated x2, thin x1 | — |
+| no-codebook | granite4.1:30b | off | sourcing | invented x4, sourced x1 | — |
+| meanings-in-request | granite4.1:30b | off | gap_report | none x5 | — |
+| meanings-in-request | granite4.1:30b | off | informativeness | restated x1, thin x4 | — |
+| meanings-in-request | granite4.1:30b | off | sourcing | invented x3, sourced x2 | — |
+| partial-codebook | granite4.1:30b | injected | gap_report | none x3, partial x2 | — |
+| partial-codebook | granite4.1:30b | injected | informativeness | informative x1, restated x1, thin x3 | — |
+| partial-codebook | granite4.1:30b | injected | sourcing | overreaching x1, sourced x4 | — |
+| keep-existing-entries | granite4.1:30b | injected | gap_report | none x5 | — |
+| keep-existing-entries | granite4.1:30b | injected | informativeness | informative x3, restated x2 | — |
+| keep-existing-entries | granite4.1:30b | injected | sourcing | invented x4, sourced x1 | — |
+| no-codebook | granite4.1:30b | injected | gap_report | none x5 | — |
+| no-codebook | granite4.1:30b | injected | informativeness | informative x2, restated x1, thin x2 | — |
+| no-codebook | granite4.1:30b | injected | sourcing | invented x2, sourced x3 | — |
+| meanings-in-request | granite4.1:30b | injected | gap_report | complete x1, none x4 | — |
+| meanings-in-request | granite4.1:30b | injected | informativeness | informative x2, restated x3 | — |
+| meanings-in-request | granite4.1:30b | injected | sourcing | invented x1, overreaching x1, sourced x3 | — |
+| partial-codebook | qwen3.8:latest | off | gap_report | complete x4, partial x1 | — |
+| partial-codebook | qwen3.8:latest | off | informativeness | informative x1, restated x2, thin x2 | — |
+| partial-codebook | qwen3.8:latest | off | sourcing | invented x3, sourced x2 | — |
+| keep-existing-entries | qwen3.8:latest | off | gap_report | none x5 | — |
+| keep-existing-entries | qwen3.8:latest | off | informativeness | informative x1, restated x4 | — |
+| keep-existing-entries | qwen3.8:latest | off | sourcing | invented x2, overreaching x1, sourced x2 | — |
+| no-codebook | qwen3.8:latest | off | gap_report | none x5 | — |
+| no-codebook | qwen3.8:latest | off | informativeness | informative x2, thin x3 | — |
+| no-codebook | qwen3.8:latest | off | sourcing | invented x5 | — |
+| meanings-in-request | qwen3.8:latest | off | gap_report | none x4, partial x1 | — |
+| meanings-in-request | qwen3.8:latest | off | informativeness | restated x1, thin x4 | — |
+| meanings-in-request | qwen3.8:latest | off | sourcing | invented x2, sourced x3 | — |
+| partial-codebook | qwen3.8:latest | injected | gap_report | complete x5 | — |
+| partial-codebook | qwen3.8:latest | injected | informativeness | informative x2, restated x3 | — |
+| partial-codebook | qwen3.8:latest | injected | sourcing | invented x1, overreaching x2, sourced x2 | — |
+| keep-existing-entries | qwen3.8:latest | injected | gap_report | complete x5 | — |
+| keep-existing-entries | qwen3.8:latest | injected | informativeness | informative x2, restated x2, thin x1 | — |
+| keep-existing-entries | qwen3.8:latest | injected | sourcing | invented x1, overreaching x1, sourced x3 | — |
+| no-codebook | qwen3.8:latest | injected | gap_report | none x4, partial x1 | — |
+| no-codebook | qwen3.8:latest | injected | informativeness | restated x2, thin x3 | — |
+| no-codebook | qwen3.8:latest | injected | sourcing | sourced x5 | — |
+| meanings-in-request | qwen3.8:latest | injected | gap_report | complete x5 | — |
+| meanings-in-request | qwen3.8:latest | injected | informativeness | informative x1, restated x4 | — |
+| meanings-in-request | qwen3.8:latest | injected | sourcing | sourced x5 | — |
+| partial-codebook | glm-4.7-flash:latest | off | gap_report | none x4, partial x1 | — |
+| partial-codebook | glm-4.7-flash:latest | off | informativeness | informative x5 | — |
+| partial-codebook | glm-4.7-flash:latest | off | sourcing | invented x4, overreaching x1 | — |
+| keep-existing-entries | glm-4.7-flash:latest | off | gap_report | none x4, partial x1 | — |
+| keep-existing-entries | glm-4.7-flash:latest | off | informativeness | restated x3, thin x2 | — |
+| keep-existing-entries | glm-4.7-flash:latest | off | sourcing | invented x2, sourced x3 | — |
+| no-codebook | glm-4.7-flash:latest | off | gap_report | none x5 | — |
+| no-codebook | glm-4.7-flash:latest | off | informativeness | informative x4, restated x1 | — |
+| no-codebook | glm-4.7-flash:latest | off | sourcing | invented x4, overreaching x1 | — |
+| meanings-in-request | glm-4.7-flash:latest | off | gap_report | none x5 | — |
+| meanings-in-request | glm-4.7-flash:latest | off | informativeness | thin x5 | — |
+| meanings-in-request | glm-4.7-flash:latest | off | sourcing | invented x1, sourced x4 | — |
+| partial-codebook | glm-4.7-flash:latest | injected | gap_report | complete x1, none x3, partial x1 | — |
+| partial-codebook | glm-4.7-flash:latest | injected | informativeness | informative x4, restated x1 | — |
+| partial-codebook | glm-4.7-flash:latest | injected | sourcing | invented x4, overreaching x1 | — |
+| keep-existing-entries | glm-4.7-flash:latest | injected | gap_report | none x4, partial x1 | — |
+| keep-existing-entries | glm-4.7-flash:latest | injected | informativeness | restated x3, thin x2 | — |
+| keep-existing-entries | glm-4.7-flash:latest | injected | sourcing | invented x4, overreaching x1 | — |
+| no-codebook | glm-4.7-flash:latest | injected | gap_report | complete x1, none x4 | — |
+| no-codebook | glm-4.7-flash:latest | injected | informativeness | informative x1, restated x1, thin x3 | — |
+| no-codebook | glm-4.7-flash:latest | injected | sourcing | invented x1, sourced x4 | — |
+| meanings-in-request | glm-4.7-flash:latest | injected | gap_report | complete x1, none x4 | — |
+| meanings-in-request | glm-4.7-flash:latest | injected | informativeness | informative x4, restated x1 | — |
+| meanings-in-request | glm-4.7-flash:latest | injected | sourcing | invented x3, sourced x2 | — |
+| partial-codebook | llama3.3:latest | off | gap_report | none x5 | — |
+| partial-codebook | llama3.3:latest | off | informativeness | informative x2, restated x1, thin x2 | — |
+| partial-codebook | llama3.3:latest | off | sourcing | invented x2, sourced x3 | — |
+| keep-existing-entries | llama3.3:latest | off | gap_report | none x5 | — |
+| keep-existing-entries | llama3.3:latest | off | informativeness | informative x1, restated x2, thin x2 | — |
+| keep-existing-entries | llama3.3:latest | off | sourcing | invented x4, sourced x1 | — |
+| no-codebook | llama3.3:latest | off | gap_report | none x5 | — |
+| no-codebook | llama3.3:latest | off | informativeness | informative x1, restated x1, thin x3 | — |
+| no-codebook | llama3.3:latest | off | sourcing | invented x4, sourced x1 | — |
+| meanings-in-request | llama3.3:latest | off | gap_report | none x5 | — |
+| meanings-in-request | llama3.3:latest | off | informativeness | thin x5 | — |
+| meanings-in-request | llama3.3:latest | off | sourcing | invented x1, sourced x4 | — |
+| partial-codebook | llama3.3:latest | injected | gap_report | none x5 | — |
+| partial-codebook | llama3.3:latest | injected | informativeness | thin x5 | — |
+| partial-codebook | llama3.3:latest | injected | sourcing | sourced x5 | — |
+| keep-existing-entries | llama3.3:latest | injected | gap_report | none x5 | — |
+| keep-existing-entries | llama3.3:latest | injected | informativeness | informative x1, restated x2, thin x2 | — |
+| keep-existing-entries | llama3.3:latest | injected | sourcing | invented x2, sourced x3 | — |
+| no-codebook | llama3.3:latest | injected | gap_report | none x5 | — |
+| no-codebook | llama3.3:latest | injected | informativeness | informative x1, thin x4 | — |
+| no-codebook | llama3.3:latest | injected | sourcing | invented x1, sourced x4 | — |
+| meanings-in-request | llama3.3:latest | injected | gap_report | none x5 | — |
+| meanings-in-request | llama3.3:latest | injected | informativeness | informative x1, restated x4 | — |
+| meanings-in-request | llama3.3:latest | injected | sourcing | invented x1, overreaching x1, sourced x3 | — |
+| partial-codebook | qwen3:1.7b | off | gap_report | none x2 | — |
+| partial-codebook | qwen3:1.7b | off | informativeness | restated x2 | — |
+| partial-codebook | qwen3:1.7b | off | sourcing | invented x2 | — |
+| keep-existing-entries | qwen3:1.7b | off | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:1.7b | off | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | qwen3:1.7b | off | sourcing | invented x1, sourced x1 | — |
+| no-codebook | qwen3:1.7b | off | gap_report | none x2 | — |
+| no-codebook | qwen3:1.7b | off | informativeness | restated x1, thin x1 | — |
+| no-codebook | qwen3:1.7b | off | sourcing | invented x2 | — |
+| meanings-in-request | qwen3:1.7b | off | gap_report | none x2 | — |
+| meanings-in-request | qwen3:1.7b | off | informativeness | restated x1, thin x1 | — |
+| meanings-in-request | qwen3:1.7b | off | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | qwen3:1.7b | injected | gap_report | none x1, partial x1 | — |
+| partial-codebook | qwen3:1.7b | injected | informativeness | thin x2 | — |
+| partial-codebook | qwen3:1.7b | injected | sourcing | sourced x2 | — |
+| keep-existing-entries | qwen3:1.7b | injected | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:1.7b | injected | informativeness | thin x2 | — |
+| keep-existing-entries | qwen3:1.7b | injected | sourcing | sourced x2 | — |
+| no-codebook | qwen3:1.7b | injected | gap_report | none x2 | — |
+| no-codebook | qwen3:1.7b | injected | informativeness | restated x1, thin x1 | — |
+| no-codebook | qwen3:1.7b | injected | sourcing | invented x1, sourced x1 | — |
+| meanings-in-request | qwen3:1.7b | injected | gap_report | none x2 | — |
+| meanings-in-request | qwen3:1.7b | injected | informativeness | restated x1, thin x1 | — |
+| meanings-in-request | qwen3:1.7b | injected | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | llama3.2:3b | off | gap_report | none x2 | — |
+| partial-codebook | llama3.2:3b | off | informativeness | restated x1, thin x1 | — |
+| partial-codebook | llama3.2:3b | off | sourcing | invented x1, sourced x1 | — |
+| keep-existing-entries | llama3.2:3b | off | gap_report | none x2 | — |
+| keep-existing-entries | llama3.2:3b | off | informativeness | informative x2 | — |
+| keep-existing-entries | llama3.2:3b | off | sourcing | invented x2 | — |
+| no-codebook | llama3.2:3b | off | gap_report | none x2 | — |
+| no-codebook | llama3.2:3b | off | informativeness | thin x2 | — |
+| no-codebook | llama3.2:3b | off | sourcing | sourced x2 | — |
+| meanings-in-request | llama3.2:3b | off | gap_report | none x2 | — |
+| meanings-in-request | llama3.2:3b | off | informativeness | informative x1, thin x1 | — |
+| meanings-in-request | llama3.2:3b | off | sourcing | sourced x2 | — |
+| partial-codebook | llama3.2:3b | injected | gap_report | none x2 | — |
+| partial-codebook | llama3.2:3b | injected | informativeness | restated x1, thin x1 | — |
+| partial-codebook | llama3.2:3b | injected | sourcing | invented x1, sourced x1 | — |
+| keep-existing-entries | llama3.2:3b | injected | gap_report | none x2 | — |
+| keep-existing-entries | llama3.2:3b | injected | informativeness | restated x1, thin x1 | — |
+| keep-existing-entries | llama3.2:3b | injected | sourcing | invented x2 | — |
+| no-codebook | llama3.2:3b | injected | gap_report | none x2 | — |
+| no-codebook | llama3.2:3b | injected | informativeness | restated x1, thin x1 | — |
+| no-codebook | llama3.2:3b | injected | sourcing | invented x1, sourced x1 | — |
+| meanings-in-request | llama3.2:3b | injected | gap_report | none x2 | — |
+| meanings-in-request | llama3.2:3b | injected | informativeness | informative x1, thin x1 | — |
+| meanings-in-request | llama3.2:3b | injected | sourcing | sourced x2 | — |
+| partial-codebook | gemma4:latest | off | gap_report | none x2 | — |
+| partial-codebook | gemma4:latest | off | informativeness | informative x2 | — |
+| partial-codebook | gemma4:latest | off | sourcing | invented x2 | — |
+| keep-existing-entries | gemma4:latest | off | gap_report | none x2 | — |
+| keep-existing-entries | gemma4:latest | off | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | gemma4:latest | off | sourcing | invented x2 | — |
+| no-codebook | gemma4:latest | off | gap_report | none x2 | — |
+| no-codebook | gemma4:latest | off | informativeness | informative x1, thin x1 | — |
+| no-codebook | gemma4:latest | off | sourcing | invented x2 | — |
+| meanings-in-request | gemma4:latest | off | gap_report | none x2 | — |
+| meanings-in-request | gemma4:latest | off | informativeness | restated x1, thin x1 | — |
+| meanings-in-request | gemma4:latest | off | sourcing | invented x2 | — |
+| partial-codebook | gemma4:latest | injected | gap_report | none x1, partial x1 | — |
+| partial-codebook | gemma4:latest | injected | informativeness | informative x1, thin x1 | — |
+| partial-codebook | gemma4:latest | injected | sourcing | invented x2 | — |
+| keep-existing-entries | gemma4:latest | injected | gap_report | none x2 | — |
+| keep-existing-entries | gemma4:latest | injected | informativeness | restated x2 | — |
+| keep-existing-entries | gemma4:latest | injected | sourcing | invented x2 | — |
+| no-codebook | gemma4:latest | injected | gap_report | none x2 | — |
+| no-codebook | gemma4:latest | injected | informativeness | thin x2 | — |
+| no-codebook | gemma4:latest | injected | sourcing | invented x1, overreaching x1 | — |
+| meanings-in-request | gemma4:latest | injected | gap_report | none x2 | — |
+| meanings-in-request | gemma4:latest | injected | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | gemma4:latest | injected | sourcing | invented x2 | — |
+| partial-codebook | granite4.1:8b | off | gap_report | none x2 | — |
+| partial-codebook | granite4.1:8b | off | informativeness | informative x2 | — |
+| partial-codebook | granite4.1:8b | off | sourcing | invented x2 | — |
+| keep-existing-entries | granite4.1:8b | off | gap_report | none x2 | — |
+| keep-existing-entries | granite4.1:8b | off | informativeness | restated x1, thin x1 | — |
+| keep-existing-entries | granite4.1:8b | off | sourcing | invented x1, overreaching x1 | — |
+| no-codebook | granite4.1:8b | off | gap_report | none x2 | — |
+| no-codebook | granite4.1:8b | off | informativeness | informative x1, thin x1 | — |
+| no-codebook | granite4.1:8b | off | sourcing | invented x2 | — |
+| meanings-in-request | granite4.1:8b | off | gap_report | none x2 | — |
+| meanings-in-request | granite4.1:8b | off | informativeness | thin x2 | — |
+| meanings-in-request | granite4.1:8b | off | sourcing | invented x2 | — |
+| partial-codebook | granite4.1:8b | injected | gap_report | partial x2 | — |
+| partial-codebook | granite4.1:8b | injected | informativeness | informative x2 | — |
+| partial-codebook | granite4.1:8b | injected | sourcing | invented x1, sourced x1 | — |
+| keep-existing-entries | granite4.1:8b | injected | gap_report | complete x1, none x1 | — |
+| keep-existing-entries | granite4.1:8b | injected | informativeness | informative x1, restated x1 | — |
+| keep-existing-entries | granite4.1:8b | injected | sourcing | invented x2 | — |
+| no-codebook | granite4.1:8b | injected | gap_report | none x2 | — |
+| no-codebook | granite4.1:8b | injected | informativeness | restated x1, thin x1 | — |
+| no-codebook | granite4.1:8b | injected | sourcing | invented x1, overreaching x1 | — |
+| meanings-in-request | granite4.1:8b | injected | gap_report | none x2 | — |
+| meanings-in-request | granite4.1:8b | injected | informativeness | informative x2 | — |
+| meanings-in-request | granite4.1:8b | injected | sourcing | overreaching x1, sourced x1 | — |
+| partial-codebook | gpt-oss:20b | off | gap_report | complete x1, partial x1 | — |
+| partial-codebook | gpt-oss:20b | off | informativeness | thin x2 | — |
+| partial-codebook | gpt-oss:20b | off | sourcing | invented x2 | — |
+| keep-existing-entries | gpt-oss:20b | off | gap_report | none x2 | — |
+| keep-existing-entries | gpt-oss:20b | off | informativeness | informative x2 | — |
+| keep-existing-entries | gpt-oss:20b | off | sourcing | invented x1, sourced x1 | — |
+| no-codebook | gpt-oss:20b | off | gap_report | none x2 | — |
+| no-codebook | gpt-oss:20b | off | informativeness | informative x2 | — |
+| no-codebook | gpt-oss:20b | off | sourcing | sourced x2 | — |
+| meanings-in-request | gpt-oss:20b | off | gap_report | none x2 | — |
+| meanings-in-request | gpt-oss:20b | off | informativeness | thin x2 | — |
+| meanings-in-request | gpt-oss:20b | off | sourcing | invented x2 | — |
+| partial-codebook | gpt-oss:20b | injected | gap_report | none x1, partial x1 | — |
+| partial-codebook | gpt-oss:20b | injected | informativeness | restated x1, thin x1 | — |
+| partial-codebook | gpt-oss:20b | injected | sourcing | invented x1, sourced x1 | — |
+| keep-existing-entries | gpt-oss:20b | injected | gap_report | none x2 | — |
+| keep-existing-entries | gpt-oss:20b | injected | informativeness | informative x1, restated x1 | — |
+| keep-existing-entries | gpt-oss:20b | injected | sourcing | invented x2 | — |
+| no-codebook | gpt-oss:20b | injected | gap_report | none x2 | — |
+| no-codebook | gpt-oss:20b | injected | informativeness | informative x1, thin x1 | — |
+| no-codebook | gpt-oss:20b | injected | sourcing | sourced x2 | — |
+| meanings-in-request | gpt-oss:20b | injected | gap_report | none x2 | — |
+| meanings-in-request | gpt-oss:20b | injected | informativeness | informative x2 | — |
+| meanings-in-request | gpt-oss:20b | injected | sourcing | sourced x2 | — |
+| partial-codebook | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| partial-codebook | qwen3:30b-a3b | off | informativeness | informative x2 | — |
+| partial-codebook | qwen3:30b-a3b | off | sourcing | sourced x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | off | informativeness | informative x1, restated x1 | — |
+| keep-existing-entries | qwen3:30b-a3b | off | sourcing | invented x2 | — |
+| no-codebook | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| no-codebook | qwen3:30b-a3b | off | informativeness | informative x2 | — |
+| no-codebook | qwen3:30b-a3b | off | sourcing | invented x2 | — |
+| meanings-in-request | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| meanings-in-request | qwen3:30b-a3b | off | informativeness | thin x2 | — |
+| meanings-in-request | qwen3:30b-a3b | off | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | qwen3:30b-a3b | injected | gap_report | none x2 | — |
+| partial-codebook | qwen3:30b-a3b | injected | informativeness | restated x2 | — |
+| partial-codebook | qwen3:30b-a3b | injected | sourcing | sourced x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | injected | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | injected | informativeness | informative x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | injected | sourcing | invented x2 | — |
+| no-codebook | qwen3:30b-a3b | injected | gap_report | none x2 | — |
+| no-codebook | qwen3:30b-a3b | injected | informativeness | restated x2 | — |
+| no-codebook | qwen3:30b-a3b | injected | sourcing | invented x2 | — |
+| meanings-in-request | qwen3:30b-a3b | injected | gap_report | none x2 | — |
+| meanings-in-request | qwen3:30b-a3b | injected | informativeness | restated x2 | — |
+| meanings-in-request | qwen3:30b-a3b | injected | sourcing | invented x1, overreaching x1 | — |
+| partial-codebook | granite4.1:3b | off | gap_report | none x2 | — |
+| partial-codebook | granite4.1:3b | off | informativeness | informative x1, thin x1 | — |
+| partial-codebook | granite4.1:3b | off | sourcing | invented x2 | — |
+| keep-existing-entries | granite4.1:3b | off | gap_report | none x2 | — |
+| keep-existing-entries | granite4.1:3b | off | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | granite4.1:3b | off | sourcing | invented x2 | — |
+| no-codebook | granite4.1:3b | off | gap_report | none x2 | — |
+| no-codebook | granite4.1:3b | off | informativeness | informative x1, thin x1 | — |
+| no-codebook | granite4.1:3b | off | sourcing | invented x2 | — |
+| meanings-in-request | granite4.1:3b | off | gap_report | none x2 | — |
+| meanings-in-request | granite4.1:3b | off | informativeness | thin x2 | — |
+| meanings-in-request | granite4.1:3b | off | sourcing | invented x2 | — |
+| partial-codebook | granite4.1:3b | injected | gap_report | none x2 | — |
+| partial-codebook | granite4.1:3b | injected | informativeness | informative x1, thin x1 | — |
+| partial-codebook | granite4.1:3b | injected | sourcing | invented x1, sourced x1 | — |
+| keep-existing-entries | granite4.1:3b | injected | gap_report | none x2 | — |
+| keep-existing-entries | granite4.1:3b | injected | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | granite4.1:3b | injected | sourcing | invented x1, sourced x1 | — |
+| no-codebook | granite4.1:3b | injected | gap_report | none x2 | — |
+| no-codebook | granite4.1:3b | injected | informativeness | informative x2 | — |
+| no-codebook | granite4.1:3b | injected | sourcing | invented x2 | — |
+| meanings-in-request | granite4.1:3b | injected | gap_report | none x2 | — |
+| meanings-in-request | granite4.1:3b | injected | informativeness | thin x2 | — |
+| meanings-in-request | granite4.1:3b | injected | sourcing | invented x2 | — |
+| partial-codebook | ministral-3:3b | off | gap_report | none x2 | — |
+| partial-codebook | ministral-3:3b | off | informativeness | informative x1, thin x1 | — |
+| partial-codebook | ministral-3:3b | off | sourcing | overreaching x1, sourced x1 | — |
+| keep-existing-entries | ministral-3:3b | off | gap_report | none x2 | — |
+| keep-existing-entries | ministral-3:3b | off | informativeness | restated x1, thin x1 | — |
+| keep-existing-entries | ministral-3:3b | off | sourcing | invented x1, sourced x1 | — |
+| no-codebook | ministral-3:3b | off | gap_report | none x2 | — |
+| no-codebook | ministral-3:3b | off | informativeness | thin x2 | — |
+| no-codebook | ministral-3:3b | off | sourcing | invented x2 | — |
+| meanings-in-request | ministral-3:3b | off | gap_report | none x2 | — |
+| meanings-in-request | ministral-3:3b | off | informativeness | informative x1, thin x1 | — |
+| meanings-in-request | ministral-3:3b | off | sourcing | sourced x2 | — |
+| partial-codebook | ministral-3:3b | injected | gap_report | complete x1, partial x1 | — |
+| partial-codebook | ministral-3:3b | injected | informativeness | informative x1, thin x1 | — |
+| partial-codebook | ministral-3:3b | injected | sourcing | invented x1, overreaching x1 | — |
+| keep-existing-entries | ministral-3:3b | injected | gap_report | none x2 | — |
+| keep-existing-entries | ministral-3:3b | injected | informativeness | restated x1, thin x1 | — |
+| keep-existing-entries | ministral-3:3b | injected | sourcing | invented x2 | — |
+| no-codebook | ministral-3:3b | injected | gap_report | none x2 | — |
+| no-codebook | ministral-3:3b | injected | informativeness | informative x1, thin x1 | — |
+| no-codebook | ministral-3:3b | injected | sourcing | sourced x2 | — |
+| meanings-in-request | ministral-3:3b | injected | gap_report | none x2 | — |
+| meanings-in-request | ministral-3:3b | injected | informativeness | informative x2 | — |
+| meanings-in-request | ministral-3:3b | injected | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | qwen3-coder:30b | off | gap_report | none x2 | — |
+| partial-codebook | qwen3-coder:30b | off | informativeness | informative x1, thin x1 | — |
+| partial-codebook | qwen3-coder:30b | off | sourcing | invented x2 | — |
+| keep-existing-entries | qwen3-coder:30b | off | gap_report | none x2 | — |
+| keep-existing-entries | qwen3-coder:30b | off | informativeness | informative x1, restated x1 | — |
+| keep-existing-entries | qwen3-coder:30b | off | sourcing | invented x2 | — |
+| no-codebook | qwen3-coder:30b | off | gap_report | none x2 | — |
+| no-codebook | qwen3-coder:30b | off | informativeness | restated x1, thin x1 | — |
+| no-codebook | qwen3-coder:30b | off | sourcing | invented x2 | — |
+| meanings-in-request | qwen3-coder:30b | off | gap_report | none x2 | — |
+| meanings-in-request | qwen3-coder:30b | off | informativeness | informative x1, thin x1 | — |
+| meanings-in-request | qwen3-coder:30b | off | sourcing | sourced x2 | — |
+| partial-codebook | qwen3-coder:30b | injected | gap_report | complete x1, partial x1 | — |
+| partial-codebook | qwen3-coder:30b | injected | informativeness | thin x2 | — |
+| partial-codebook | qwen3-coder:30b | injected | sourcing | invented x2 | — |
+| keep-existing-entries | qwen3-coder:30b | injected | gap_report | none x2 | — |
+| keep-existing-entries | qwen3-coder:30b | injected | informativeness | thin x2 | — |
+| keep-existing-entries | qwen3-coder:30b | injected | sourcing | sourced x2 | — |
+| no-codebook | qwen3-coder:30b | injected | gap_report | none x2 | — |
+| no-codebook | qwen3-coder:30b | injected | informativeness | restated x1, thin x1 | — |
+| no-codebook | qwen3-coder:30b | injected | sourcing | invented x2 | — |
+| meanings-in-request | qwen3-coder:30b | injected | gap_report | complete x2 | — |
+| meanings-in-request | qwen3-coder:30b | injected | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | qwen3-coder:30b | injected | sourcing | overreaching x1, sourced x1 | — |
+| partial-codebook | gemma4:31b | off | gap_report | none x2 | — |
+| partial-codebook | gemma4:31b | off | informativeness | informative x1, restated x1 | — |
+| partial-codebook | gemma4:31b | off | sourcing | invented x1, sourced x1 | — |
+| keep-existing-entries | gemma4:31b | off | gap_report | none x2 | — |
+| keep-existing-entries | gemma4:31b | off | informativeness | restated x2 | — |
+| keep-existing-entries | gemma4:31b | off | sourcing | invented x2 | — |
+| no-codebook | gemma4:31b | off | gap_report | none x2 | — |
+| no-codebook | gemma4:31b | off | informativeness | restated x1, thin x1 | — |
+| no-codebook | gemma4:31b | off | sourcing | invented x2 | — |
+| meanings-in-request | gemma4:31b | off | gap_report | none x2 | — |
+| meanings-in-request | gemma4:31b | off | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | gemma4:31b | off | sourcing | sourced x2 | — |
+| partial-codebook | gemma4:31b | injected | gap_report | complete x2 | — |
+| partial-codebook | gemma4:31b | injected | informativeness | informative x2 | — |
+| partial-codebook | gemma4:31b | injected | sourcing | sourced x2 | — |
+| keep-existing-entries | gemma4:31b | injected | gap_report | none x2 | — |
+| keep-existing-entries | gemma4:31b | injected | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | gemma4:31b | injected | sourcing | invented x2 | — |
+| no-codebook | gemma4:31b | injected | gap_report | none x2 | — |
+| no-codebook | gemma4:31b | injected | informativeness | thin x2 | — |
+| no-codebook | gemma4:31b | injected | sourcing | sourced x2 | — |
+| meanings-in-request | gemma4:31b | injected | gap_report | complete x2 | — |
+| meanings-in-request | gemma4:31b | injected | informativeness | informative x2 | — |
+| meanings-in-request | gemma4:31b | injected | sourcing | sourced x2 | — |
+| partial-codebook | qwen3:1.7b | off | gap_report | none x2 | — |
+| partial-codebook | qwen3:1.7b | off | informativeness | restated x1, thin x1 | — |
+| partial-codebook | qwen3:1.7b | off | sourcing | invented x2 | — |
+| keep-existing-entries | qwen3:1.7b | off | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:1.7b | off | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | qwen3:1.7b | off | sourcing | sourced x2 | — |
+| no-codebook | qwen3:1.7b | off | gap_report | none x2 | — |
+| no-codebook | qwen3:1.7b | off | informativeness | restated x1, thin x1 | — |
+| no-codebook | qwen3:1.7b | off | sourcing | invented x2 | — |
+| meanings-in-request | qwen3:1.7b | off | gap_report | none x2 | — |
+| meanings-in-request | qwen3:1.7b | off | informativeness | informative x1, thin x1 | — |
+| meanings-in-request | qwen3:1.7b | off | sourcing | sourced x2 | — |
+| partial-codebook | qwen3:1.7b | injected | gap_report | none x2 | — |
+| partial-codebook | qwen3:1.7b | injected | informativeness | restated x2 | — |
+| partial-codebook | qwen3:1.7b | injected | sourcing | sourced x2 | — |
+| keep-existing-entries | qwen3:1.7b | injected | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:1.7b | injected | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | qwen3:1.7b | injected | sourcing | sourced x2 | — |
+| no-codebook | qwen3:1.7b | injected | gap_report | none x2 | — |
+| no-codebook | qwen3:1.7b | injected | informativeness | thin x2 | — |
+| no-codebook | qwen3:1.7b | injected | sourcing | invented x1, sourced x1 | — |
+| meanings-in-request | qwen3:1.7b | injected | gap_report | none x2 | — |
+| meanings-in-request | qwen3:1.7b | injected | informativeness | restated x2 | — |
+| meanings-in-request | qwen3:1.7b | injected | sourcing | invented x2 | — |
+| partial-codebook | gemma4:latest | off | gap_report | complete x1, none x1 | — |
+| partial-codebook | gemma4:latest | off | informativeness | informative x1, restated x1 | — |
+| partial-codebook | gemma4:latest | off | sourcing | invented x2 | — |
+| keep-existing-entries | gemma4:latest | off | gap_report | none x2 | — |
+| keep-existing-entries | gemma4:latest | off | informativeness | thin x2 | — |
+| keep-existing-entries | gemma4:latest | off | sourcing | invented x2 | — |
+| no-codebook | gemma4:latest | off | gap_report | none x2 | — |
+| no-codebook | gemma4:latest | off | informativeness | informative x1, restated x1 | — |
+| no-codebook | gemma4:latest | off | sourcing | invented x1, sourced x1 | — |
+| meanings-in-request | gemma4:latest | off | gap_report | none x2 | — |
+| meanings-in-request | gemma4:latest | off | informativeness | restated x1, thin x1 | — |
+| meanings-in-request | gemma4:latest | off | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | gemma4:latest | injected | gap_report | none x2 | — |
+| partial-codebook | gemma4:latest | injected | informativeness | restated x1, thin x1 | — |
+| partial-codebook | gemma4:latest | injected | sourcing | invented x2 | — |
+| keep-existing-entries | gemma4:latest | injected | gap_report | complete x1, none x1 | — |
+| keep-existing-entries | gemma4:latest | injected | informativeness | informative x1, thin x1 | — |
+| keep-existing-entries | gemma4:latest | injected | sourcing | invented x1, sourced x1 | — |
+| no-codebook | gemma4:latest | injected | gap_report | none x2 | — |
+| no-codebook | gemma4:latest | injected | informativeness | thin x2 | — |
+| no-codebook | gemma4:latest | injected | sourcing | overreaching x1, sourced x1 | — |
+| meanings-in-request | gemma4:latest | injected | gap_report | none x2 | — |
+| meanings-in-request | gemma4:latest | injected | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | gemma4:latest | injected | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | gpt-oss:20b | off | gap_report | partial x2 | — |
+| partial-codebook | gpt-oss:20b | off | informativeness | informative x1, restated x1 | — |
+| partial-codebook | gpt-oss:20b | off | sourcing | invented x2 | — |
+| keep-existing-entries | gpt-oss:20b | off | gap_report | none x2 | — |
+| keep-existing-entries | gpt-oss:20b | off | informativeness | thin x2 | — |
+| keep-existing-entries | gpt-oss:20b | off | sourcing | invented x1, sourced x1 | — |
+| no-codebook | gpt-oss:20b | off | gap_report | complete x2 | — |
+| no-codebook | gpt-oss:20b | off | informativeness | informative x2 | — |
+| no-codebook | gpt-oss:20b | off | sourcing | sourced x2 | — |
+| meanings-in-request | gpt-oss:20b | off | gap_report | none x2 | — |
+| meanings-in-request | gpt-oss:20b | off | informativeness | thin x2 | — |
+| meanings-in-request | gpt-oss:20b | off | sourcing | invented x2 | — |
+| partial-codebook | gpt-oss:20b | injected | gap_report | complete x1, partial x1 | — |
+| partial-codebook | gpt-oss:20b | injected | informativeness | informative x1, thin x1 | — |
+| partial-codebook | gpt-oss:20b | injected | sourcing | sourced x2 | — |
+| keep-existing-entries | gpt-oss:20b | injected | gap_report | none x2 | — |
+| keep-existing-entries | gpt-oss:20b | injected | informativeness | informative x1, restated x1 | — |
+| keep-existing-entries | gpt-oss:20b | injected | sourcing | invented x2 | — |
+| no-codebook | gpt-oss:20b | injected | gap_report | none x2 | — |
+| no-codebook | gpt-oss:20b | injected | informativeness | thin x2 | — |
+| no-codebook | gpt-oss:20b | injected | sourcing | sourced x2 | — |
+| meanings-in-request | gpt-oss:20b | injected | gap_report | none x1, partial x1 | — |
+| meanings-in-request | gpt-oss:20b | injected | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | gpt-oss:20b | injected | sourcing | overreaching x1, sourced x1 | — |
+| partial-codebook | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| partial-codebook | qwen3:30b-a3b | off | informativeness | informative x2 | — |
+| partial-codebook | qwen3:30b-a3b | off | sourcing | sourced x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | off | informativeness | restated x1, thin x1 | — |
+| keep-existing-entries | qwen3:30b-a3b | off | sourcing | invented x2 | — |
+| no-codebook | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| no-codebook | qwen3:30b-a3b | off | informativeness | thin x2 | — |
+| no-codebook | qwen3:30b-a3b | off | sourcing | invented x2 | — |
+| meanings-in-request | qwen3:30b-a3b | off | gap_report | none x2 | — |
+| meanings-in-request | qwen3:30b-a3b | off | informativeness | thin x2 | — |
+| meanings-in-request | qwen3:30b-a3b | off | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | qwen3:30b-a3b | injected | gap_report | none x2 | — |
+| partial-codebook | qwen3:30b-a3b | injected | informativeness | restated x2 | — |
+| partial-codebook | qwen3:30b-a3b | injected | sourcing | overreaching x1, sourced x1 | — |
+| keep-existing-entries | qwen3:30b-a3b | injected | gap_report | complete x1, none x1 | — |
+| keep-existing-entries | qwen3:30b-a3b | injected | informativeness | restated x2 | — |
+| keep-existing-entries | qwen3:30b-a3b | injected | sourcing | invented x1, sourced x1 | — |
+| no-codebook | qwen3:30b-a3b | injected | gap_report | complete x1, none x1 | — |
+| no-codebook | qwen3:30b-a3b | injected | informativeness | thin x2 | — |
+| no-codebook | qwen3:30b-a3b | injected | sourcing | invented x1, sourced x1 | — |
+| meanings-in-request | qwen3:30b-a3b | injected | gap_report | none x2 | — |
+| meanings-in-request | qwen3:30b-a3b | injected | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | qwen3:30b-a3b | injected | sourcing | overreaching x2 | — |
+| partial-codebook | gemma4:31b | off | gap_report | none x2 | — |
+| partial-codebook | gemma4:31b | off | informativeness | informative x2 | — |
+| partial-codebook | gemma4:31b | off | sourcing | invented x2 | — |
+| keep-existing-entries | gemma4:31b | off | gap_report | none x2 | — |
+| keep-existing-entries | gemma4:31b | off | informativeness | restated x2 | — |
+| keep-existing-entries | gemma4:31b | off | sourcing | invented x2 | — |
+| no-codebook | gemma4:31b | off | gap_report | none x2 | — |
+| no-codebook | gemma4:31b | off | informativeness | restated x1, thin x1 | — |
+| no-codebook | gemma4:31b | off | sourcing | invented x2 | — |
+| meanings-in-request | gemma4:31b | off | gap_report | none x2 | — |
+| meanings-in-request | gemma4:31b | off | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | gemma4:31b | off | sourcing | sourced x2 | — |
+| partial-codebook | gemma4:31b | injected | gap_report | complete x1, partial x1 | — |
+| partial-codebook | gemma4:31b | injected | informativeness | restated x2 | — |
+| partial-codebook | gemma4:31b | injected | sourcing | sourced x2 | — |
+| keep-existing-entries | gemma4:31b | injected | gap_report | complete x1, none x1 | — |
+| keep-existing-entries | gemma4:31b | injected | informativeness | restated x2 | — |
+| keep-existing-entries | gemma4:31b | injected | sourcing | invented x1, overreaching x1 | — |
+| no-codebook | gemma4:31b | injected | gap_report | none x2 | — |
+| no-codebook | gemma4:31b | injected | informativeness | informative x1, thin x1 | — |
+| no-codebook | gemma4:31b | injected | sourcing | sourced x2 | — |
+| meanings-in-request | gemma4:31b | injected | gap_report | none x2 | — |
+| meanings-in-request | gemma4:31b | injected | informativeness | restated x2 | — |
+| meanings-in-request | gemma4:31b | injected | sourcing | invented x1, overreaching x1 | — |
+| partial-codebook | qwen3.8:latest | off | gap_report | complete x2 | — |
+| partial-codebook | qwen3.8:latest | off | informativeness | informative x1, restated x1 | — |
+| partial-codebook | qwen3.8:latest | off | sourcing | invented x1, overreaching x1 | — |
+| keep-existing-entries | qwen3.8:latest | off | gap_report | none x2 | — |
+| keep-existing-entries | qwen3.8:latest | off | informativeness | restated x2 | — |
+| keep-existing-entries | qwen3.8:latest | off | sourcing | invented x1, sourced x1 | — |
+| no-codebook | qwen3.8:latest | off | gap_report | complete x1, none x1 | — |
+| no-codebook | qwen3.8:latest | off | informativeness | informative x2 | — |
+| no-codebook | qwen3.8:latest | off | sourcing | invented x1, sourced x1 | — |
+| meanings-in-request | qwen3.8:latest | off | gap_report | none x2 | — |
+| meanings-in-request | qwen3.8:latest | off | informativeness | thin x2 | — |
+| meanings-in-request | qwen3.8:latest | off | sourcing | invented x1, sourced x1 | — |
+| partial-codebook | qwen3.8:latest | injected | gap_report | complete x2 | — |
+| partial-codebook | qwen3.8:latest | injected | informativeness | informative x1, restated x1 | — |
+| partial-codebook | qwen3.8:latest | injected | sourcing | overreaching x1, sourced x1 | — |
+| keep-existing-entries | qwen3.8:latest | injected | gap_report | complete x1, none x1 | — |
+| keep-existing-entries | qwen3.8:latest | injected | informativeness | informative x2 | — |
+| keep-existing-entries | qwen3.8:latest | injected | sourcing | overreaching x1, sourced x1 | — |
+| no-codebook | qwen3.8:latest | injected | gap_report | none x2 | — |
+| no-codebook | qwen3.8:latest | injected | informativeness | thin x2 | — |
+| no-codebook | qwen3.8:latest | injected | sourcing | sourced x2 | — |
+| meanings-in-request | qwen3.8:latest | injected | gap_report | complete x1, partial x1 | — |
+| meanings-in-request | qwen3.8:latest | injected | informativeness | informative x1, restated x1 | — |
+| meanings-in-request | qwen3.8:latest | injected | sourcing | invented x1, sourced x1 | — |

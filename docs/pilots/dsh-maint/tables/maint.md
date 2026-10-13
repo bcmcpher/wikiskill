@@ -1,0 +1,32 @@
+| maintainer | unit | outcome | proposal | detail | warnings | defect_hint | gpt-oss_120b:diagnosis | gpt-oss_120b:specificity | gpt-oss_120b:regression_risk | gpt-oss_120b:generality | nemotron-3.5-lightning_latest:diagnosis | nemotron-3.5-lightning_latest:specificity | nemotron-3.5-lightning_latest:regression_risk | nemotron-3.5-lightning_latest:generality | replay:gemma4_latest | replay:gpt-oss_20b | replay:qwen3_30b-a3b |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| gemma4:31b | archive | error |  | error: the proposer endpoint is unreachable: timed out |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| gemma4:31b | bids | proposal | p-001 |  |  |  | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | do not accept | accept | do not accept |
+| gemma4:31b | curate | no_action |  | The provided wiki patterns are all success patterns, indicating that the current instructions are effective. Evidence (E |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| gemma4:latest | archive | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| gemma4:latest | bids | proposal | p-001 |  |  |  | 5 | 3 | 5 | 5 | 5 | 5 | 5 | 5 | do not accept | accept | do not accept |
+| gemma4:latest | curate | proposal | p-001 |  |  |  | 2 | 4 | 5 | 5 | 4 | 5 | 5 | 5 | do not accept | do not accept | do not accept |
+| glm-4.7-flash:latest | archive | error |  | error: the proposer endpoint is unreachable: timed out |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| glm-4.7-flash:latest | bids | error |  | error: the proposer endpoint is unreachable: timed out |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| glm-4.7-flash:latest | curate | review_failed |  | the wiki holds no pattern for curate/gen-data-dict; run `wikiskill review` first |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| gpt-oss:20b | archive | proposal | p-001 |  |  | False | 5 | 4 | 5 | 5 | 5 | 5 | 5 | 5 | do not accept | do not accept | do not accept |
+| gpt-oss:20b | bids | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| gpt-oss:20b | curate | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| granite4.1:30b | archive | review_failed |  | the wiki holds no pattern for archive/archive-doer; run `wikiskill review` first |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| granite4.1:30b | bids | proposal | p-001 |  |  |  | 5 | 4 | 4 | 5 | 5 | 5 | 5 | 5 | do not accept | do not accept | do not accept |
+| granite4.1:30b | curate | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| llama3.3:latest | archive | proposal | p-001 |  |  | False | 4 | 2 | 5 | 5 | 5 | 5 | 5 | 5 | do not accept | accept | do not accept |
+| llama3.3:latest | bids | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| llama3.3:latest | curate | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| mistral-small3.2:24b | archive | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| mistral-small3.2:24b | bids | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage; edits/1: `find` does not occur i |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| mistral-small3.2:24b | curate | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| qwen3-coder:30b | archive | proposal | p-001 |  |  | False | 5 | 4 | 5 | 5 | 5 | 5 | 5 | 5 | do not accept | do not accept | do not accept |
+| qwen3-coder:30b | bids | proposal | p-001 |  |  |  | 1 | 2 | 3 | 3 | 1 | 5 | 5 | 5 | do not accept | do not accept | do not accept |
+| qwen3-coder:30b | curate | review_failed |  | the wiki holds no pattern for curate/gen-data-dict; run `wikiskill review` first |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| qwen3.8:latest | archive | proposal | p-001 |  |  | False | 5 | 5 | 5 | 5 | 3 | 4 | 5 | 5 | accept | do not accept | do not accept |
+| qwen3.8:latest | bids | proposal | p-001 |  |  |  | 5 | 5 | 5 | 5 | 5 | 5 | 3 | 5 | accept | do not accept | do not accept |
+| qwen3.8:latest | curate | proposal | p-001 |  |  |  | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | do not accept | do not accept | do not accept |
+| qwen3:30b-a3b | archive | error |  | error: the proposer endpoint is unreachable: timed out |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| qwen3:30b-a3b | bids | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| qwen3:30b-a3b | curate | failed |  | edits/0: `find` does not occur in the component's text; copy one exact, unique passage |  |  |  |  |  |  |  |  |  |  |  |  |  |

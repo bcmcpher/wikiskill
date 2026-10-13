@@ -3,7 +3,7 @@
 ### Leaderboard: archive-doer
 
 - suite_hash: `0e72ca36e9bc`
-- runs: 15 (`01M49KYJGHTMR0FM7BFYZX6Y2A`, `01M49Q05KXQB37SW8M67V8NTZH`, `01M49QX3E0F90WMG9NFSBPJXAX`, `01M49VEWSNB7WQ27HAE4X02V2R`, `01M49Y73M2NBBS5NWX8NVPFR5M`, `01M4A0NM5EPG433GS3ZEGMR7AZ`, `01M4AVSMJSDWBSM15ZSPY59YAM`, `01M4AXCNZK0NM7WGDRED6NNZTT`, `01M4AYT1G6BRPE105ZNNFQRH90`, `01M4B1ZE5N7Q2WVNXAFFSNWBJ7`, `01M4B7WHMV7DKF0TD4178VA3S4`, `01M4BFD55AN60KHS7SS5CKY3PG`, `01M4BKB0DGAS92ZN24ZTSCY73Q`, `01M4BNZNVVRP4AGJMT288GV1QF`, `01M4BGXVYQ93JES7NC9F1YQXTK`)
+- runs: 37 (`01M49KYJGHTMR0FM7BFYZX6Y2A`, `01M49Q05KXQB37SW8M67V8NTZH`, `01M49QX3E0F90WMG9NFSBPJXAX`, `01M49VEWSNB7WQ27HAE4X02V2R`, `01M49Y73M2NBBS5NWX8NVPFR5M`, `01M4A0NM5EPG433GS3ZEGMR7AZ`, `01M4AVSMJSDWBSM15ZSPY59YAM`, `01M4AXCNZK0NM7WGDRED6NNZTT`, `01M4AYT1G6BRPE105ZNNFQRH90`, `01M4B1ZE5N7Q2WVNXAFFSNWBJ7`, `01M4B7WHMV7DKF0TD4178VA3S4`, `01M4BFD55AN60KHS7SS5CKY3PG`, `01M4BKB0DGAS92ZN24ZTSCY73Q`, `01M4BNZNVVRP4AGJMT288GV1QF`, `01M4BGXVYQ93JES7NC9F1YQXTK`, `01M4H6CXC2P30TVJGXGF1BVRBA`, `01M4H8TP57XFTDX1ST3008YQZ5`, `01M4HF2S2Q94QENWB36N15QX05`, `01M4HN5Q4TYATP3Z1HZS9R13AR`, `01M4HZRCHWEAV1HATQV9GNCBHS`, `01M4K4CD99HTVBPBCTJF9YED1S`, `01M4KDFYXCR7KZGNNYNMCV3BTJ`, `01M4N2FTEF8S8D0Y1P2XK99FH9`, `01M4N4Q8NCCDWZW53GMB549GSM`, `01M4N5BF71JBJZHRF4YSMR5XDY`, `01M4N8HC4MT7WSQG1MB8VSGNAA`, `01M4NAKGPBXG1FPRPQ7JSKS7AP`, `01M4NCPN4FWVA2JDMG1J7AM0KK`, `01M4NGE11B56FX9DNC7WNVNSBN`, `01M4NHKVB6PH289D0E7SQ0391E`, `01M4NK5GP398DDHXCXBS5D3EM3`, `01M4NQYD1764B6XHGR97GA6JCD`, `01M4NRX6DHF4YCFNCF719JF78C`, `01M4NSZT73W4208RVVS1575KMB`, `01M4NW8Y62B4SDT5VFRSCGMN8K`, `01M4P15R41B1XYTHBCES85B8MS`, `01M4P5SV01FFRTF82J325QF44F`)
 - `archive/archive-doer`: `c39b608eb155`
 
 A unit passes on its verifiers, or, for a task with none, when its first activation is the expected component. Intervals are Wilson 95%. Units that did not run are counted beside the rate, never in it.
@@ -16,41 +16,55 @@ A unit passes on its verifiers, or, for a task with none, when its first activat
 
 | # | model | family | size (B) | passed (95% CI) | not run | median s | runs | context |
 |---|---|---|---|---|---|---|---|---|
-| 1 | ollama/gemma4:31b (thinking off) | gemma | 30.7 | 18/18 (100%, 82-100%) | 0 | 21.2 | 1 | 256k |
-| 2≈ | ollama/qwen3-coder:30b | qwen | 30.5 | 18/18 (100%, 82-100%) | 0 | 16.3 | 1 | 256k |
-| 3≈ | ollama/qwen3.8:latest (thinking off) | qwen | 27.3 | 18/18 (100%, 82-100%) | 0 | 62.9 | 1 | 256k |
-| 4≈ | ollama/gemma4:latest | gemma | 8 | 17/18 (94%, 74-99%) | 0 | 31.5 | 1 | 128k |
-| 5≈ | ollama/gpt-oss:20b | gpt-oss | 20.9 | 17/18 (94%, 74-99%) | 0 | 18.9 | 1 | 128k |
-| 6≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 17/18 (94%, 74-99%) | 0 | 39.0 | 1 | 256k |
-| 7≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 17/18 (94%, 74-99%) | 0 | 34.7 | 1 | 256k |
-| 8≈ | ollama/gpt-oss:20b (thinking off) | gpt-oss | 20.9 | 16/18 (89%, 67-97%) | 0 | 25.4 | 1 | 128k |
-| 9≈ | ollama/granite4.1:3b | granite | 3.4 | 16/18 (89%, 67-97%) | 0 | 8.6 | 1 | 128k |
-| 10≈ | ollama/granite4.1:8b | granite | 8.8 | 16/18 (89%, 67-97%) | 0 | 21.8 | 1 | 128k |
-| 11≈ | ollama/ministral-3:3b | mistral | 3.8 | 15/18 (83%, 61-94%) | 0 | 14.6 | 1 | 256k |
-| 12≈ | ollama/gemma4:latest (thinking off) | gemma | 8 | 14/18 (78%, 55-91%) | 0 | 11.3 | 1 | 128k |
-| 13 | ollama/qwen3:1.7b | qwen | 2 | 9/18 (50%, 29-71%) | 0 | 7.2 | 1 | 40k |
-| 14 | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 9/18 (50%, 29-71%) | 0 | 6.3 | 1 | 40k |
-| 15 | ollama/llama3.2:3b | llama | 3.2 | 8/18 (44%, 25-66%) | 0 | 4.8 | 1 | 128k |
+| 1 | ollama/gemma4:31b (thinking off) | gemma | 30.7 | 30/30 (100%, 89-100%) | 0 | 23.4 | 2 | 256k |
+| 2≈ | ollama/qwen3-coder:30b | qwen | 30.5 | 30/30 (100%, 89-100%) | 0 | 16.0 | 2 | 256k |
+| 3≈ | ollama/qwen3.8:latest | qwen | 27.3 | 30/30 (100%, 89-100%) | 0 | 129.7 | 1 | 256k |
+| 4≈ | ollama/qwen3.8:latest (thinking off) | qwen | 27.3 | 30/30 (100%, 89-100%) | 0 | 55.4 | 2 | 256k |
+| 5≈ | ollama/gemma4:latest | gemma | 8 | 29/30 (97%, 83-99%) | 0 | 33.4 | 2 | 128k |
+| 6≈ | ollama/glm-4.7-flash:latest | glm | 29.9 | 29/30 (97%, 83-99%) | 0 | 23.9 | 1 | 198k |
+| 7≈ | ollama/glm-4.7-flash:latest (thinking off) | glm | 29.9 | 29/30 (97%, 83-99%) | 0 | 12.9 | 1 | 198k |
+| 8≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 29/30 (97%, 83-99%) | 0 | 39.0 | 2 | 256k |
+| 9≈ | ollama/gpt-oss:20b | gpt-oss | 20.9 | 28/30 (93%, 79-98%) | 0 | 21.2 | 2 | 128k |
+| 10≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 28/30 (93%, 79-98%) | 0 | 34.7 | 2 | 256k |
+| 11≈ | ollama/gpt-oss:20b (thinking off) | gpt-oss | 20.9 | 27/30 (90%, 74-97%) | 0 | 27.0 | 2 | 128k |
+| 12≈ | ollama/granite4.1:30b | granite | 28.9 | 26/30 (87%, 70-95%) | 0 | 37.1 | 1 | 128k |
+| 13≈ | ollama/granite4.1:3b | granite | 3.4 | 26/30 (87%, 70-95%) | 0 | 8.7 | 2 | 128k |
+| 14≈ | ollama/granite4.1:8b | granite | 8.8 | 26/30 (87%, 70-95%) | 0 | 21.8 | 2 | 128k |
+| 15≈ | ollama/ministral-3:3b | mistral | 3.8 | 26/30 (87%, 70-95%) | 0 | 13.2 | 2 | 256k |
+| 16 | ollama/gemma4:latest (thinking off) | gemma | 8 | 23/30 (77%, 59-88%) | 0 | 10.1 | 2 | 128k |
+| 17 | ollama/llama3.3:latest | llama | 70.6 | 22/30 (73%, 56-86%) | 0 | 58.9 | 1 | 128k |
+| 18 | ollama/qwen3:1.7b | qwen | 2 | 16/30 (53%, 36-70%) | 0 | 8.7 | 2 | 40k |
+| 19 | ollama/llama3.1:8b | llama | 8 | 15/30 (50%, 33-67%) | 0 | 18.3 | 1 | 128k |
+| 20 | ollama/mistral-small3.2:24b | mistral | 24 | 15/30 (50%, 33-67%) | 0 | 18.3 | 1 | 128k |
+| 21 | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 15/30 (50%, 33-67%) | 0 | 7.8 | 2 | 40k |
+| 22 | ollama/llama3.2:3b | llama | 3.2 | 12/30 (40%, 25-58%) | 0 | 5.2 | 2 | 128k |
 
 ##### off
 
 | # | model | family | size (B) | passed (95% CI) | not run | median s | runs | context |
 |---|---|---|---|---|---|---|---|---|
-| 1 | ollama/gemma4:31b (thinking off) | gemma | 30.7 | 9/18 (50%, 29-71%) | 0 | 115.4 | 1 | 256k |
-| 2≈ | ollama/gemma4:latest | gemma | 8 | 9/18 (50%, 29-71%) | 0 | 11.1 | 1 | 128k |
-| 3≈ | ollama/gemma4:latest (thinking off) | gemma | 8 | 9/18 (50%, 29-71%) | 0 | 3.7 | 1 | 128k |
-| 4≈ | ollama/granite4.1:3b | granite | 3.4 | 9/18 (50%, 29-71%) | 0 | 9.1 | 1 | 128k |
-| 5≈ | ollama/granite4.1:8b | granite | 8.8 | 9/18 (50%, 29-71%) | 0 | 9.1 | 1 | 128k |
-| 6≈ | ollama/ministral-3:3b | mistral | 3.8 | 9/18 (50%, 29-71%) | 0 | 3.8 | 1 | 256k |
-| 7≈ | ollama/qwen3.8:latest (thinking off) | qwen | 27.3 | 9/18 (50%, 29-71%) | 0 | 138.7 | 1 | 256k |
-| 8≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 9/18 (50%, 29-71%) | 0 | 12.1 | 1 | 256k |
-| 9≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 9/18 (50%, 29-71%) | 0 | 11.1 | 1 | 256k |
-| 10≈ | ollama/gpt-oss:20b | gpt-oss | 20.9 | 8/18 (44%, 25-66%) | 0 | 10.2 | 1 | 128k |
-| 11≈ | ollama/gpt-oss:20b (thinking off) | gpt-oss | 20.9 | 8/18 (44%, 25-66%) | 0 | 15.2 | 1 | 128k |
-| 12≈ | ollama/qwen3:1.7b | qwen | 2 | 8/18 (44%, 25-66%) | 0 | 14.7 | 1 | 40k |
-| 13≈ | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 8/18 (44%, 25-66%) | 0 | 3.3 | 1 | 40k |
-| 14≈ | ollama/llama3.2:3b | llama | 3.2 | 7/18 (39%, 20-61%) | 0 | 3.7 | 1 | 128k |
-| 15≈ | ollama/qwen3-coder:30b | qwen | 30.5 | 5/18 (28%, 12-51%) | 0 | 16.2 | 1 | 256k |
+| 1 | ollama/qwen3.8:latest | qwen | 27.3 | 19/30 (63%, 46-78%) | 0 | 192.7 | 1 | 256k |
+| 2≈ | ollama/gemma4:31b (thinking off) | gemma | 30.7 | 15/30 (50%, 33-67%) | 0 | 115.4 | 2 | 256k |
+| 3≈ | ollama/gemma4:latest (thinking off) | gemma | 8 | 15/30 (50%, 33-67%) | 0 | 3.9 | 2 | 128k |
+| 4≈ | ollama/gpt-oss:20b (thinking off) | gpt-oss | 20.9 | 15/30 (50%, 33-67%) | 0 | 14.7 | 2 | 128k |
+| 5≈ | ollama/granite4.1:8b | granite | 8.8 | 15/30 (50%, 33-67%) | 0 | 10.3 | 2 | 128k |
+| 6≈ | ollama/llama3.1:8b | llama | 8 | 15/30 (50%, 33-67%) | 0 | 9.5 | 1 | 128k |
+| 7≈ | ollama/llama3.3:latest | llama | 70.6 | 15/30 (50%, 33-67%) | 0 | 44.9 | 1 | 128k |
+| 8≈ | ollama/ministral-3:3b | mistral | 3.8 | 15/30 (50%, 33-67%) | 0 | 4.1 | 2 | 256k |
+| 9≈ | ollama/mistral-small3.2:24b | mistral | 24 | 15/30 (50%, 33-67%) | 0 | 18.0 | 1 | 128k |
+| 10≈ | ollama/qwen3.8:latest (thinking off) | qwen | 27.3 | 15/30 (50%, 33-67%) | 0 | 113.0 | 2 | 256k |
+| 11≈ | ollama/qwen3:30b-a3b | qwen | 30.5 | 15/30 (50%, 33-67%) | 0 | 11.6 | 2 | 256k |
+| 12≈ | ollama/qwen3:30b-a3b (thinking off) | qwen | 30.5 | 15/30 (50%, 33-67%) | 0 | 12.9 | 2 | 256k |
+| 13≈ | ollama/gemma4:latest | gemma | 8 | 14/30 (47%, 30-64%) | 0 | 12.1 | 2 | 128k |
+| 14≈ | ollama/glm-4.7-flash:latest | glm | 29.9 | 14/30 (47%, 30-64%) | 0 | 18.3 | 1 | 198k |
+| 15≈ | ollama/gpt-oss:20b | gpt-oss | 20.9 | 14/30 (47%, 30-64%) | 0 | 13.2 | 2 | 128k |
+| 16≈ | ollama/granite4.1:30b | granite | 28.9 | 14/30 (47%, 30-64%) | 0 | 19.8 | 1 | 128k |
+| 17≈ | ollama/qwen3:1.7b (thinking off) | qwen | 2 | 14/30 (47%, 30-64%) | 0 | 3.3 | 2 | 40k |
+| 18≈ | ollama/granite4.1:3b | granite | 3.4 | 13/30 (43%, 27-61%) | 0 | 9.6 | 2 | 128k |
+| 19≈ | ollama/llama3.2:3b | llama | 3.2 | 13/30 (43%, 27-61%) | 0 | 4.0 | 2 | 128k |
+| 20≈ | ollama/qwen3:1.7b | qwen | 2 | 13/30 (43%, 27-61%) | 0 | 11.9 | 2 | 40k |
+| 21≈ | ollama/glm-4.7-flash:latest (thinking off) | glm | 29.9 | 9/30 (30%, 17-48%) | 0 | 13.4 | 1 | 198k |
+| 22≈ | ollama/qwen3-coder:30b | qwen | 30.5 | 9/30 (30%, 17-48%) | 0 | 16.2 | 2 | 256k |
 
 `≈` marks a model whose interval overlaps the leader's: its place is not a finding.
 
@@ -60,57 +74,71 @@ Medians are of the units that ran.
 
 | model | condition | api_error | completed | permission_blocked | step_exhausted | median s | median tokens in/out |
 |---|---|---|---|---|---|---|---|
-| ollama/qwen3:1.7b | injected | 0 | 18 | 0 | 0 | 7.2 | 4546/562 |
-| ollama/qwen3:1.7b | off | 0 | 18 | 0 | 0 | 14.7 | 5946/1403 |
-| ollama/qwen3:1.7b (thinking off) | injected | 0 | 17 | 0 | 1 | 6.3 | 8117/308 |
-| ollama/qwen3:1.7b (thinking off) | off | 0 | 17 | 0 | 1 | 3.3 | 4217/130 |
-| ollama/qwen3.8:latest (thinking off) | injected | 0 | 12 | 6 | 0 | 62.9 | 5761/1379 |
-| ollama/qwen3.8:latest (thinking off) | off | 0 | 8 | 4 | 6 | 138.7 | 22461/2630 |
-| ollama/qwen3-coder:30b | injected | 0 | 15 | 3 | 0 | 16.3 | 6946/676 |
-| ollama/qwen3-coder:30b | off | 0 | 17 | 1 | 0 | 16.2 | 5191/736 |
-| ollama/qwen3:30b-a3b | injected | 0 | 18 | 0 | 0 | 39.0 | 4648/2452 |
-| ollama/qwen3:30b-a3b | off | 0 | 18 | 0 | 0 | 12.1 | 4124/646 |
-| ollama/qwen3:30b-a3b (thinking off) | injected | 0 | 18 | 0 | 0 | 34.7 | 5892/2094 |
-| ollama/qwen3:30b-a3b (thinking off) | off | 0 | 18 | 0 | 0 | 11.1 | 4134/560 |
-| ollama/llama3.2:3b | injected | 1 | 17 | 0 | 0 | 4.8 | 7280/140 |
-| ollama/llama3.2:3b | off | 0 | 17 | 1 | 0 | 3.7 | 4528/101 |
-| ollama/granite4.1:3b | injected | 0 | 18 | 0 | 0 | 8.6 | 7352/293 |
-| ollama/granite4.1:3b | off | 0 | 14 | 4 | 0 | 9.1 | 5098/402 |
-| ollama/granite4.1:8b | injected | 0 | 14 | 4 | 0 | 21.8 | 7526/498 |
-| ollama/granite4.1:8b | off | 0 | 16 | 2 | 0 | 9.1 | 4454/190 |
-| ollama/ministral-3:3b | injected | 0 | 15 | 3 | 0 | 14.6 | 7326/558 |
-| ollama/ministral-3:3b | off | 0 | 18 | 0 | 0 | 3.8 | 4576/84 |
-| ollama/gemma4:latest | injected | 0 | 17 | 1 | 0 | 31.5 | 9348/1572 |
-| ollama/gemma4:latest | off | 0 | 18 | 0 | 0 | 11.1 | 6276/478 |
-| ollama/gemma4:latest (thinking off) | injected | 0 | 18 | 0 | 0 | 11.3 | 9208/340 |
-| ollama/gemma4:latest (thinking off) | off | 0 | 18 | 0 | 0 | 3.7 | 6253/40 |
-| ollama/gemma4:31b (thinking off) | injected | 0 | 15 | 3 | 0 | 21.2 | 6476/208 |
-| ollama/gemma4:31b (thinking off) | off | 0 | 5 | 3 | 10 | 115.4 | 10646/1646 |
-| ollama/gpt-oss:20b | injected | 0 | 18 | 0 | 0 | 18.9 | 2929/818 |
-| ollama/gpt-oss:20b | off | 0 | 16 | 2 | 0 | 10.2 | 469/437 |
-| ollama/gpt-oss:20b (thinking off) | injected | 0 | 15 | 2 | 1 | 25.4 | 3249/1268 |
-| ollama/gpt-oss:20b (thinking off) | off | 0 | 16 | 2 | 0 | 15.2 | 666/711 |
+| ollama/qwen3:1.7b | injected | 0 | 30 | 0 | 0 | 8.7 | 4712/685 |
+| ollama/qwen3:1.7b | off | 0 | 30 | 0 | 0 | 11.9 | 4440/962 |
+| ollama/qwen3:1.7b (thinking off) | injected | 0 | 28 | 0 | 2 | 7.8 | 8591/414 |
+| ollama/qwen3:1.7b (thinking off) | off | 0 | 29 | 0 | 1 | 3.3 | 4228/128 |
+| ollama/qwen3.8:latest | injected | 0 | 23 | 7 | 0 | 129.7 | 4971/2748 |
+| ollama/qwen3.8:latest | off | 0 | 14 | 14 | 2 | 192.7 | 8547/3630 |
+| ollama/qwen3.8:latest (thinking off) | injected | 0 | 21 | 9 | 0 | 55.4 | 5069/1194 |
+| ollama/qwen3.8:latest (thinking off) | off | 0 | 14 | 9 | 7 | 113.0 | 11521/2004 |
+| ollama/qwen3-coder:30b | injected | 0 | 27 | 3 | 0 | 16.0 | 6638/676 |
+| ollama/qwen3-coder:30b | off | 0 | 28 | 2 | 0 | 16.2 | 5172/736 |
+| ollama/qwen3:30b-a3b | injected | 0 | 30 | 0 | 0 | 39.0 | 4660/2394 |
+| ollama/qwen3:30b-a3b | off | 0 | 30 | 0 | 0 | 11.6 | 4125/584 |
+| ollama/qwen3:30b-a3b (thinking off) | injected | 0 | 30 | 0 | 0 | 34.7 | 5939/2080 |
+| ollama/qwen3:30b-a3b (thinking off) | off | 0 | 30 | 0 | 0 | 12.9 | 4135/648 |
+| ollama/llama3.2:3b | injected | 1 | 29 | 0 | 0 | 5.2 | 7263/162 |
+| ollama/llama3.2:3b | off | 0 | 27 | 3 | 0 | 4.0 | 4482/100 |
+| ollama/llama3.1:8b | injected | 0 | 30 | 0 | 0 | 18.3 | 7263/240 |
+| ollama/llama3.1:8b | off | 0 | 24 | 6 | 0 | 9.5 | 4586/122 |
+| ollama/llama3.3:latest | injected | 0 | 30 | 0 | 0 | 58.9 | 5376/185 |
+| ollama/llama3.3:latest | off | 0 | 27 | 3 | 0 | 44.9 | 4880/132 |
+| ollama/granite4.1:3b | injected | 0 | 29 | 1 | 0 | 8.7 | 7336/300 |
+| ollama/granite4.1:3b | off | 0 | 25 | 5 | 0 | 9.6 | 5132/402 |
+| ollama/granite4.1:8b | injected | 0 | 23 | 7 | 0 | 21.8 | 7702/458 |
+| ollama/granite4.1:8b | off | 0 | 25 | 5 | 0 | 10.3 | 4457/232 |
+| ollama/granite4.1:30b | injected | 0 | 30 | 0 | 0 | 37.1 | 7384/255 |
+| ollama/granite4.1:30b | off | 0 | 28 | 2 | 0 | 19.8 | 4438/117 |
+| ollama/ministral-3:3b | injected | 0 | 25 | 5 | 0 | 13.2 | 7573/558 |
+| ollama/ministral-3:3b | off | 0 | 30 | 0 | 0 | 4.1 | 4576/90 |
+| ollama/mistral-small3.2:24b | injected | 0 | 30 | 0 | 0 | 18.3 | 4972/151 |
+| ollama/mistral-small3.2:24b | off | 0 | 28 | 2 | 0 | 18.0 | 4555/152 |
+| ollama/gemma4:latest | injected | 0 | 28 | 2 | 0 | 33.4 | 9227/1592 |
+| ollama/gemma4:latest | off | 0 | 29 | 1 | 0 | 12.1 | 6289/478 |
+| ollama/gemma4:latest (thinking off) | injected | 0 | 30 | 0 | 0 | 10.1 | 9138/320 |
+| ollama/gemma4:latest (thinking off) | off | 0 | 30 | 0 | 0 | 3.9 | 6259/45 |
+| ollama/gemma4:31b (thinking off) | injected | 0 | 25 | 5 | 0 | 23.4 | 6476/202 |
+| ollama/gemma4:31b (thinking off) | off | 0 | 8 | 7 | 15 | 115.4 | 10530/1560 |
+| ollama/gpt-oss:20b | injected | 0 | 30 | 0 | 0 | 21.2 | 3402/968 |
+| ollama/gpt-oss:20b | off | 0 | 27 | 3 | 0 | 13.2 | 545/482 |
+| ollama/gpt-oss:20b (thinking off) | injected | 0 | 27 | 2 | 1 | 27.0 | 3249/1314 |
+| ollama/gpt-oss:20b (thinking off) | off | 0 | 27 | 3 | 0 | 14.7 | 646/685 |
+| ollama/glm-4.7-flash:latest | injected | 0 | 26 | 4 | 0 | 23.9 | 3617/1015 |
+| ollama/glm-4.7-flash:latest | off | 0 | 27 | 3 | 0 | 18.3 | 848/890 |
+| ollama/glm-4.7-flash:latest (thinking off) | injected | 0 | 26 | 4 | 0 | 12.9 | 3200/478 |
+| ollama/glm-4.7-flash:latest (thinking off) | off | 0 | 20 | 7 | 3 | 13.4 | 662/560 |
 
 #### Per task
 
 ##### injected
 
-| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3.8:latest (thinking off) | ollama/qwen3-coder:30b | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/granite4.1:3b | ollama/granite4.1:8b | ollama/ministral-3:3b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b (thinking off) | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| auto-backend-structured | verifier | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 2/3 | 2/3 | 1/3 | 2/3 | 2/3 | 3/3 | 2/3 | 2/3 |
-| deposit-without-version | verifier | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
-| mint-untagged-version | verifier | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
-| mint-without-token | verifier | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 3/3 | 3/3 | 2/3 | 3/3 | 1/3 | 3/3 | 3/3 | 3/3 |
-| relate-without-write-path | verifier | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 2/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 2/3 |
-| token-but-archive-unreachable | verifier | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 2/3 | 2/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
+| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3.8:latest | ollama/qwen3.8:latest (thinking off) | ollama/qwen3-coder:30b | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/llama3.1:8b | ollama/llama3.3:latest | ollama/granite4.1:3b | ollama/granite4.1:8b | ollama/granite4.1:30b | ollama/ministral-3:3b | ollama/mistral-small3.2:24b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b (thinking off) | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) | ollama/glm-4.7-flash:latest | ollama/glm-4.7-flash:latest (thinking off) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| auto-backend-structured | verifier | 0/5 | 0/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 0/5 | 0/5 | 0/5 | 3/5 | 3/5 | 4/5 | 2/5 | 0/5 | 4/5 | 3/5 | 5/5 | 3/5 | 3/5 | 4/5 | 5/5 |
+| deposit-without-version | verifier | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| mint-untagged-version | verifier | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 3/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| mint-without-token | verifier | 1/5 | 0/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 0/5 | 1/5 | 4/5 | 5/5 | 5/5 | 5/5 | 4/5 | 1/5 | 5/5 | 2/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| relate-without-write-path | verifier | 0/5 | 0/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 0/5 | 3/5 | 3/5 | 3/5 | 4/5 | 4/5 | 5/5 | 0/5 | 5/5 | 3/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 |
+| token-but-archive-unreachable | verifier | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 3/5 | 3/5 | 3/5 | 5/5 | 5/5 | 4/5 | 3/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 |
 
 ##### off
 
-| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3.8:latest (thinking off) | ollama/qwen3-coder:30b | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/granite4.1:3b | ollama/granite4.1:8b | ollama/ministral-3:3b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b (thinking off) | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| auto-backend-structured | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
-| deposit-without-version | verifier | 2/3 | 2/3 | 3/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
-| mint-untagged-version | verifier | 3/3 | 3/3 | 1/3 | 1/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 |
-| mint-without-token | verifier | 0/3 | 0/3 | 2/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
-| relate-without-write-path | verifier | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 |
-| token-but-archive-unreachable | verifier | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 |
+| task | basis | ollama/qwen3:1.7b | ollama/qwen3:1.7b (thinking off) | ollama/qwen3.8:latest | ollama/qwen3.8:latest (thinking off) | ollama/qwen3-coder:30b | ollama/qwen3:30b-a3b | ollama/qwen3:30b-a3b (thinking off) | ollama/llama3.2:3b | ollama/llama3.1:8b | ollama/llama3.3:latest | ollama/granite4.1:3b | ollama/granite4.1:8b | ollama/granite4.1:30b | ollama/ministral-3:3b | ollama/mistral-small3.2:24b | ollama/gemma4:latest | ollama/gemma4:latest (thinking off) | ollama/gemma4:31b (thinking off) | ollama/gpt-oss:20b | ollama/gpt-oss:20b (thinking off) | ollama/glm-4.7-flash:latest | ollama/glm-4.7-flash:latest (thinking off) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| auto-backend-structured | verifier | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 |
+| deposit-without-version | verifier | 3/5 | 4/5 | 5/5 | 5/5 | 1/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 3/5 |
+| mint-untagged-version | verifier | 5/5 | 5/5 | 2/5 | 2/5 | 3/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 4/5 | 4/5 | 2/5 |
+| mint-without-token | verifier | 0/5 | 0/5 | 5/5 | 2/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 1/5 | 1/5 | 0/5 | 0/5 |
+| relate-without-write-path | verifier | 0/5 | 0/5 | 2/5 | 1/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 |
+| token-but-archive-unreachable | verifier | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 4/5 | 5/5 | 4/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 4/5 | 5/5 | 5/5 | 4/5 |

@@ -2,35 +2,49 @@
 
 | model | family | condition | passed (95% CI) | not run | median s |
 |---|---|---|---|---|---|
-| qwen3:1.7b | qwen | injected | 2/12 (17%, 5-45%) | 0 | 27.3 |
-| qwen3:1.7b | qwen | off | 1/12 (8%, 1-35%) | 0 | 17.3 |
-| qwen3:1.7b (thinking off) | qwen | injected | 1/12 (8%, 1-35%) | 0 | 18.5 |
-| qwen3:1.7b (thinking off) | qwen | off | 2/12 (17%, 5-45%) | 0 | 5.4 |
-| qwen3.8:latest (thinking off) | qwen | injected | 8/12 (67%, 39-86%) | 0 | 66.5 |
-| qwen3.8:latest (thinking off) | qwen | off | 7/12 (58%, 32-81%) | 0 | 46.5 |
-| qwen3-coder:30b | qwen | injected | 6/12 (50%, 25-75%) | 0 | 32.1 |
-| qwen3-coder:30b | qwen | off | 3/12 (25%, 9-53%) | 0 | 14.2 |
-| qwen3:30b-a3b | qwen | injected | 5/12 (42%, 19-68%) | 0 | 139.0 |
-| qwen3:30b-a3b | qwen | off | 0/12 (0%, 0-24%) | 0 | 57.6 |
-| qwen3:30b-a3b (thinking off) | qwen | injected | 5/12 (42%, 19-68%) | 0 | 148.3 |
-| qwen3:30b-a3b (thinking off) | qwen | off | 1/12 (8%, 1-35%) | 0 | 76.0 |
-| llama3.2:3b | llama | injected | 0/12 (0%, 0-24%) | 0 | 4.6 |
-| llama3.2:3b | llama | off | 0/12 (0%, 0-24%) | 0 | 3.5 |
-| granite4.1:3b | granite | injected | 2/12 (17%, 5-45%) | 0 | 10.1 |
-| granite4.1:3b | granite | off | 3/12 (25%, 9-53%) | 0 | 7.0 |
-| granite4.1:8b | granite | injected | 2/12 (17%, 5-45%) | 0 | 24.1 |
-| granite4.1:8b | granite | off | 0/12 (0%, 0-24%) | 0 | 12.9 |
-| ministral-3:3b | mistral | injected | 0/12 (0%, 0-24%) | 0 | 16.3 |
-| ministral-3:3b | mistral | off | 3/12 (25%, 9-53%) | 0 | 8.0 |
-| gemma4:latest | gemma | injected | 6/12 (50%, 25-75%) | 0 | 45.2 |
-| gemma4:latest | gemma | off | 1/12 (8%, 1-35%) | 0 | 22.7 |
-| gemma4:latest (thinking off) | gemma | injected | 2/12 (17%, 5-45%) | 0 | 21.6 |
-| gemma4:latest (thinking off) | gemma | off | 0/12 (0%, 0-24%) | 0 | 5.2 |
-| gemma4:31b | gemma | injected | 10/12 (83%, 55-95%) | 0 | 162.2 |
-| gemma4:31b | gemma | off | 3/12 (25%, 9-53%) | 0 | 68.7 |
-| gemma4:31b (thinking off) | gemma | injected | 7/12 (58%, 32-81%) | 0 | 50.8 |
-| gemma4:31b (thinking off) | gemma | off | 3/12 (25%, 9-53%) | 0 | 37.4 |
-| gpt-oss:20b | gpt-oss | injected | 2/12 (17%, 5-45%) | 0 | 16.3 |
-| gpt-oss:20b | gpt-oss | off | 5/12 (42%, 19-68%) | 0 | 11.2 |
-| gpt-oss:20b (thinking off) | gpt-oss | injected | 6/12 (50%, 25-75%) | 0 | 26.0 |
-| gpt-oss:20b (thinking off) | gpt-oss | off | 4/12 (33%, 14-61%) | 0 | 12.7 |
+| qwen3:1.7b | qwen | injected | 2/20 (10%, 3-30%) | 0 | 27.3 |
+| qwen3:1.7b | qwen | off | 3/20 (15%, 5-36%) | 0 | 19.6 |
+| qwen3:1.7b (thinking off) | qwen | injected | 1/20 (5%, 1-24%) | 0 | 16.1 |
+| qwen3:1.7b (thinking off) | qwen | off | 2/20 (10%, 3-30%) | 0 | 6.0 |
+| qwen3.8:latest | qwen | injected | 17/20 (85%, 64-95%) | 0 | 193.2 |
+| qwen3.8:latest | qwen | off | 10/20 (50%, 30-70%) | 0 | 63.3 |
+| qwen3.8:latest (thinking off) | qwen | injected | 15/20 (75%, 53-89%) | 0 | 66.5 |
+| qwen3.8:latest (thinking off) | qwen | off | 11/20 (55%, 34-74%) | 0 | 46.7 |
+| qwen3-coder:30b | qwen | injected | 7/20 (35%, 18-57%) | 0 | 29.6 |
+| qwen3-coder:30b | qwen | off | 5/20 (25%, 11-47%) | 0 | 15.1 |
+| qwen3:30b-a3b | qwen | injected | 9/20 (45%, 26-66%) | 0 | 123.2 |
+| qwen3:30b-a3b | qwen | off | 0/20 (0%, 0-16%) | 0 | 57.6 |
+| qwen3:30b-a3b (thinking off) | qwen | injected | 8/20 (40%, 22-61%) | 0 | 139.5 |
+| qwen3:30b-a3b (thinking off) | qwen | off | 1/20 (5%, 1-24%) | 0 | 77.5 |
+| llama3.2:3b | llama | injected | 0/20 (0%, 0-16%) | 0 | 4.6 |
+| llama3.2:3b | llama | off | 0/20 (0%, 0-16%) | 0 | 3.7 |
+| llama3.1:8b | llama | injected | 0/20 (0%, 0-16%) | 0 | 6.6 |
+| llama3.1:8b | llama | off | 0/20 (0%, 0-16%) | 0 | 6.1 |
+| llama3.3:latest | llama | injected | 0/20 (0%, 0-16%) | 0 | 90.3 |
+| llama3.3:latest | llama | off | 1/20 (5%, 1-24%) | 0 | 82.1 |
+| granite4.1:3b | granite | injected | 3/20 (15%, 5-36%) | 0 | 10.1 |
+| granite4.1:3b | granite | off | 4/20 (20%, 8-42%) | 0 | 7.2 |
+| granite4.1:8b | granite | injected | 3/20 (15%, 5-36%) | 0 | 26.6 |
+| granite4.1:8b | granite | off | 0/20 (0%, 0-16%) | 0 | 13.5 |
+| granite4.1:30b | granite | injected | 4/20 (20%, 8-42%) | 0 | 64.3 |
+| granite4.1:30b | granite | off | 0/20 (0%, 0-16%) | 0 | 48.9 |
+| ministral-3:3b | mistral | injected | 1/20 (5%, 1-24%) | 0 | 12.7 |
+| ministral-3:3b | mistral | off | 4/20 (20%, 8-42%) | 0 | 11.2 |
+| mistral-small3.2:24b | mistral | injected | 1/20 (5%, 1-24%) | 0 | 46.5 |
+| mistral-small3.2:24b | mistral | off | 2/20 (10%, 3-30%) | 0 | 37.9 |
+| gemma4:latest | gemma | injected | 8/20 (40%, 22-61%) | 0 | 54.8 |
+| gemma4:latest | gemma | off | 1/20 (5%, 1-24%) | 0 | 20.6 |
+| gemma4:latest (thinking off) | gemma | injected | 3/20 (15%, 5-36%) | 0 | 20.5 |
+| gemma4:latest (thinking off) | gemma | off | 1/20 (5%, 1-24%) | 0 | 7.7 |
+| gemma4:31b | gemma | injected | 18/20 (90%, 70-97%) | 0 | 199.4 |
+| gemma4:31b | gemma | off | 5/20 (25%, 11-47%) | 0 | 80.6 |
+| gemma4:31b (thinking off) | gemma | injected | 11/20 (55%, 34-74%) | 0 | 52.4 |
+| gemma4:31b (thinking off) | gemma | off | 5/20 (25%, 11-47%) | 0 | 39.2 |
+| gpt-oss:20b | gpt-oss | injected | 3/20 (15%, 5-36%) | 0 | 19.3 |
+| gpt-oss:20b | gpt-oss | off | 8/20 (40%, 22-61%) | 0 | 12.4 |
+| gpt-oss:20b (thinking off) | gpt-oss | injected | 11/20 (55%, 34-74%) | 0 | 26.5 |
+| gpt-oss:20b (thinking off) | gpt-oss | off | 6/20 (30%, 15-52%) | 0 | 14.1 |
+| glm-4.7-flash:latest | glm | injected | 10/20 (50%, 30-70%) | 0 | 37.5 |
+| glm-4.7-flash:latest | glm | off | 3/20 (15%, 5-36%) | 0 | 19.0 |
+| glm-4.7-flash:latest (thinking off) | glm | injected | 9/20 (45%, 26-66%) | 0 | 23.8 |
+| glm-4.7-flash:latest (thinking off) | glm | off | 1/20 (5%, 1-24%) | 0 | 12.4 |
