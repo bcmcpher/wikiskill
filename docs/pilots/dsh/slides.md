@@ -498,3 +498,17 @@ components only when it can copy text exactly, so the exact-copy step is the fir
 - Routing probe, and provenance and reproducibility probes
 - Cost probe (its instrument is specific to Claude Code)
 - Passive use; a remote endpoint; a Claude Code arm
+
+## Status at hand-back
+
+- GB10 returned 2026-10-13; nothing can be rerun on it
+- Raw runs packed: transcripts, run records, end states, logs (185 MB, 3.7 GB unpacked)
+- Dropped: per-unit installs, caches, OpenCode's database (duplicates `sessions.json`)
+- Open: a v2 suite run, `gemma4:31b` at default on the doers, 4.6, 4.7, 4b, 6.x
+
+::: notes
+The archive is dsh-runs-20261013.tar.zst, kept privately with the first pass's 2026-10-07 archive;
+the unit data is not redacted. OpenCode's database was about 15 GB, almost all an uncheckpointed
+write-ahead log; its messages and parts match sessions.json, checked on one unit per suite.
+Unpacked into $XDG_DATA_HOME/wikiskill/, the scripts that read transcripts run again.
+:::

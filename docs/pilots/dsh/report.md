@@ -506,6 +506,33 @@ The full table is `../dsh-maint/tables/maint.md`.
 - **A reported run on a remote endpoint.** Every model ran locally on the GB10.
 - **A Claude Code arm.** Not attempted.
 
+## Status at hand-back
+
+The GB10 was returned on 2026-10-13, so nothing above can be rerun on it. Its raw run data was
+packed before the hand-back:
+
+- **Kept:** for every unit, `sessions.json`, `run.ndjson`, `exports/`, `config.json`, `setup.log`,
+  the built component (`built/`), the end state of the working tree (`work/`), OpenCode's log and
+  full tool outputs. Each run also keeps its `run.json`, `results.jsonl` and reports. The sweep and
+  maintainer logs, the collection manifests, and the maintainer sandboxes are kept too.
+- **Dropped:**
+  - the per-unit OpenCode install and caches;
+  - OpenCode's SQLite database and its write-ahead log, which is about 15 GB because OpenCode never
+    checkpoints it. Its messages and parts are the same as `sessions.json`, as compared on one unit
+    per suite;
+  - OpenCode's snapshot repositories.
+- **Where:** `dsh-runs-20261013.tar.zst` (185 MB, 3.7 GB unpacked), with a checksum list. It sits
+  with the first pass's earlier archive, `dsh-pilot-runs-20261007.tar.zst`, which also keeps the databases. Unpack
+  into `$XDG_DATA_HOME/wikiskill/` and the scripts that read transcripts run again
+  (`pilots/dsh-sweep/rescore.py`, `tokens.py thinking`). The unit data is not redacted, so the
+  archives are private.
+
+Still open at hand-back:
+- The v2 suites have never been run.
+- `gemma4:31b` at `--thinking default` on the doers is unrecorded.
+- `add-dsh-pilot` 4.6, 4.7, 4b.* and 6.x remain.
+- Every rerun needs another machine that can serve the same models.
+
 ## Appendix: full tables
 
 <!-- include: tables/pilot.md -->
