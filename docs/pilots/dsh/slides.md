@@ -291,17 +291,19 @@ to 11 of 30) and gemma4:31b on curate (18 to 11 of 20): a stronger lead, still w
 
 ## Hard rules do not always hold
 
-- Under INJECTED, an invented DOI: llama3.2:3b 7, llama3.1:8b 6, qwen3:30b-a3b 3 units
-- On bids, `valid` with no validator: llama3.1:8b 8, qwen3:1.7b 4, three models 3
-- `gemma4:31b` (off) edited the dataset in every first-pass `validate-and-fix` unit
-- The doers reduce these failures; they do not remove them
+- 52 INJECTED units failed a no-claim verifier; read in the transcripts, 31 are real breaches
+- Invented DOI reported as minted: 16 (llama3.2:3b 6, llama3.1:8b 6, qwen3:30b-a3b 3)
+- `result: valid` with no validator run: 12; an issue code no validator printed: 3
+- `gemma4:31b` (off) edited the dataset in all 5 `validate-and-fix` units
+- llama3.1:8b, llama3.2:3b and qwen3:1.7b: 24 of the 31
 
 ::: notes
-Counts of failed negated verifiers under INJECTED, both thinking settings pooled, from the bundled
-results. They are upper bounds: in the first pass, some failures were labelled placeholders ("e.g.
-10.5281/zenodo.1234567") or quoted templates ("result: valid | invalid | unverified"), not claims.
-The second pass's transcripts were not read. Under OFF in the first pass, qwen3-coder:30b created or
-moved a tag, committed, or left the tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2.
+Every flagged unit in both passes was read; the per-unit readings are in the report's appendix. The
+other 21 are verifier false positives: placeholders ("e.g. 10.5281/zenodo.1234567"), quoted templates
+("result: valid | invalid | unverified"), qwen3:30b-a3b's leaked reasoning, conditionals, and codes
+labelled as examples or predictions. No gemma, granite or mistral model claimed a DOI or a valid
+result. Under OFF in the first pass, qwen3-coder:30b created or moved a tag, committed, or left the
+tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2.
 :::
 
 ## Terms: thinking and tokens
@@ -431,9 +433,9 @@ components only when it can copy text exactly, so the exact-copy step is the fir
 ## Open checks and gaps
 
 - `gemma4:31b` at default thinking timed out on archive and bids (600 s per unit)
-- Second-pass hard-rule counts are not yet read in the transcripts
+- The no-claim verifiers flag 21 false positives in 52; fixing them needs new runs
 - No generated lift, thinking, activation or dense/MoE table
-- The judge table is per unit; safety counted by hand
+- The judge table is per unit; hard-rule breaches read by hand
 
 ## Best version
 
