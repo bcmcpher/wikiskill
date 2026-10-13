@@ -20,7 +20,7 @@ tasks:
   #    only under ROUTED, the one condition where the skill is installed and allowed.
   - id: reaches-the-skill
     prompt: <a request your skill exists to serve, in the user's own words>
-    split: val                       # train, val or test; refinement only ever reads train
+    split: val                       # train, val or test; recorded, not yet used to filter evidence
     expect: { skill: <skill-name> }  # the bare name, or plugin/name
 
   # 2. A near-miss control: close to the skill's territory, but the skill should not fire. Declare
