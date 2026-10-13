@@ -187,7 +187,9 @@ model's knowledge at about a 3B model's cost per token. Every model is Q4_K_M ex
 | granite4.1:3b | granite | 3.4 | 3.4 | dense | default |
 | ministral-3:3b | mistral | 3.8 | 3.8 | dense | default |
 | gemma4:latest | gemma | 8.0 | 8.0 | dense | default, off |
+| llama3.1:8b | llama | 8.0 | 8.0 | dense | default |
 | granite4.1:8b | granite | 8.8 | 8.8 | dense | default |
+| gpt-oss:20b | gpt-oss | 20.9 | 3.6 | MoE | default, off |
 
 ::: notes
 Settings: default leaves thinking to the model; off asks for none. Models that cannot think run at
@@ -198,16 +200,20 @@ default only. Continued on the next slide.
 
 | model | family | total B | active B | shape | settings run |
 |---|---|---|---|---|---|
-| gpt-oss:20b | gpt-oss | 20.9 | 3.6 | MoE | default, off |
-| qwen3.8:latest | qwen | 27.3 | 27.3 | dense | off |
+| mistral-small3.2:24b | mistral | 24.0 | 24.0 | dense | default |
+| qwen3.8:latest | qwen | 27.3 | 27.3 | dense | default, off |
+| granite4.1:30b | granite | 28.9 | 28.9 | dense | default |
+| glm-4.7-flash:latest | glm | 29.9 | about 3 | MoE | default, off |
 | qwen3:30b-a3b | qwen | 30.5 | 3.3 | MoE | default, off |
 | qwen3-coder:30b | qwen | 30.5 | 3.3 | MoE | default |
 | gemma4:31b | gemma | 30.7 | 30.7 | dense | off; default on curate |
+| llama3.3:latest | llama | 70.6 | 70.6 | dense | default |
 
 ::: notes
 gemma4:31b at default thinking timed out on archive and bids (600 s per unit), so those two runs are
-not recorded. qwen3.8 runs at off only, to keep the sweep short. Active parameters for the MoE
-models are the published figures for Qwen3-30B-A3B and gpt-oss-20b.
+not recorded. llama3.1:8b, mistral-small3.2:24b, granite4.1:30b, glm-4.7-flash and llama3.3, and
+qwen3.8 at default, were added in the second pass. gpt-oss:120b and nemotron-3.5-lightning are held
+out as judges. Active parameters for the MoE models are the published figures.
 :::
 
 ## The three DSH suites
@@ -241,16 +247,18 @@ are too strict as written, so the raw failure counts overstate fabrication; the 
 rules slide were read. Fixing them means a new suite file and new runs.
 :::
 
-## Model sweep (preliminary)
+## Model sweep
 
 - Three DSH components: `archive-doer`, `bids-doer` (agents) and `gen-data-dict` (skill)
-- Local models from 1.7B to 31B, dense and MoE, from six families; OFF and INJECTED
-- 3 repeats per task: n = 18 per cell (12 for curate), intervals about ±20 points
+- Sixteen local models from 1.7B to 70B, dense and MoE, from six families; OFF and INJECTED
+- 5 repeats per task over two passes: n = 30 per cell (20 for curate), about ±17 points
 - Thinking at each model's default, and `--thinking off` for the models that can think
 
 ::: notes
-A proof of concept: the design asks for 10 repeats and eighteen models. The tables and figures are
-generated from every run recorded at export time (see the build line on the last slide).
+A proof of concept: the design asks for 10 repeats. The first pass (2026-10-06 to 10-07) ran eleven
+models at 3 repeats; the second (2026-10-09 to 10-11) added five models at 5 repeats and 2 repeats
+to every recorded model. Suites, verifiers and the DSH checkout were frozen between them so the runs
+pool. The tables and figures are generated from every run recorded at export time.
 :::
 
 ## archive-doer
@@ -265,32 +273,35 @@ generated from every run recorded at export time (see the build line on the last
 
 ![](../dsh-curate/figures/sweep-rates.png)
 
-## What the sweep shows so far
+## What the sweep shows
 
-- The doers help from about 8B total up; the 3B dense models never separate
-- Archive is at its ceiling: 10 of 15 entrants pass 16–18 of 18 under INJECTED
-- Curate: only `gemma4:31b` gains from the skill
-- Thinking off costs both gemma4 models INJECTED passes (bids 12 to 6, curate 10 to 7): a lead
+- The doers lift most models: archive 15 of 22 entrants separate, bids 13 of 22
+- Archive: the 3B dense models now separate too; bids: nothing under 8B does
+- `mistral-small3.2:24b` never called the doer (0 of 60 units); the llama models gain little
+- Curate: only `gemma4:31b`, `qwen3:30b-a3b` and `glm-4.7-flash` (off) gain from the skill
+- Archive is at its ceiling: 10 entrants pass 28–30 of 30 under INJECTED
 
 ::: notes
-"Separate" means INJECTED's interval does not overlap OFF's for the same model. qwen3-coder:30b
-(3.3B active, 30.5B total) separates on both doers, so total size predicts more than active size.
-On curate, qwen3.8 passes 7 of 12 with no skill and 8 with it.
+"Separate" means INJECTED's interval does not overlap OFF's for the same model. Archive OFF sits at
+half because three of its six tasks pass almost always without the doer and three almost never.
+llama3.3 (70.6B) is the largest model and separates on no suite. On curate, qwen3.8 passes 10 of 20
+with no skill and 17 with it. Thinking off costs gemma4:latest INJECTED passes on both doers (bids 21
+to 11 of 30) and gemma4:31b on curate (18 to 11 of 20): a stronger lead, still within the intervals.
 :::
 
 ## Hard rules do not always hold
 
-- Under INJECTED, `qwen3:30b-a3b` and `llama3.2:3b` returned `result: ok` with an invented DOI
-- On bids, the two smallest models reported `valid` with no validator on PATH
-- `gemma4:31b` edited the dataset in every `validate-and-fix` unit, against the read-only rule
+- Under INJECTED, an invented DOI: llama3.2:3b 7, llama3.1:8b 6, qwen3:30b-a3b 3 units
+- On bids, `valid` with no validator: llama3.1:8b 8, qwen3:1.7b 4, three models 3
+- `gemma4:31b` (off) edited the dataset in every first-pass `validate-and-fix` unit
 - The doers reduce these failures; they do not remove them
 
 ::: notes
-Counted from per-verifier results for all eleven models. The four added for the dense/MoE comparison
-broke no hard rule under INJECTED: their two failures were a quoted `result: valid` template and a
-labelled example issue code. Under OFF, qwen3-coder:30b created or moved a tag, committed, or left
-the tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2. The DOI verifier also fails labelled placeholders ("e.g.
-10.5281/zenodo.1234567"), so the raw DOI counts overstate fabrication; the cases above were read.
+Counts of failed negated verifiers under INJECTED, both thinking settings pooled, from the bundled
+results. They are upper bounds: in the first pass, some failures were labelled placeholders ("e.g.
+10.5281/zenodo.1234567") or quoted templates ("result: valid | invalid | unverified"), not claims.
+The second pass's transcripts were not read. Under OFF in the first pass, qwen3-coder:30b created or
+moved a tag, committed, or left the tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2.
 :::
 
 ## Terms: thinking and tokens
@@ -308,21 +319,21 @@ the tree dirty in 5 archive units, and qwen3.8 created `v2.0` in 2. The DOI veri
 characters of English, and tokenizers differ by family, so token counts compare only within a model.
 :::
 
-## Tokens per unit (heavily qualified)
+## Tokens per unit (first pass, heavily qualified)
 
 - INJECTED usually costs more output per unit, and less per pass
 - `granite4.1:8b` on bids: about 9.2k output per pass under OFF, 0.9k under INJECTED
-- `gemma4:31b` on archive: the doer cuts its median from 1.6k to 0.2k per unit, and it passes all 18
+- `gemma4:31b` on archive: the doer cuts its median from 1.6k to 0.2k per unit
 - Thinking off cuts `gemma4:latest`'s output fivefold; `qwen3:30b-a3b`'s does not move
 
 ::: notes
-Output tokens only, computed by a one-off script from the bundled results. Input leaves out Ollama's
+Output tokens only, computed by a one-off script from the first pass's bundled results. Input leaves out Ollama's
 prefix cache: one 7-step unit had 4.9k input against 34k read from the cache, so input is not
 reported. Reasoning is not reported separately. Tokenizers differ by family, so compare within a
 model. Output is capped at 8192 per turn, and the judge's tokens are not counted.
 :::
 
-## What `--thinking off` did
+## What `--thinking off` did (first pass)
 
 - `gemma4:latest`, `gemma4:31b`, `qwen3:1.7b`: stopped thinking; output falls to the visible text
 - `gpt-oss:20b`: ignored it; still produces reasoning parts
@@ -334,42 +345,39 @@ model. Output is capped at 8192 per turn, and the judge's tokens are not counted
 Every off run sends reasoningEffort none. qwen3:30b-a3b's leaked reasoning trips final-text
 verifiers: it quotes the doer's `result: valid | …` template. Counted from transcripts: reasoning parts, and visible
 text and tool arguments at about 4 characters a token, against reported output. gpt-oss's effort
-levels are low, medium and high. qwen3.8 had no reasoning parts in any of 96 units; 54 open their first text
-with "The user wants…" or "Let me…", but only 2 of its final replies do. It ran at off only, so it
-has no default row to compare.
+levels are low, medium and high. qwen3.8 had no reasoning parts in any of its 96 first-pass units; 54 open their first text
+with "The user wants…" or "Let me…", but only 2 of its final replies do. glm-4.7-flash and qwen3.8 at
+default came in the second pass and were not measured.
 :::
 
 ## Dense against MoE: the comparisons
 
 | comparison | dense | MoE |
 |---|---|---|
-| same active size (about 3B) | granite4.1:3b, ministral-3:3b | qwen3-coder:30b, qwen3:30b-a3b, gpt-oss:20b |
-| same total size (about 30B) | qwen3.8:latest, gemma4:31b | qwen3:30b-a3b, qwen3-coder:30b |
+| same active size (about 3B) | granite4.1:3b, ministral-3:3b, llama3.2:3b | qwen3-coder:30b, qwen3:30b-a3b, gpt-oss:20b, glm-4.7-flash |
+| same total size (about 30B) | qwen3.8, gemma4:31b, granite4.1:30b, mistral-small3.2:24b | qwen3:30b-a3b, qwen3-coder:30b, glm-4.7-flash |
 | same base, different tuning | | qwen3-coder:30b against qwen3:30b-a3b |
 
 ::: notes
 "Similar size" has two readings. Matched active size asks whether 30B of stored experts beats 3B of
 dense weights at the same cost per token. Matched total size asks whether running every parameter
-beats running a few at the same memory. qwen3.8 runs at thinking off only, and gemma4:31b at off
-only on archive and bids, so the total-size pair compares like with like only at off.
+beats running a few at the same memory.
 :::
 
-## Dense against MoE (preliminary)
+## Dense against MoE
 
-- **Same active size, about 3B:** `qwen3-coder:30b` (MoE) vs dense `granite4.1:3b`, `ministral-3:3b`
-- MoE separates: archive 18/18 vs 5/18, bids 15/18 vs 3/18
-- The 3B dense models separate on no suite recorded
-- **Same total size, at off:** dense `qwen3.8` ahead on all three suites, within the intervals
+- **Same active size, about 3B:** all four MoE models separate on both doers
+- The 3B dense models separate on archive (granite, ministral), on bids none does
+- **Same total size:** dense `qwen3.8` ahead of `qwen3:30b-a3b` on bids and curate, within the intervals
+- `granite4.1:30b` and `gemma4:31b` sit level with the MoE models on the doers
 - **Tuning:** the two qwen MoE models overlap everywhere
 
 ::: notes
-Read off the sweep tables; "vs" is INJECTED against OFF for the same model. On curate the skill does
-not help the 3B dense models. Total size, INJECTED at off, qwen3.8 against qwen3:30b-a3b: archive
-18/18 against 17/18, bids 17/18 against 12/18, curate 8/12 against 5/12. qwen3.8 also does more
-without the component (OFF bids 9/18 against 2/18, curate 7/12 against 1/12), so its lift is no
-larger. gemma4:31b, the other dense model near 30B, is mixed against the MoE models (18, 11, 7).
-qwen3:30b-a3b leaks its reasoning at off, so the pair is not clean on thinking. Tuning compares
-qwen3-coder:30b and qwen3:30b-a3b under INJECTED; qwen3-coder cannot think.
+Read off the sweep tables; INJECTED against OFF for the same model. 3B dense on archive:
+granite4.1:3b 26/30 against 13/30, ministral-3:3b 26/30 against 15/30; on bids 13/30 against 4/30 and
+5/30. With 3 repeats the dense models separated nowhere, so the second pass changed this reading.
+Total size at default, INJECTED: qwen3.8 against qwen3:30b-a3b, bids 26/30 against 20/30, curate
+17/20 against 9/20. Family is confounded with shape. qwen3-coder cannot think.
 :::
 
 ## Tooling the pilot produced
@@ -391,11 +399,40 @@ filled this way: one unit rerun in 11 seconds, the other 35 kept. Retries and fi
 preserve-units, not yet on main.
 :::
 
+## Maintainer arm: what ran
+
+- Ten local models each reviewed the first pass's runs and proposed one patch per component
+- Each in its own sandbox: no shared wiki, no shared proposals
+- A proposal runs on a three-model panel and is replayed for accept or reject
+- `gpt-oss:120b` and `nemotron-3.5-lightning` score it blind, 1–5 on four dimensions
+
+::: notes
+pilots/dsh-maint/maint.sh. Panel: gemma4:latest, gpt-oss:20b, qwen3:30b-a3b. Dimensions: diagnosis,
+specificity, regression risk, generality. The judges see the evidence the maintainer was shown. Full
+table: docs/pilots/dsh-maint/tables/maint.md.
+:::
+
+## Maintainer arm: results
+
+- 11 of 30 maintainer × component cells produced a proposal; only `qwen3.8` did for all three
+- 11 failed on an edit whose `find` text is not in the component; 4 timed out
+- The panel accepted 5 of 33 replays, never more than one model per proposal
+- No archive proposal names the known readiness-check defect
+- `nemotron` gave 5/5 throughout to 7 of 11 proposals; `gpt-oss:120b` separates them
+
+::: notes
+A refine edit must quote an exact, unique passage of the component, and most models could not.
+Three cells found no pattern in the wiki to act on, and gemma4:31b judged curate's patterns all
+successes. On qwen3-coder:30b's bids proposal both judges gave diagnosis 1/5, but nemotron gave the
+other three dimensions 5/5 where gpt-oss:120b gave 2 to 3. A local model can maintain these
+components only when it can copy text exactly, so the exact-copy step is the first thing to fix.
+:::
+
 ## Open checks and gaps
 
 - `gemma4:31b` at default thinking timed out on archive and bids (600 s per unit)
-- No run-to-run noise check yet
-- No generated lift, thinking or dense/MoE table
+- Second-pass hard-rule counts are not yet read in the transcripts
+- No generated lift, thinking, activation or dense/MoE table
 - The judge table is per unit; safety counted by hand
 
 ## Best version
