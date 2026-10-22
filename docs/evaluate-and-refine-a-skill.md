@@ -28,6 +28,7 @@ This guide uses these terms with one meaning each.
 | **suite** | A YAML file of tasks that evaluates a collection. |
 | **task** | One prompt, its starting state, and the checks that decide its result. |
 | **verifier** | A deterministic check that runs after a task: a shell command, a file test or a regular expression. |
+| **secret** | A host environment variable that a suite names in `secrets`. Only command verifiers get it. |
 | **route** | The component a correct run activates first. A task declares it with `expect`. |
 | **condition** | How the collection is offered to the model: OFF, ROUTED or INJECTED. |
 | **unit** | One task, on one model, under one condition, in one repeat. The smallest thing that passes or fails. |
@@ -390,13 +391,15 @@ the authority. [`templates/suite.yaml`](templates/suite.yaml) is a template to c
 | `tasks` | yes | list | One or more tasks. |
 
 **`defaults`** may set `repeats` (1–100, default 3), `timeout_s` (default 900), `max_steps` (default
-40), `requires`, `guard`, `env` and `setup`. How a task's own value combines with the default:
+40), `requires`, `guard`, `env`, `secrets` and `setup`. How a task's own value combines with the
+default:
 
 | Field | Task value and default |
 |---|---|
 | `repeats`, `timeout_s`, `max_steps` | The task's value replaces the default. |
 | `setup` | The task's list **replaces** the default list. It does not add to it. |
 | `env` | Merged. The task's value wins for a name set in both. |
+| `secrets` | Joined. The task gets every name from both lists. |
 | `requires`, `guard` | The task's value replaces the default. |
 
 An empty value does not clear a default. `setup: []`, `requires: []` and `guard: {}` count as
@@ -416,6 +419,7 @@ its own, such as `[git init -q]`.
 | `fixtures` | no | path | A directory copied into the working directory first, relative to the suite file. |
 | `setup` | no | list of shell commands | Run in the working directory after fixtures, before the session. |
 | `env` | no | mapping | Environment variables for the harness process and the verifiers. |
+| `secrets` | no | list of names | Host variables that only command verifiers get (below). |
 | `guard` | no | `{deny: [patterns]}` | Commands the session may not run. |
 | `requires` | no | list | Commands the task needs. If one is missing, the unit is `skipped`. |
 | `repeats`, `timeout_s`, `max_steps` | no | integer | Override the defaults. |
@@ -431,6 +435,28 @@ its own, such as `[git init -q]`.
 | `command` | The command that should run. |
 
 Names compare by their last segment, without case. `release/changelog` and `Changelog` match.
+
+**`secrets`, variables for the grader only.** A verifier sometimes needs a credential that the model
+must not have, such as a token that fetches a hidden reference answer. Name it in `secrets`:
+
+```yaml
+defaults:
+  secrets: [GRADER_TOKEN]
+```
+
+The runner then applies these rules, on OpenCode and on Claude Code:
+
+- The session, OpenCode's export step, `setup` and the `requires` check do not get the variable.
+- A `command` verifier gets the variable with its value from your shell.
+- `wikiskill eval` refuses to start if the variable is not set, or its value is under 8 characters.
+- `run.json` records the name. No file of the run records the value: verifier output and logged
+  events show `[REDACTED:env_value]` in its place.
+
+A name may not start with `XDG_`, `OPENCODE_` or `WIKISKILL_`, and the task's `env` may not set it.
+A task without `secrets` runs as before.
+
+`secrets` covers the environment only. It is not a sandbox. The session can still read any file
+that your user can read, so do not keep the credential in a file inside the session's reach.
 
 ### 3.4 Four kinds of task
 
@@ -494,7 +520,7 @@ The fixture's `CHANGELOG.md` already lists the 1.0.0 release:
 A verifier that reads this file must look only at what the model adds. Section 3.8 shows how.
 
 **Setup** builds state that depends on commands, such as git history. Setup runs with your own
-environment plus the task's `env`, so it can see your `~/.gitconfig`. Pass the git identity on the
+environment plus the task's `env`, without its `secrets`, so it can see your `~/.gitconfig`. Pass the git identity on the
 command line anyway, so that setup also works on a machine with no git identity:
 
 ```yaml
@@ -558,7 +584,7 @@ every kind accepts `negate: true`, which passes when the check does **not** hold
 
 | Field | Meaning |
 |---|---|
-| `run` | The command. It runs through the shell, in the working directory, with the task's `env`. |
+| `run` | The command. It runs through the shell, in the working directory, with the task's `env` and `secrets`. |
 | `expect_exit` | The exit code that counts as a pass. Default 0. |
 
 A command has 120 seconds. Use it for anything about state: git, files, JSON.

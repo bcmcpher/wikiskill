@@ -86,6 +86,12 @@ failure.
   real hosts and push commands in `guard: { deny: [...] }`. When a task needs a token that looks
   valid, point the service's URL at a closed local port, so the deposit fails the way an outage
   would. Any DOI in that reply is then invented by definition.
+- **Give a grader's credential to the grader only.** Name it in `secrets`, in `defaults` or on a
+  task; the two lists are joined. The session, its export, `setup` and `requires` do not get the
+  variable. A `command` verifier gets its host value. `eval` refuses to start when it is unset or
+  under 8 characters. `run.json` records the name, and stored output shows `[REDACTED:env_value]`
+  for the value. This covers the environment only: the session can still read a credential in a
+  file it can reach.
 - **Make recalled conventions visible.** If a correct answer could be guessed from common practice,
   pick values that differ from it. A table that codes age in months and `1 = female` makes a model
   that assumes the usual coding give a wrong value instead of a lucky guess.

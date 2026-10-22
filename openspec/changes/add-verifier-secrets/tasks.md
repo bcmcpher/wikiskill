@@ -29,7 +29,7 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
 
 ## 3. Documentation
 
-- [ ] 3.1 Document `secrets` in `docs/evaluate-and-refine-a-skill.md` §3 and `docs/writing-suites.md`,
+- [x] 3.1 Document `secrets` in `docs/evaluate-and-refine-a-skill.md` §3 and `docs/writing-suites.md`,
   stating it covers the environment only; verify `bin/check` passes
 
 ## 4. Verify
