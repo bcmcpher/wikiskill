@@ -3,7 +3,7 @@
 Smallest shippable slice: discovery finds both flat forms, with names, on a synthetic tree. Deferred:
 nothing; the build exclusion is in section 2 because a ROUTED run needs it.
 
-- [ ] 0.1 Add a synthetic fixture tree under `tests/fixtures/` with one plugin per form (`skills/`,
+- [x] 0.1 Add a synthetic fixture tree under `tests/fixtures/` with one plugin per form (`skills/`,
   `<plugin>/<name>/SKILL.md`, `<plugin>/SKILL.md`) plus a plugin that is a skill and holds flat skills;
   verify it holds no real collection's text
 
