@@ -28,7 +28,7 @@ CSV output.
 
 ## 3. Documentation
 
-- [ ] 3.1 Document the fields in `docs/writing-suites.md` and `docs/evaluate-and-refine-a-skill.md`,
+- [x] 3.1 Document the fields in `docs/writing-suites.md` and `docs/evaluate-and-refine-a-skill.md`,
   and the `result` key in `docs/data.md`; verify `bin/check` passes
 
 ## 4. Verify
