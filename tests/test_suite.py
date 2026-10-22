@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from wikiskill import suite as suite_mod
+from wikiskill.cli import main
 from wikiskill.suite import SuiteError
 
 GOOD = """
@@ -237,3 +238,62 @@ def test_env_expands_home_and_host_variables(monkeypatch):
 
     assert task.resolved_env() == {"PATH": "/home/someone/venv/bin:/usr/bin", "PLAIN": "x"}
     assert dict(task.env)["PATH"] == "~/venv/bin:$PATH", "the task keeps what the suite said"
+
+
+SECRETS = """
+suite: graded
+defaults: { secrets: [FAKE_HF_TOKEN] }
+tasks:
+  - id: fetch
+    prompt: Summarise the dataset card.
+    split: val
+    secrets: [FAKE_GRADER_KEY]
+    verifiers:
+      - { kind: command, run: "true" }
+"""
+
+
+def test_secrets_join_the_defaults_and_the_tasks_own(tmp_path):
+    task = suite_mod.load(write(tmp_path, SECRETS)).tasks[0]
+    assert task.secrets == ("FAKE_HF_TOKEN", "FAKE_GRADER_KEY")
+
+
+def test_a_task_without_its_own_secrets_keeps_the_defaults(tmp_path):
+    body = SECRETS.replace("    secrets: [FAKE_GRADER_KEY]\n", "")
+    assert suite_mod.load(write(tmp_path, body)).tasks[0].secrets == ("FAKE_HF_TOKEN",)
+
+
+def test_a_suite_without_secrets_declares_none(tmp_path):
+    assert all(not task.secrets for task in suite_mod.load(write(tmp_path, GOOD)).tasks)
+
+
+def test_a_secret_may_not_also_be_set_in_env(tmp_path, capsys):
+    body = SECRETS.replace("    secrets: [FAKE_GRADER_KEY]", '    env: { FAKE_HF_TOKEN: "x" }')
+    path = write(tmp_path, body)
+    with pytest.raises(SuiteError, match="FAKE_HF_TOKEN as a secret and also sets it in `env`"):
+        suite_mod.load(path)
+    assert main(["suite", "check", str(path)]) == 1
+    assert "also sets it in `env`" in capsys.readouterr().out
+
+
+def test_a_secret_may_not_take_a_reserved_name(tmp_path, capsys):
+    body = SECRETS.replace("[FAKE_GRADER_KEY]", "[OPENCODE_CONFIG_CONTENT]")
+    path = write(tmp_path, body)
+    with pytest.raises(SuiteError, match="OPENCODE_CONFIG_CONTENT as a secret, a reserved name"):
+        suite_mod.load(path)
+    assert main(["suite", "check", str(path)]) == 1
+    assert "reserved name" in capsys.readouterr().out
+
+
+def test_a_secret_must_be_a_variable_name(tmp_path):
+    with pytest.raises(SuiteError, match="1BAD"):
+        suite_mod.load(write(tmp_path, SECRETS.replace("FAKE_GRADER_KEY", "1BAD")))
+
+
+def test_secret_env_reads_only_what_the_host_sets(monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-123")
+    monkeypatch.delenv("FAKE_UNSET_TOKEN", raising=False)
+    task = suite_mod.Task(
+        id="t", prompt="p", split="val", secrets=("FAKE_GRADER_TOKEN", "FAKE_UNSET_TOKEN")
+    )
+    assert task.secret_env() == {"FAKE_GRADER_TOKEN": "fake-grader-value-123"}

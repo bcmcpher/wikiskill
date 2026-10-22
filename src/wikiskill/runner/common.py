@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import redact
+from ..suite import Task
 from .base import RunnerError, Unit
 
 #: One setup command's budget. Setup builds a starting state; it is not where work happens.
@@ -72,6 +73,17 @@ def merged(*found: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return redact.merge(entry for entries in found for entry in entries)
 
 
+def without_secrets(env: dict[str, str], task: Task) -> dict[str, str]:
+    """``env`` without the task's declared secrets: what the unit's harness and setup may see.
+
+    Applied last, to the environment as built, at every place a unit's environment is built. Only a
+    command verifier gets the secrets, and it adds them back from the host itself.
+    """
+    if not task.secrets:
+        return env
+    return {key: value for key, value in env.items() if key not in task.secrets}
+
+
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:
     """Run a task's setup commands in its workdir, logging each to `setup.log`.
 
@@ -80,7 +92,7 @@ def run_setup(unit: Unit, workdir: Path, root: Path) -> None:
     """
     if not unit.task.setup:
         return
-    env = {**os.environ, **unit.task.resolved_env()}
+    env = without_secrets({**os.environ, **unit.task.resolved_env()}, unit.task)
     with (root / "setup.log").open("w", encoding="utf-8") as log:
         for command in unit.task.setup:
             log.write(f"$ {command}\n")

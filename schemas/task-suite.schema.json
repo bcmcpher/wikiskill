@@ -24,6 +24,7 @@
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
         "env": { "$ref": "#/$defs/env" },
+        "secrets": { "$ref": "#/$defs/secrets" },
         "setup": { "$ref": "#/$defs/setup" }
       }
     },
@@ -54,6 +55,12 @@
       "type": "object",
       "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
       "additionalProperties": { "type": "string" }
+    },
+    "secrets": {
+      "description": "Names of host environment variables that only command verifiers receive. The runner removes them from the session, any export step, setup commands and the `requires` check. A task's list is joined with the suite default's, unlike `requires` and `setup`, which a task replaces. A name the task's `env` also sets, or one the runner uses for isolation, is refused. This covers the environment only: a credential in a file the agent can read is not withheld.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "uniqueItems": true
     },
     "guard": {
       "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions.",
@@ -166,6 +173,7 @@
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
         "env": { "$ref": "#/$defs/env" },
+        "secrets": { "$ref": "#/$defs/secrets" },
         "setup": { "$ref": "#/$defs/setup" },
         "followups": {
           "description": "Scripted user turns sent after the first response. Not a simulated user.",

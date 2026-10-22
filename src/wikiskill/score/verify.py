@@ -228,6 +228,9 @@ def verify_task(
     if workdir is None or not workdir.is_dir():
         raise VerifierError(f"no working directory to verify in: {workdir}")
 
+    # The one process of a unit that gets the task's secrets, each with its host value. Named
+    # explicitly rather than left to inheritance, so the grant does not hang on what `_env` keeps.
+    env = {**task.resolved_env(), **task.secret_env()}
     results = [
         run_verifier(
             verifier,
@@ -235,7 +238,7 @@ def verify_task(
             final_text=final_text,
             transcript=transcript,
             timeout_s=timeout_s,
-            env=task.resolved_env(),
+            env=env,
         )
         for verifier in task.verifiers
     ]

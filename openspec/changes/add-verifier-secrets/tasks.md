@@ -3,14 +3,14 @@
 Smallest shippable slice: a suite declares `secrets`, the OpenCode session does not see them, and a
 command verifier does. Deferred to later sections: Claude Code, redaction, the start-of-run check.
 
-- [ ] 0.1 Add `secrets` to `schemas/task-suite.schema.json` (defaults and task) and to the loader in
+- [x] 0.1 Add `secrets` to `schemas/task-suite.schema.json` (defaults and task) and to the loader in
   `src/wikiskill/suite.py` with the union rule and the three load errors; verify with tests in
   `tests/test_suite.py` for each `task-suite` scenario
-- [ ] 0.2 Add the withheld-names helper to `src/wikiskill/runner/common.py` and call it from the
+- [x] 0.2 Add the withheld-names helper to `src/wikiskill/runner/common.py` and call it from the
   OpenCode session and export environments and from `run_setup`; verify with
   `tests/test_runner_opencode.py` and `tests/test_runner_common.py` using a fake
   `FAKE_GRADER_TOKEN` variable
-- [ ] 0.3 Give command verifiers each secret's host value in `src/wikiskill/score/verify.py`; verify in
+- [x] 0.3 Give command verifiers each secret's host value in `src/wikiskill/score/verify.py`; verify in
   `tests/test_verify.py`
 
 ## 1. Claude Code

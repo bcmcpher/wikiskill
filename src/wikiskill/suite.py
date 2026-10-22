@@ -153,6 +153,8 @@ class Task:
     #: Environment set in the unit's harness process, its setup and its command verifiers, as sorted
     #: ``(name, value)`` pairs, unexpanded. Use `resolved_env` for the values a process sees.
     env: tuple[tuple[str, str], ...] = ()
+    #: Host variables only command verifiers receive: the suite default's joined with the task's.
+    secrets: tuple[str, ...] = ()
     #: Shell commands that build the workdir's starting state before the session.
     setup: tuple[str, ...] = ()
     followups: tuple[str, ...] = ()
@@ -167,6 +169,11 @@ class Task:
         value of a variable it pulled in.
         """
         return {name: os.path.expandvars(os.path.expanduser(value)) for name, value in self.env}
+
+    def secret_env(self) -> dict[str, str]:
+        """Each declared secret that is set on the host, with its value. Read when needed, never
+        stored, so the value reaches a verifier and a redaction list and nothing else."""
+        return {name: os.environ[name] for name in self.secrets if name in os.environ}
 
     @property
     def judged(self) -> bool:
@@ -307,6 +314,28 @@ def verifier_problems(task: Task) -> list[str]:
     return problems
 
 
+def env_problems(task: Task) -> list[str]:
+    """What is wrong with a task's `env` and `secrets`: a name the runner owns, or a secret the
+    task's own `env` would hand to the session anyway."""
+    problems: list[str] = []
+    reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
+    if reserved:
+        problems.append(f"sets {', '.join(reserved)}, which the runner owns to isolate the run")
+    reserved = sorted(name for name in task.secrets if name.startswith(RESERVED_ENV_PREFIXES))
+    if reserved:
+        problems.append(
+            f"declares {', '.join(reserved)} as a secret, a reserved name the runner owns to "
+            "isolate the run"
+        )
+    clashing = sorted(set(task.secrets) & {name for name, _ in task.env})
+    if clashing:
+        problems.append(
+            f"declares {', '.join(clashing)} as a secret and also sets it in `env`, which would "
+            "give it to the session"
+        )
+    return problems
+
+
 # --------------------------------------------------------------------------- loading
 
 
@@ -323,6 +352,11 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
         requires=tuple(raw.get("requires") or defaults.get("requires") or ()),
         guard_deny=tuple(guard.get("deny", ())),
         env=tuple(sorted({**(defaults.get("env") or {}), **(raw.get("env") or {})}.items())),
+        # Joined rather than replaced: withholding more is never harmful, so a task adding its own
+        # secret cannot release one the suite declared for every task.
+        secrets=tuple(
+            dict.fromkeys([*(defaults.get("secrets") or ()), *(raw.get("secrets") or ())])
+        ),
         setup=tuple(raw.get("setup") or defaults.get("setup") or ()),
         followups=tuple(raw.get("followups", ())),
         repeats=int(raw.get("repeats", defaults.get("repeats", DEFAULT_REPEATS))),
@@ -378,14 +412,8 @@ def parse(
                 f"tasks/{index}: task {task.id!r} declares no expected outcome: it needs an "
                 "`expect` route, a verifier, or a rubric"
             )
-        for problem in verifier_problems(task):
+        for problem in verifier_problems(task) + env_problems(task):
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
-        reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
-        if reserved:
-            problems.append(
-                f"tasks/{index}: task {task.id!r} sets {', '.join(reserved)}, which the runner "
-                "owns to isolate the run"
-            )
         certain, suspected = prompt_leaks(task)
         for term in certain:
             problems.append(

@@ -68,6 +68,27 @@ def test_setup_runs_in_the_workdir_with_the_tasks_env_and_logs_each_command(tmp_
     assert "$ printf" in (tmp_path / "setup.log").read_text()
 
 
+def test_setup_does_not_get_a_declared_secret(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    secret = unit('printf "[%s]" "$FAKE_GRADER_TOKEN" > state.txt')
+    secret = dataclasses.replace(
+        secret, task=dataclasses.replace(secret.task, secrets=("FAKE_GRADER_TOKEN",))
+    )
+
+    common.run_setup(secret, tmp_path, tmp_path)
+
+    assert (tmp_path / "state.txt").read_text() == "[]"
+
+
+def test_without_secrets_drops_only_the_declared_names():
+    task = Task(id="t", prompt="p", split="val", secrets=("FAKE_GRADER_TOKEN",))
+    env = {"FAKE_GRADER_TOKEN": "x" * 20, "PATH": "/usr/bin"}
+
+    assert common.without_secrets(env, task) == {"PATH": "/usr/bin"}
+    plain = Task(id="t", prompt="p", split="val")
+    assert common.without_secrets(env, plain) is env, "a task without secrets is left as it was"
+
+
 def test_no_setup_writes_no_log(tmp_path):
     common.run_setup(unit(), tmp_path, tmp_path)
     assert not (tmp_path / "setup.log").exists()

@@ -26,6 +26,7 @@ from .. import RAW_SCHEMA_VERSION, build, calls, names, paths, rawlog
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
+from ..suite import Task
 from . import common
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, check
@@ -567,14 +568,16 @@ class OpenCodeBackend(Backend):
         return block
 
     def env_for(self, unit: Unit, root: Path) -> dict[str, str]:
-        """The environment one unit runs in: isolated XDG, inline config, discovery switched off."""
-        return self._env(
+        """The environment one unit runs in: isolated XDG, inline config, discovery switched off,
+        and none of the task's secrets."""
+        env = self._env(
             root,
             self.config_for(unit, root),
             list(BASE_DENY) + list(unit.task.guard_deny),
             max_steps=unit.task.max_steps,
             task_env=unit.task.resolved_env(),
         )
+        return common.without_secrets(env, unit.task)
 
     def _env(
         self,
@@ -748,7 +751,7 @@ class OpenCodeBackend(Backend):
             )
 
         try:
-            sessions = self.export_sessions(session_id, root)
+            sessions = self.export_sessions(session_id, root, unit.task)
         except RunnerError as exc:
             return Trajectory(
                 unit=unit,
@@ -786,7 +789,7 @@ class OpenCodeBackend(Backend):
             )
         return trajectory
 
-    def export_sessions(self, session_id: str, root: Path) -> list[dict[str, Any]]:
+    def export_sessions(self, session_id: str, root: Path, task: Task) -> list[dict[str, Any]]:
         """The root session and every child session a delegation spawned, breadth first.
 
         Each export goes to a file rather than a pipe. `opencode export` exits without draining a
@@ -798,6 +801,8 @@ class OpenCodeBackend(Backend):
         Failure raises. A trajectory that could not be read back says nothing about the model, and
         the caller turns that into `infra_error` rather than an empty session list that scores like
         a miss.
+
+        The export is the unit's harness too, so `task`'s secrets are withheld from it as well.
         """
         env = dict(os.environ)
         env.update(
@@ -810,6 +815,7 @@ class OpenCodeBackend(Backend):
                 "OPENCODE_DISABLE_CLAUDE_CODE": "1",
             }
         )
+        env = common.without_secrets(env, task)
         exports = root / "exports"
         exports.mkdir(parents=True, exist_ok=True)
 
@@ -972,7 +978,7 @@ class OpenCodeBackend(Backend):
             return self.env_for(unit, self.layout.unit_dir(unit))
         except (RunnerError, OSError):
             # The unit's directory is gone or its config no longer builds; its own variables count.
-            return {**os.environ, **unit.task.resolved_env()}
+            return common.without_secrets({**os.environ, **unit.task.resolved_env()}, unit.task)
 
     def _part_events(self, part, role, message_ts, make, component, *, scrub):
         """Events for one part, each with the component it should be attributed to."""

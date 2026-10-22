@@ -29,6 +29,7 @@ from ..rubric import load as load_rubric
 from ..score import judge as judge_mod
 from ..score import verify
 from ..suite import Suite, Task
+from . import common
 from .base import (
     INFRA_OUTCOMES,
     INJECTED,
@@ -150,9 +151,10 @@ def missing_capabilities(task: Task) -> list[str]:
 
     A capability is the name of a program the task needs on `PATH` — the task's own `PATH` when its
     `env` sets one. Anything more elaborate belongs to the task's own verifiers, not to a gate that
-    decides whether it runs at all.
+    decides whether it runs at all. The lookup sees the environment the session would, secrets gone.
     """
-    path = task.resolved_env().get("PATH")
+    env = common.without_secrets({**os.environ, **task.resolved_env()}, task)
+    path = env.get("PATH", os.defpath)
     return [name for name in task.requires if shutil.which(name, path=path) is None]
 
 

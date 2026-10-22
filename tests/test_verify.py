@@ -89,6 +89,24 @@ def test_command_sees_the_tasks_own_environment(workdir):
     assert passed
 
 
+def test_command_sees_each_secret_with_its_host_value(workdir, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(
+            Verifier(
+                kind="command", run='test "$FAKE_GRADER_TOKEN" = fake-grader-value-0123456789'
+            ),
+        ),
+    )
+    _, passed = verify.verify_task(task, workdir=workdir)
+
+    assert passed
+
+
 def test_a_timing_out_command_is_infrastructure_not_a_failure(workdir):
     verifier = Verifier(kind="command", run=f'{sys.executable} -c "import time; time.sleep(5)"')
 

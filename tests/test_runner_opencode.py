@@ -912,7 +912,7 @@ def test_a_session_is_exported_to_a_file_not_a_pipe(backend, tmp_path):
     payload.write_text(big, encoding="utf-8")
     exporting(backend, tmp_path, f'cat "{payload}"')
 
-    (session,) = backend.export_sessions("ses_big", tmp_path / "root")
+    (session,) = backend.export_sessions("ses_big", tmp_path / "root", unit().task)
 
     assert len(session["pad"]) == 200_000
     written = (tmp_path / "root" / "exports" / "ses_big.json").read_text(encoding="utf-8")
@@ -962,7 +962,7 @@ def test_a_truncated_export_is_an_error_not_an_empty_session_list(backend, tmp_p
     exporting(backend, tmp_path, 'printf \'{"info": {"id": "ses_x"}, "messages": [\'')
 
     with pytest.raises(backend_mod.RunnerError) as caught:
-        backend.export_sessions("ses_x", tmp_path / "root")
+        backend.export_sessions("ses_x", tmp_path / "root", unit().task)
 
     assert "not readable JSON" in str(caught.value)
 
@@ -971,10 +971,69 @@ def test_a_failed_export_reports_the_harness_own_words(backend, tmp_path):
     exporting(backend, tmp_path, 'echo "no such session" >&2; exit 3')
 
     with pytest.raises(backend_mod.RunnerError) as caught:
-        backend.export_sessions("ses_gone", tmp_path / "root")
+        backend.export_sessions("ses_gone", tmp_path / "root", unit().task)
 
     assert "exited 3" in str(caught.value)
     assert "no such session" in str(caught.value)
+
+
+# --------------------------------------------------------------------------- secrets
+
+#: Not a credential: a fake value only these tests set.
+FAKE_SECRET = "fake-grader-value-0123456789"
+
+
+def secret_unit(*setup):
+    import dataclasses
+
+    base = unit(condition="off")
+    return dataclasses.replace(
+        base,
+        task=dataclasses.replace(base.task, secrets=("FAKE_GRADER_TOKEN",), setup=tuple(setup)),
+    )
+
+
+def recording_opencode(tmp_path):
+    """A stand-in `opencode` that writes what `run` and `export` each saw of the secret."""
+    seen = tmp_path / "seen"
+    seen.mkdir()
+    session = json.dumps({"info": {"id": "ses_s"}, "messages": []})
+    return seen, stub_opencode(
+        tmp_path,
+        f'printf "%s" "${{FAKE_GRADER_TOKEN-unset}}" > "{seen}/$1"\n'
+        'case "$1" in\n'
+        '  run) echo \'{"sessionID": "ses_s"}\' ;;\n'
+        f"  export) echo '{session}' ;;\n"
+        "  *) echo 0.0.0 ;;\n"
+        "esac",
+    )
+
+
+def test_a_declared_secret_is_withheld_from_the_session_env(backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    monkeypatch.setenv("FAKE_OTHER", "kept")
+
+    environment = backend.env_for(secret_unit(), tmp_path / "root")
+
+    assert "FAKE_GRADER_TOKEN" not in environment
+    assert environment["FAKE_OTHER"] == "kept", "only declared names are withheld"
+
+
+def test_a_task_without_secrets_keeps_the_hosts_variables(backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    assert backend.env_for(unit(), tmp_path / "root")["FAKE_GRADER_TOKEN"] == FAKE_SECRET
+
+
+def test_neither_the_session_nor_the_export_nor_setup_sees_a_secret(backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, backend.executable = recording_opencode(tmp_path)
+
+    trajectory = backend.execute(secret_unit('printf "%s" "${FAKE_GRADER_TOKEN-unset}" > s.txt'))
+
+    assert trajectory.session_id == "ses_s", trajectory.reason
+    assert (seen / "run").read_text() == "unset"
+    assert (seen / "export").read_text() == "unset"
+    assert (trajectory.workdir / "s.txt").read_text() == "unset"
 
 
 # --------------------------------------------------------------------------- redaction

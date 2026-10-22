@@ -409,3 +409,19 @@ def test_a_requirement_is_looked_up_on_the_tasks_own_path(tmp_path, monkeypatch)
 
     assert run_mod.missing_capabilities(bare) == ["sometool"]
     assert run_mod.missing_capabilities(scoped) == []
+
+
+def test_the_requires_check_does_not_see_a_secret(tmp_path, monkeypatch):
+    tool = tmp_path / "bin" / "sometool"
+    tool.parent.mkdir(parents=True)
+    tool.write_text("#!/bin/sh\n", encoding="utf-8")
+    tool.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tool.parent))
+    task = suite_mod.Task(id="t", prompt="p", split="val", requires=("sometool",))
+
+    assert run_mod.missing_capabilities(task) == []
+    # Contrived, but it is the one variable the check reads: withheld, it is not consulted.
+    withheld = suite_mod.Task(
+        id="t", prompt="p", split="val", requires=("sometool",), secrets=("PATH",)
+    )
+    assert run_mod.missing_capabilities(withheld) == ["sometool"]
