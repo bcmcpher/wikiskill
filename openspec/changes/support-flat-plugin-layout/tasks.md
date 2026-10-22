@@ -31,10 +31,10 @@ nothing; the build exclusion is in section 2 because a ROUTED run needs it.
 
 ## 4. Verify
 
-- [ ] 4.1 `uv run pytest tests/test_collection.py tests/test_build.py tests/test_build_claude_code.py`
-- [ ] 4.2 `uv run pytest` and `bin/check`
-- [ ] 4.3 Against a read-only checkout of `../skills-comm`, run
+- [x] 4.1 `uv run pytest tests/test_collection.py tests/test_build.py tests/test_build_claude_code.py`
+- [x] 4.2 `uv run pytest` and `bin/check`
+- [x] 4.3 Against a read-only checkout of `../skills-comm`, run
   `env HOME="$(mktemp -d)" uv run wikiskill collection init sc --source ../skills-comm/plugins` with a
   temporary config dir, and verify all eight plugins' skills are listed and `git -C ../skills-comm status`
   is unchanged
-- [ ] 4.4 `openspec validate support-flat-plugin-layout --strict`
+- [x] 4.4 `openspec validate support-flat-plugin-layout --strict`
