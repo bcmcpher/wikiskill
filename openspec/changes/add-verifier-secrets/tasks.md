@@ -34,6 +34,6 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
 
 ## 4. Verify
 
-- [ ] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_run.py tests/test_runner_common.py tests/test_runner_opencode.py tests/test_runner_claude.py`
-- [ ] 4.2 `uv run pytest` and `bin/check`
-- [ ] 4.3 `openspec validate add-verifier-secrets --strict`
+- [x] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_run.py tests/test_runner_common.py tests/test_runner_opencode.py tests/test_runner_claude.py`
+- [x] 4.2 `uv run pytest` and `bin/check`
+- [x] 4.3 `openspec validate add-verifier-secrets --strict`
