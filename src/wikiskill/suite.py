@@ -90,6 +90,12 @@ class Verifier:
     pattern: str | None = None
     target: str = "final_text"
     negate: bool = False
+    #: command: `json` when stdout is a structured result rather than something to ignore.
+    result: str | None = None
+    #: command, with a result: ``(field, accepted values)`` pairs, in the order the suite gave them.
+    pass_when: tuple[tuple[str, tuple[Any, ...]], ...] = ()
+    #: command, with a result: the numeric field a report averages.
+    score: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Verifier:
@@ -101,6 +107,11 @@ class Verifier:
             pattern=raw.get("pattern"),
             target=raw.get("target", "final_text"),
             negate=bool(raw.get("negate", False)),
+            result=raw.get("result"),
+            pass_when=tuple(
+                (name, tuple(values)) for name, values in (raw.get("pass_when") or {}).items()
+            ),
+            score=raw.get("score"),
         )
 
 
@@ -304,7 +315,35 @@ def verifier_problems(task: Task) -> list[str]:
             trouble = _path_problem(verifier.path)
             if trouble:
                 problems.append(f"{where}: path {verifier.path!r} {trouble}")
+        problems += [f"{where}: {problem}" for problem in _result_problems(verifier)]
     return problems
+
+
+def _result_problems(verifier: Verifier) -> list[str]:
+    """`result`, `pass_when` and `score` only mean something on a command that prints a result.
+
+    The schema gives each field its shape; which kind may carry them, and that the other two need
+    `result: json`, is said here so the complaint names the field rather than a failed `oneOf`.
+    """
+    declared = [
+        name
+        for name, value in (
+            ("result", verifier.result),
+            ("pass_when", verifier.pass_when),
+            ("score", verifier.score),
+        )
+        if value
+    ]
+    if not declared:
+        return []
+    named = ", ".join(f"`{name}`" for name in declared)
+    one = len(declared) == 1
+    if verifier.kind != "command":
+        return [f"{named} {'applies' if one else 'apply'} only to a command verifier"]
+    if verifier.result is None:
+        need = "needs" if one else "need"
+        return [f"{named} {need} `result: json`, or there is no result to read from"]
+    return []
 
 
 # --------------------------------------------------------------------------- loading

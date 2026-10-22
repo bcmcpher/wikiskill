@@ -4,11 +4,11 @@ Smallest shippable slice: `result: json` and `pass_when` decide a command verifi
 result is stored in `results.jsonl`. Deferred to later sections: `score` aggregation, report and
 CSV output.
 
-- [ ] 0.1 Add a synthetic grader fixture under `tests/fixtures/` that prints a JSON verdict and score
+- [x] 0.1 Add a synthetic grader fixture under `tests/fixtures/` that prints a JSON verdict and score
   chosen by an argument, with optional log lines and a crash mode; verify it runs with `python3`
-- [ ] 0.2 Add `result`, `pass_when` and `score` to `schemas/task-suite.schema.json` and the loader;
+- [x] 0.2 Add `result`, `pass_when` and `score` to `schemas/task-suite.schema.json` and the loader;
   verify with tests in `tests/test_suite.py` for each `task-suite` scenario
-- [ ] 0.3 Parse stdout, apply the pass rule, store the result, and raise `VerifierError` on missing or
+- [x] 0.3 Parse stdout, apply the pass rule, store the result, and raise `VerifierError` on missing or
   oversized JSON in `src/wikiskill/score/verify.py`; verify with tests in `tests/test_verify.py` for
   each scenario of "A structured result decides pass by its declared fields"
 

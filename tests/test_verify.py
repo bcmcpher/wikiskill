@@ -6,7 +6,9 @@ what actually happened on disk, so a mocked one would test nothing.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -175,6 +177,118 @@ def test_negate_keeps_the_observation_in_the_detail(workdir):
 
     assert result.passed
     assert result.detail == "negated: nope.md does not exist"
+
+
+# --------------------------------------------------------------------------- structured results
+
+GRADER = Path(__file__).parent / "fixtures" / "grader.py"
+ACCEPTED = (("verdict", ("acceptable", "indistinguishable")),)
+
+
+def graded(arguments: str, **fields) -> Verifier:
+    """A command verifier that runs the synthetic grader and reads its JSON result."""
+    return Verifier(
+        kind="command",
+        run=f"{sys.executable} {GRADER} {arguments}",
+        result="json",
+        pass_when=fields.pop("pass_when", ACCEPTED),
+        score="score",
+        **fields,
+    )
+
+
+def test_an_acceptable_verdict_passes_and_keeps_the_result(workdir):
+    result = run(graded("acceptable 71.5"), workdir)
+
+    assert result.passed
+    assert result.result == {"verdict": "acceptable", "score": 71.5}
+    record = result.as_dict()
+    assert record["result"] == {"verdict": "acceptable", "score": 71.5}
+    assert record["score_field"] == "score"
+
+
+def test_a_valid_but_marginal_verdict_fails_and_names_it(workdir):
+    result = run(graded("marginal 41"), workdir)
+
+    assert not result.passed
+    assert '`verdict` is "marginal"' in result.detail
+    assert result.result == {"verdict": "marginal", "score": 41}
+
+
+def test_an_invalid_submission_exiting_nonzero_fails_with_its_result_kept(workdir):
+    # The verdict is listed as acceptable here, so only the exit code can fail it.
+    verifier = graded("invalid 0 --exit 1", pass_when=(("verdict", ("invalid",)),))
+    result = run(verifier, workdir)
+
+    assert not result.passed
+    assert result.exit_code == 1
+    assert result.result == {"verdict": "invalid", "score": 0}
+
+
+def test_log_lines_before_the_result_are_skipped(workdir):
+    result = run(graded("acceptable 80 --log 2"), workdir)
+
+    assert result.passed
+    assert result.result == {"verdict": "acceptable", "score": 80}
+    assert "grading step 1" in result.output, "the output tail still keeps the log"
+
+
+def test_a_crashing_scorer_is_infrastructure_naming_the_verifier(workdir):
+    verifier = graded("acceptable 1 --crash")
+
+    with pytest.raises(verify.VerifierError, match="printed no JSON object") as caught:
+        run(verifier, workdir)
+    assert str(GRADER) in str(caught.value)
+
+
+def test_a_json_value_that_is_not_an_object_is_infrastructure(workdir):
+    with pytest.raises(verify.VerifierError, match="no JSON object"):
+        run(Verifier(kind="command", run="echo '[1, 2]'", result="json"), workdir)
+
+
+def test_an_oversized_result_is_infrastructure(workdir):
+    with pytest.raises(verify.VerifierError, match="over the 65536-byte cap"):
+        run(graded(f"acceptable 1 --pad {verify.RESULT_CAP}"), workdir)
+
+
+def test_stderr_is_never_parsed(workdir):
+    verifier = Verifier(kind="command", run='echo \'{"verdict": "ok"}\' >&2', result="json")
+
+    with pytest.raises(verify.VerifierError):
+        run(verifier, workdir)
+
+
+def test_a_missing_field_is_named(workdir):
+    verifier = graded("acceptable 1", pass_when=(("grade", ("A",)),))
+    result = run(verifier, workdir)
+
+    assert not result.passed
+    assert "`grade` is missing" in result.detail
+
+
+def test_a_boolean_is_not_a_number(workdir):
+    verifier = Verifier(
+        kind="command", run="echo '{\"ok\": true}'", result="json", pass_when=(("ok", (1,)),)
+    )
+
+    assert not run(verifier, workdir).passed
+    assert run(dataclasses.replace(verifier, pass_when=(("ok", (True,)),)), workdir).passed
+
+
+@pytest.mark.parametrize("arguments", ["acceptable 71.5", "marginal 41", "invalid 0 --exit 1"])
+def test_negate_flips_a_structured_verdict(workdir, arguments):
+    plain = run(graded(arguments), workdir)
+    negated = run(graded(arguments, negate=True), workdir)
+
+    assert negated.passed is not plain.passed
+    assert negated.result == plain.result
+
+
+def test_a_plain_command_records_no_result(workdir):
+    record = run(Verifier(kind="command", run="echo '{\"a\": 1}'"), workdir).as_dict()
+
+    assert "result" not in record
+    assert "score_field" not in record
 
 
 # --------------------------------------------------------------------------- whole task

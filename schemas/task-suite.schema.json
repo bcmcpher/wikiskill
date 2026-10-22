@@ -110,6 +110,25 @@
           "minLength": 1
         },
         "expect_exit": { "type": "integer", "default": 0 },
+        "result": {
+          "description": "command: `json` reads stdout as one JSON object (or its last non-empty line as one) and keeps it with the unit's verifier record. Output that is not a JSON object is an infrastructure error.",
+          "enum": ["json"]
+        },
+        "pass_when": {
+          "description": "command, with `result: json`: top-level result fields and the values each may hold. The verifier passes when the exit code matches `expect_exit` and every field holds one of its values.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": ["string", "number", "boolean", "null"] }
+          }
+        },
+        "score": {
+          "description": "command, with `result: json`: a top-level numeric result field that reports average per task, model and condition, beside the pass rate.",
+          "type": "string",
+          "minLength": 1
+        },
         "path": {
           "description": "file_exists: a path relative to the workdir. Absolute paths are rejected.",
           "type": "string",

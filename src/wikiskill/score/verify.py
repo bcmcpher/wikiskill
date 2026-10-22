@@ -16,6 +16,7 @@ that times out, or a workdir that is not there, says nothing about the model at 
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -33,6 +34,11 @@ VERIFIER_TIMEOUT_S = 120
 #: How much of a failing command's output is kept. Enough to see the error, not enough to bury a
 #: report in a stack trace.
 OUTPUT_TAIL = 2000
+
+#: The largest structured result kept, in bytes once serialised. A result is stored whole in
+#: `results.jsonl`, which a study bundle commits to git, so a grader that dumps per-voxel arrays has
+#: to be pointed at a summary rather than allowed to bloat every bundle.
+RESULT_CAP = 64 * 1024
 
 #: Stripped before a verifier runs. These configure the harness for the session that has already
 #: finished; a verifier inheriting them would read the run's inline config as if it were its own.
@@ -54,6 +60,10 @@ class VerifierResult:
     detail: str
     exit_code: int | None = None
     output: str = ""
+    #: The grader's own JSON object, kept whole, for a verifier with `result: json`.
+    result: dict[str, Any] | None = None
+    #: The result field a report averages, recorded so a report needs no suite to find it.
+    score_field: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         record: dict[str, Any] = {"kind": self.kind, "passed": self.passed, "detail": self.detail}
@@ -61,6 +71,10 @@ class VerifierResult:
             record["exit_code"] = self.exit_code
         if self.output:
             record["output"] = self.output
+        if self.result is not None:
+            record["result"] = self.result
+        if self.score_field:
+            record["score_field"] = self.score_field
         return record
 
 
@@ -115,13 +129,75 @@ def _command(
         raise VerifierError(f"`{verifier.run}` could not be started: {exc}") from exc
 
     output = (done.stdout + done.stderr).strip()
+    exited = done.returncode == verifier.expect_exit
+    detail = f"`{verifier.run}` exited {done.returncode}, expected {verifier.expect_exit}"
+    if verifier.result != "json":
+        return VerifierResult(
+            kind=verifier.kind,
+            passed=exited,
+            detail=detail,
+            exit_code=done.returncode,
+            output=output[-OUTPUT_TAIL:],
+        )
+
+    result = _json_result(verifier, done.stdout)
+    misses = _misses(verifier, result)
+    if misses:
+        detail += "; " + "; ".join(misses)
     return VerifierResult(
         kind=verifier.kind,
-        passed=done.returncode == verifier.expect_exit,
-        detail=f"`{verifier.run}` exited {done.returncode}, expected {verifier.expect_exit}",
+        passed=exited and not misses,
+        detail=detail,
         exit_code=done.returncode,
         output=output[-OUTPUT_TAIL:],
+        result=result,
+        score_field=verifier.score,
     )
+
+
+def _json_result(verifier: Verifier, stdout: str) -> dict[str, Any]:
+    """The JSON object a grader printed: all of stdout, or failing that its last non-empty line.
+
+    Only stdout is read. Many scorers log progress before their result, and the last-line fallback
+    takes that in without a marker. A grader that prints no object at all is broken, not a verdict
+    on the model, so it raises; the model's mistakes reach a working grader as its own verdict.
+    """
+    text = stdout.strip()
+    lines = text.splitlines()
+    found: Any = None
+    for candidate in (text, lines[-1] if lines else ""):
+        try:
+            found = json.loads(candidate)
+        except ValueError:
+            continue
+        if isinstance(found, dict):
+            break
+    if not isinstance(found, dict):
+        raise VerifierError(f"`{verifier.run}` printed no JSON object on stdout")
+    size = len(json.dumps(found).encode("utf-8"))
+    if size > RESULT_CAP:
+        raise VerifierError(
+            f"`{verifier.run}` printed a {size}-byte result, over the {RESULT_CAP}-byte cap; "
+            "point `run` at a summary of it"
+        )
+    return found
+
+
+def _misses(verifier: Verifier, result: dict[str, Any]) -> list[str]:
+    """Each `pass_when` field the result does not satisfy, with the value it held."""
+    misses = []
+    for name, accepted in verifier.pass_when:
+        wanted = ", ".join(json.dumps(value) for value in accepted)
+        if name not in result:
+            misses.append(f"`{name}` is missing, expected one of {wanted}")
+        elif not any(_same(result[name], value) for value in accepted):
+            misses.append(f"`{name}` is {json.dumps(result[name])}, expected one of {wanted}")
+    return misses
+
+
+def _same(held: Any, accepted: Any) -> bool:
+    """JSON equality: `true` is not `1`, though Python's `==` says it is."""
+    return held == accepted and isinstance(held, bool) == isinstance(accepted, bool)
 
 
 def _file_exists(verifier: Verifier, workdir: Path) -> VerifierResult:
@@ -206,6 +282,8 @@ def run_verifier(
         detail=f"negated: {result.detail}",
         exit_code=result.exit_code,
         output=result.output,
+        result=result.result,
+        score_field=result.score_field,
     )
 
 

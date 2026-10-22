@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from wikiskill import suite as suite_mod
+from wikiskill.cli import main
 from wikiskill.suite import SuiteError
 
 GOOD = """
@@ -237,3 +238,63 @@ def test_env_expands_home_and_host_variables(monkeypatch):
 
     assert task.resolved_env() == {"PATH": "/home/someone/venv/bin:/usr/bin", "PLAIN": "x"}
     assert dict(task.env)["PATH"] == "~/venv/bin:$PATH", "the task keeps what the suite said"
+
+
+# --------------------------------------------------------------------------- structured results
+
+GRADED = """
+suite: toy
+tasks:
+  - id: graded
+    prompt: Produce the brain mask for this scan.
+    split: val
+    verifiers:
+      - %s
+"""
+
+
+def test_a_grader_with_a_verdict_is_accepted(tmp_path):
+    verifier = (
+        "{ kind: command, run: python3 grade.py, result: json, "
+        "pass_when: { verdict: [acceptable, indistinguishable] }, score: score }"
+    )
+    path = write(tmp_path, GRADED % verifier)
+
+    assert main(["suite", "check", str(path)]) == 0
+    loaded = suite_mod.load(path).tasks[0].verifiers[0]
+    assert loaded.result == "json"
+    assert loaded.pass_when == (("verdict", ("acceptable", "indistinguishable")),)
+    assert loaded.score == "score"
+
+
+@pytest.mark.parametrize(
+    "verifier, expected",
+    [
+        ("{ kind: command, run: x, pass_when: { verdict: [ok] } }", "`pass_when` needs `result"),
+        ("{ kind: command, run: x, score: score }", "`score` needs `result: json`"),
+        ("{ kind: regex, pattern: x, result: json }", "`result` applies only to a command"),
+        (
+            "{ kind: file_exists, path: a, result: json, score: s }",
+            "`result`, `score` apply only to a command",
+        ),
+    ],
+)
+def test_result_fields_out_of_place_are_refused(tmp_path, capsys, verifier, expected):
+    path = write(tmp_path, GRADED % verifier)
+
+    assert main(["suite", "check", str(path)]) == 1
+    assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "verifier",
+    [
+        "{ kind: command, run: x, result: json, pass_when: {} }",
+        "{ kind: command, run: x, result: json, pass_when: { verdict: [] } }",
+        "{ kind: command, run: x, result: json, pass_when: { verdict: [[nested]] } }",
+        "{ kind: command, run: x, result: yaml }",
+    ],
+)
+def test_the_schema_gives_result_fields_their_shape(tmp_path, verifier):
+    with pytest.raises(SuiteError):
+        suite_mod.load(write(tmp_path, GRADED % verifier))
