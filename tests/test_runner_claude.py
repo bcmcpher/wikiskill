@@ -459,6 +459,49 @@ def test_execute_runs_claude_in_the_unit_and_reads_the_stream(tmp_path, capture)
     assert (root / "stream.jsonl").is_file()
 
 
+#: Not a credential: a fake value only these tests set.
+FAKE_SECRET = "fake-grader-value-0123456789"
+
+
+def secret_unit():
+    import dataclasses
+
+    from wikiskill.suite import Verifier
+
+    base = unit()
+    check = Verifier(kind="command", run=f'test "$FAKE_GRADER_TOKEN" = {FAKE_SECRET}')
+    task = dataclasses.replace(base.task, secrets=("FAKE_GRADER_TOKEN",), verifiers=(check,))
+    return dataclasses.replace(base, task=task)
+
+
+def test_a_declared_secret_is_withheld_from_the_session_env(backend, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    root = backend.layout.root
+
+    assert "FAKE_GRADER_TOKEN" not in backend.env_for(secret_unit(), root)
+    assert backend.env_for(unit(), root)["FAKE_GRADER_TOKEN"] == FAKE_SECRET, (
+        "a task without secrets keeps what it always had"
+    )
+
+
+def test_the_session_lacks_the_secret_and_the_verifier_has_it(tmp_path, capture, monkeypatch):
+    from wikiskill.score import verify
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    executable = fake_claude(tmp_path, isolated_capture(tmp_path))
+    backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))
+    graded = secret_unit()
+
+    trajectory = backend.execute(graded)
+
+    assert trajectory.outcome == "completed", trajectory.error
+    seen = (tmp_path / "env.txt").read_text(encoding="utf-8")
+    assert "FAKE_GRADER_TOKEN" not in seen
+    assert FAKE_SECRET not in seen
+    _, passed = verify.verify_task(graded.task, workdir=trajectory.workdir)
+    assert passed, "the command verifier sees the host value"
+
+
 def test_an_unisolated_session_is_infrastructure_not_a_result(tmp_path, capture):
     executable = fake_claude(tmp_path, SUBAGENT)
     backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))

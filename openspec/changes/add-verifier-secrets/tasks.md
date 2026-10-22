@@ -15,7 +15,7 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
 
 ## 1. Claude Code
 
-- [ ] 1.1 Call the helper from `ClaudeCodeRunner.env_for`; verify in `tests/test_runner_claude.py`
+- [x] 1.1 Call the helper from `ClaudeCodeRunner.env_for`; verify in `tests/test_runner_claude.py`
   that the session environment lacks the secret and the verifier sees it
 
 ## 2. Records

@@ -276,7 +276,8 @@ class ClaudeCodeBackend(Backend):
             env["CLAUDE_CODE_SUBAGENT_MODEL"] = model_id
         elif os.environ.get("ANTHROPIC_API_KEY"):
             env["ANTHROPIC_API_KEY"] = os.environ["ANTHROPIC_API_KEY"]
-        return env
+        # Last, so not even a credential passed through above survives a suite naming it a secret.
+        return common.without_secrets(env, unit.task)
 
     def command_for(self, unit: Unit, root: Path) -> list[str]:
         command = [
@@ -440,7 +441,7 @@ class ClaudeCodeBackend(Backend):
         try:
             return self.env_for(unit, self.layout.unit_dir(unit))
         except (RunnerError, OSError):
-            return {**os.environ, **unit.task.resolved_env()}
+            return common.without_secrets({**os.environ, **unit.task.resolved_env()}, unit.task)
 
     def in_collection(self, kind: str, name: str) -> bool:
         """During an evaluation every component of the collection counts, watched or not."""
