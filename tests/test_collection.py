@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from conftest import write_manifest
+from conftest import FLAT_PLUGINS, write_manifest
 from wikiskill import collection as collection_mod
 from wikiskill import paths
 from wikiskill.collection import Collection, ManifestError, Source
@@ -65,6 +65,90 @@ def test_a_components_path_is_the_file_that_identifies_its_version(plugin_source
     skill = next(c for c in found if c.name == "govern/preregister")
     assert skill.path.name == "SKILL.md"
     assert skill.plugin == "govern"
+
+
+# --------------------------------------------------------------------------- flat plugin layouts
+
+
+def flat_names(plugins=None, kind="skill"):
+    source = Source(path=FLAT_PLUGINS, layout="claude-plugin", plugins=plugins)
+    return {c.name for c in collection_mod.discover(source) if c.kind == kind}
+
+
+def test_skills_directly_under_a_plugin_are_qualified_by_it():
+    assert {"loose-kit/first", "loose-kit/second"} <= flat_names()
+
+
+def test_a_plugin_directory_holding_a_skill_md_is_the_skill():
+    source = Source(path=FLAT_PLUGINS, layout="claude-plugin", plugins=("solo-kit",))
+    found = collection_mod.discover(source)
+    assert [(c.kind, c.name) for c in found] == [("skill", "solo-kit/solo-kit")]
+    assert found[0].path == FLAT_PLUGINS / "solo-kit" / "SKILL.md"
+
+
+def test_a_skills_directory_wins_over_flat_children():
+    assert flat_names(("nested-kit",)) == {"nested-kit/alpha"}
+
+
+def test_a_plugin_may_be_a_skill_and_hold_flat_skills():
+    assert flat_names(("hybrid-kit",)) == {"hybrid-kit/hybrid-kit", "hybrid-kit/child"}
+    # Agents and commands keep their own directories in every form.
+    assert flat_names(("hybrid-kit",), kind="command") == {"hybrid-kit/kit-run"}
+    assert flat_names(("loose-kit",), kind="agent") == {"loose-kit/kit-helper"}
+
+
+def test_mixed_layouts_in_one_source_are_all_discovered():
+    assert flat_names() == {
+        "nested-kit/alpha",
+        "loose-kit/first",
+        "loose-kit/second",
+        "solo-kit/solo-kit",
+        "hybrid-kit/hybrid-kit",
+        "hybrid-kit/child",
+    }
+
+
+def test_a_flat_scan_skips_what_is_not_a_skill():
+    # `references/` and `scripts/` hold no SKILL.md; the hidden `.draft/` does.
+    names = flat_names(("loose-kit",))
+    assert names == {"loose-kit/first", "loose-kit/second"}
+    for skipped in ("references", "scripts", "agents", ".draft", "README"):
+        assert f"loose-kit/{skipped}" not in names
+
+
+def test_agents_and_commands_are_never_flat_skills(tmp_path):
+    for child in ("agents", "commands", "tool"):
+        (tmp_path / "kit" / child).mkdir(parents=True)
+        (tmp_path / "kit" / child / "SKILL.md").write_text("---\ndescription: d\n---\n")
+    source = Source(path=tmp_path, layout="claude-plugin")
+    skills = {c.name for c in collection_mod.discover(source) if c.kind == "skill"}
+    assert skills == {"kit/tool"}
+
+
+def test_narrowing_and_the_watch_list_see_flat_skills():
+    coll = Collection(
+        name="flat",
+        sources=(
+            Source(path=FLAT_PLUGINS, layout="claude-plugin", plugins=("loose-kit", "solo-kit")),
+        ),
+        watch={"skill": ("loose-kit/*", "solo-kit/solo-kit", "hybrid-kit/*")},
+    )
+    assert [c.name for c in coll.watched()] == [
+        "loose-kit/first",
+        "loose-kit/second",
+        "solo-kit/solo-kit",
+    ]
+    assert coll.unresolved() == ["skill:hybrid-kit/*"]
+
+
+def test_discovering_flat_layouts_does_not_write_to_the_source(xdg):
+    before = {p: p.stat().st_mtime_ns for p in sorted(FLAT_PLUGINS.rglob("*"))}
+    Collection(
+        name="flat",
+        sources=(Source(path=FLAT_PLUGINS, layout="claude-plugin"),),
+        watch={"skill": ("*",)},
+    ).runtime_config()
+    assert before == {p: p.stat().st_mtime_ns for p in sorted(FLAT_PLUGINS.rglob("*"))}
 
 
 # --------------------------------------------------------------------------- watch list

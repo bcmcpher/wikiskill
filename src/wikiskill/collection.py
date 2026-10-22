@@ -29,6 +29,9 @@ _DIR_NAMES = {
     "command": ("commands", "command"),
 }
 
+#: A flat plugin's children that hold its agents and commands, and so are never one of its skills.
+_NOT_SKILL_DIRS = frozenset(_DIR_NAMES["agent"] + _DIR_NAMES["command"])
+
 DEFAULT_BUFFER_SIZE = 200
 DEFAULT_OUTPUT_LIMIT = 16 * 1024
 #: User turns after an activation that are still attributed to it (add-correction-capture).
@@ -78,6 +81,9 @@ class Source:
 
         ``opencode``      → ``<root>/skills/``
         ``claude-plugin`` → ``<root>/<plugin>/skills/`` for each selected plugin under the root
+
+        A claude-plugin plugin with no skills directory keeps its skills flat; see
+        `flat_skill_dirs`.
         """
         names = _DIR_NAMES[kind]
         return [
@@ -239,6 +245,38 @@ def discover(source: Source) -> list[Component]:
                 base = entry.name if kind == "skill" else entry.stem
                 name = names.qualify(plugin, base)
                 found.append(Component(kind=kind, name=name, path=main, source=source))
+    if source.layout == "claude-plugin":
+        for plugin_dir in source.plugin_dirs():
+            for entry in flat_skill_dirs(plugin_dir) or ():
+                name = names.qualify(plugin_dir.name, entry.name)
+                found.append(
+                    Component(kind="skill", name=name, path=entry / "SKILL.md", source=source)
+                )
+    return found
+
+
+def flat_skill_dirs(plugin_dir: Path) -> list[Path] | None:
+    """A claude-plugin plugin's skill directories when it has no skills directory, else None.
+
+    The plugin directory is itself a skill when it holds a `SKILL.md`, named `<plugin>/<plugin>` so
+    that every component of a claude-plugin source stays qualified. Each direct child holding one is
+    a skill too, except hidden directories and the plugin's agents and commands.
+    """
+    if any((plugin_dir / name).is_dir() for name in _DIR_NAMES["skill"]):
+        return None
+    try:
+        children = sorted(plugin_dir.iterdir())
+    except OSError:
+        return []
+    found = [plugin_dir] if (plugin_dir / "SKILL.md").is_file() else []
+    found.extend(
+        child
+        for child in children
+        if child.is_dir()
+        and not child.name.startswith(".")
+        and child.name not in _NOT_SKILL_DIRS
+        and (child / "SKILL.md").is_file()
+    )
     return found
 
 

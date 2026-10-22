@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from conftest import RAW_FIXTURES, write_manifest
+from conftest import FLAT_PLUGINS, RAW_FIXTURES, write_manifest
 from wikiskill import collection as collection_mod
 from wikiskill import paths
 from wikiskill.cli import main
@@ -62,6 +62,39 @@ def test_check_marks_watched_components(xdg, plugin_source, capsys):
     assert "* govern/preregister" in out
     assert "  analyze/run-comparison" in out
     assert out.rstrip().endswith("ok")
+
+
+def test_check_lists_flat_plugin_skills(xdg, capsys):
+    write_manifest(
+        xdg,
+        "flat",
+        f'name = "flat"\nsources = [{{ path = "{FLAT_PLUGINS}", layout = "claude-plugin" }}]\n'
+        '[watch]\nskills = ["loose-kit/first"]\n',
+    )
+    assert main(["collection", "check", "flat"]) == 0
+    out = capsys.readouterr().out
+    assert "* loose-kit/first" in out
+    for name in (
+        "loose-kit/second",
+        "solo-kit/solo-kit",
+        "hybrid-kit/hybrid-kit",
+        "nested-kit/alpha",
+    ):
+        assert f"  {name}  " in out
+    assert "nested-kit/beta" not in out
+
+
+def test_check_narrowed_to_a_flat_plugin_lists_only_its_skill(xdg, capsys):
+    write_manifest(
+        xdg,
+        "flat",
+        f'name = "flat"\nsources = [{{ path = "{FLAT_PLUGINS}", layout = "claude-plugin", '
+        'plugins = ["solo-kit"] }]\n[watch]\nskills = ["solo-kit/solo-kit"]\n',
+    )
+    assert main(["collection", "check", "flat"]) == 0
+    out = capsys.readouterr().out
+    assert "skills (1):" in out
+    assert "* solo-kit/solo-kit" in out
 
 
 def test_check_exits_non_zero_on_an_unresolved_entry(xdg, plugin_source, capsys):

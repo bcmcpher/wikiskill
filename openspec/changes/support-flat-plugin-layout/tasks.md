@@ -9,12 +9,12 @@ nothing; the build exclusion is in section 2 because a ROUTED run needs it.
 
 ## 1. Discovery
 
-- [ ] 1.1 In `src/wikiskill/collection.py`, scan a plugin flat when it has no `skills/` or `skill/`
+- [x] 1.1 In `src/wikiskill/collection.py`, scan a plugin flat when it has no `skills/` or `skill/`
   directory, naming skills per the spec; verify with tests for each spec scenario in
   `tests/test_collection.py`
-- [ ] 1.2 Skip hidden directories, `agents/`, `commands/`, and subdirectories without a `SKILL.md`;
+- [x] 1.2 Skip hidden directories, `agents/`, `commands/`, and subdirectories without a `SKILL.md`;
   verify with a test that `references/` and `scripts/` are not components
-- [ ] 1.3 Verify `plugins` narrowing and the watch list on the flat fixture, and that the existing
+- [x] 1.3 Verify `plugins` narrowing and the watch list on the flat fixture, and that the existing
   collection tests pass unchanged
 
 ## 2. Build
