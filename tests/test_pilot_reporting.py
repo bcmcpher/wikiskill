@@ -466,7 +466,7 @@ def test_a_run_gives_the_judge_the_units_delegations(tmp_path, monkeypatch):
         models_under_test=("ollama/m",),
     )
     trajectory = SimpleNamespace(
-        unit=SimpleNamespace(task=SimpleNamespace(rubric="handoff.yaml")),
+        unit=SimpleNamespace(task=SimpleNamespace(rubric="handoff.yaml", secret_env=dict)),
         scored=True,
         final_text="done",
         workdir=None,
@@ -522,7 +522,7 @@ def _delegation_unit(tmp_path, sessions):
         models_under_test=("ollama/m",),
     )
     trajectory = SimpleNamespace(
-        unit=SimpleNamespace(task=SimpleNamespace(rubric="handoff.yaml")),
+        unit=SimpleNamespace(task=SimpleNamespace(rubric="handoff.yaml", secret_env=dict)),
         scored=True,
         final_text="done",
         workdir=None,

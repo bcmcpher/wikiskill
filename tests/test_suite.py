@@ -285,6 +285,47 @@ def test_a_secret_may_not_take_a_reserved_name(tmp_path, capsys):
     assert "reserved name" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("reference", ["$FAKE_HF_TOKEN", "${FAKE_HF_TOKEN}", "x:$FAKE_HF_TOKEN/y"])
+def test_env_may_not_expand_a_secret(tmp_path, capsys, reference):
+    body = SECRETS.replace(
+        "    secrets: [FAKE_GRADER_KEY]", f"    env: {{ FAKE_FOO: '{reference}' }}"
+    )
+    path = write(tmp_path, body)
+    with pytest.raises(SuiteError, match="sets `env` FAKE_FOO from the secret FAKE_HF_TOKEN"):
+        suite_mod.load(path)
+    assert main(["suite", "check", str(path)]) == 1
+
+
+def test_env_may_name_a_longer_variable_that_starts_like_a_secret(tmp_path):
+    body = SECRETS.replace(
+        "    secrets: [FAKE_GRADER_KEY]", "    env: { FAKE_FOO: $FAKE_HF_TOKENS }"
+    )
+    assert suite_mod.load(write(tmp_path, body)).tasks[0].env == (("FAKE_FOO", "$FAKE_HF_TOKENS"),)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "CLAUDE_CONFIG_DIR",
+        "CLAUDECODE",
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_SUBAGENT_MODEL",
+        "HOME",
+        "PATH",
+        "XDG_DATA_HOME",
+    ],
+)
+def test_a_secret_may_not_name_what_a_runner_isolates_or_routes_with(tmp_path, name):
+    with pytest.raises(SuiteError, match=f"{name} as a secret, a reserved name"):
+        suite_mod.load(write(tmp_path, SECRETS.replace("FAKE_GRADER_KEY", name)))
+
+
+def test_a_hosted_anthropic_key_is_the_one_allowed_exception(tmp_path):
+    task = suite_mod.load(write(tmp_path, SECRETS.replace("FAKE_GRADER_KEY", "ANTHROPIC_API_KEY")))
+    assert "ANTHROPIC_API_KEY" in task.tasks[0].secrets
+
+
 def test_a_secret_must_be_a_variable_name(tmp_path):
     with pytest.raises(SuiteError, match="1BAD"):
         suite_mod.load(write(tmp_path, SECRETS.replace("FAKE_GRADER_KEY", "1BAD")))

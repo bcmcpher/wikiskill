@@ -302,3 +302,61 @@ def test_the_settled_level_keeps_the_judge_own_words(rubric):
 
     assert settled.level == "complete"
     assert settled.reason == "everything traces", "a summary of three would be nobody's reasoning"
+
+
+# --------------------------------------------------------------------------- secrets
+
+
+def test_a_secret_a_verifier_left_in_the_workdir_never_reaches_the_judge(
+    tmp_path, workdir, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from wikiskill.runner import run as run_mod
+    from wikiskill.score import verify
+    from wikiskill.suite import Task, Verifier
+
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    (tmp_path / "provenance.yaml").write_text(RUBRIC, encoding="utf-8")
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        rubric="provenance.yaml",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(Verifier(kind="command", run='printf "%s" "$FAKE_GRADER_TOKEN" > ref.json'),),
+    )
+    verify.verify_task(task, workdir=workdir)
+    assert (workdir / "ref.json").read_text() == secret, "the verifier wrote it; it stays there"
+    # A judge that somehow echoes the value is redacted on the way into the record too.
+    reply = json.dumps(
+        {
+            "scores": [
+                {"dimension": "reachability", "level": "complete", "reason": f"saw {secret}"},
+                {"dimension": "ledger_validity", "level": "pass", "reason": "ok"},
+            ]
+        }
+    )
+    sent = replying(monkeypatch, reply)
+    panel = run_mod.Panel(
+        endpoint=Endpoint("http://judge.invalid/v1"),
+        models=("judge-model",),
+        suite_root=tmp_path,
+        models_under_test=("ollama/m",),
+    )
+    trajectory = SimpleNamespace(
+        unit=SimpleNamespace(task=task),
+        scored=True,
+        final_text=f"done {secret}",
+        workdir=workdir,
+        rubric=None,
+        events=None,
+    )
+
+    run_mod._judge(trajectory, panel, None, lambda _line: None)
+
+    prompt = json.dumps(sent[0])
+    assert secret not in prompt
+    assert "[REDACTED:env_value]" in prompt
+    assert secret not in json.dumps(trajectory.rubric)

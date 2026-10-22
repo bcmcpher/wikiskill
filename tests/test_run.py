@@ -509,3 +509,112 @@ def test_run_json_names_the_secrets_and_no_file_holds_a_value(
 def test_a_run_without_secrets_records_none(xdg, suite, layout):
     go(suite, FakeBackend(layout, writes="DONE.md"), layout)
     assert run_mod.load_manifest(layout)["secrets"] == {}
+
+
+def test_run_suite_withholds_the_suites_secrets_whoever_built_the_backend(
+    xdg, secret_suite, layout, monkeypatch
+):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    backend = FakeBackend(layout)
+    assert backend.withheld == ()
+
+    go(secret_suite, backend, layout)
+
+    assert backend.withheld == ("FAKE_GRADER_TOKEN",)
+
+
+def test_a_fill_refuses_a_missing_secret_before_any_unit(xdg, secret_suite, layout, monkeypatch):
+    layout.append_result(
+        {
+            "task_id": "echoes",
+            "model": "fake/model",
+            "condition": OFF,
+            "repeat": 0,
+            "outcome": "infra_error",
+        }
+    )
+    layout.write_manifest({"run_id": "01JRUN", "models": ["fake/model"], "conditions": [OFF]})
+    before = sorted(layout.root.iterdir())
+    monkeypatch.delenv("FAKE_GRADER_TOKEN", raising=False)
+    backend = FakeBackend(layout)
+
+    with pytest.raises(ValueError, match="not set on this host: FAKE_GRADER_TOKEN"):
+        run_mod.fill_run(
+            secret_suite,
+            backend,
+            collection=None,
+            layout=layout,
+            manifest=run_mod.load_manifest(layout),
+        )
+
+    assert backend.executed == []
+    assert sorted(layout.root.iterdir()) == before, "no unit directory"
+
+
+def eval_with(tmp_path, *extra):
+    from wikiskill.cli import main
+
+    path = tmp_path / "graded.yaml"
+    path.write_text(SECRET_SUITE, encoding="utf-8")
+    return main(
+        ["eval", "--suite", str(path), "--models", "fake/model", "--condition", "off", *extra]
+    )
+
+
+def test_eval_refuses_an_endpoint_key_that_is_a_secret(xdg, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+
+    for harness in ("opencode", "claude-code"):
+        code = eval_with(
+            tmp_path,
+            "--harness",
+            harness,
+            "--base-url",
+            "http://127.0.0.1:9/v1",
+            "--api-key-env",
+            "FAKE_GRADER_TOKEN",
+        )
+        assert code == 2, harness
+        assert "--api-key-env FAKE_GRADER_TOKEN names a declared secret" in capsys.readouterr().err
+    assert not any(xdg["data"].rglob("evals")), "refused before a run directory exists"
+
+
+def test_eval_refuses_withholding_the_key_a_hosted_claude_session_needs(
+    xdg, tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_SECRET)
+    path = tmp_path / "hosted.yaml"
+    path.write_text(SECRET_SUITE.replace("FAKE_GRADER_TOKEN", "ANTHROPIC_API_KEY"), "utf-8")
+    from wikiskill.cli import main
+
+    code = main(
+        [
+            "eval",
+            "--suite",
+            str(path),
+            "--models",
+            "anthropic/claude-haiku-4-5",
+            "--condition",
+            "off",
+            "--harness",
+            "claude-code",
+        ]
+    )
+
+    assert code == 2
+    assert "without --base-url the Claude Code session needs it" in capsys.readouterr().err
+
+
+def test_a_hosted_key_may_be_a_secret_when_an_endpoint_serves_the_session(tmp_path):
+    import argparse
+
+    from wikiskill.cli import eval as eval_cli
+
+    path = tmp_path / "hosted.yaml"
+    path.write_text(SECRET_SUITE.replace("FAKE_GRADER_TOKEN", "ANTHROPIC_API_KEY"), "utf-8")
+    loaded = suite_mod.load(path)
+    args = argparse.Namespace(
+        harness="claude-code", base_url="http://127.0.0.1:9", api_key_env="FAKE_ENDPOINT_KEY"
+    )
+
+    assert eval_cli._credential_conflict(args, loaded) is None

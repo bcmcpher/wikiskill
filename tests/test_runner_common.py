@@ -202,6 +202,17 @@ def test_a_declared_secret_is_redacted_even_with_redaction_off():
     assert found == [{"kind": "env_value", "count": 1}]
 
 
+def test_a_scrubbed_event_loses_every_copy_of_a_secret():
+    secret = "fake-grader-value-0123456789"
+    scrub = common.Scrubber.of(True, {}, 1 << 20, [secret])
+
+    text, _, found = scrub.text(f"{secret}\n" * 150)
+    clean, _ = scrub.value({"command": f"{secret} " * 150})
+
+    assert secret not in text and secret not in clean["command"]
+    assert found == [{"kind": "env_value", "count": 101}], "only the reported count is capped"
+
+
 def test_scrubber_redacts_every_string_in_a_nested_input():
     scrub = common.Scrubber.of(True, {}, 1024)
     clean, found = scrub.value({"command": f"echo {KEY}", "env": [{"v": KEY}], "n": 3})

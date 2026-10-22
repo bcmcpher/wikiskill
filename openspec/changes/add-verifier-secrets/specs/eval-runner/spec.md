@@ -37,9 +37,13 @@ but not for one unit MUST run without every secret the suite declares, in `defau
 ### Requirement: A run checks its secrets before starting and never records their values
 
 `wikiskill eval` MUST refuse to start, before any unit runs, when a declared secret is not set on
-the host, and MUST name each missing variable. `run.json` MUST record each task's secret names and
-MUST NOT record their values. A secret's value MUST be redacted from stored verifier output and
-from logged events.
+the host, and MUST name each missing variable. It MUST also refuse to start when `--api-key-env`
+names a declared secret, and, with `--harness claude-code` and no `--base-url`, when
+`ANTHROPIC_API_KEY` is a declared secret. `run.json` MUST record each task's secret names and MUST
+NOT record their values. A secret's value MUST be redacted, every occurrence, from stored verifier
+output, from logged events, and from everything sent to a rubric judge and stored from its answer.
+wikiskill MUST NOT write the value into any file; a file a verifier itself writes into the working
+directory is the verifier's own.
 
 #### Scenario: Missing secret
 
@@ -54,5 +58,18 @@ from logged events.
 #### Scenario: Names, not values
 
 - **WHEN** a run of a task with `secrets: [HF_TOKEN]` finishes
-- **THEN** `run.json` lists `HF_TOKEN` for that task, and no file under the run directory contains
-  its value
+- **THEN** `run.json` lists `HF_TOKEN` for that task, and no file wikiskill writes under the run
+  directory contains its value
+
+#### Scenario: The judge does not see a secret a verifier left behind
+
+- **WHEN** a command verifier writes the value of a declared secret to a file in the working
+  directory, and the task has a rubric
+- **THEN** the files shown to the judge show a redaction marker in its place, and the file itself is
+  left as the verifier wrote it
+
+#### Scenario: The endpoint key is a secret
+
+- **WHEN** a suite declares `secrets: [HF_TOKEN]` and `wikiskill eval` is given
+  `--api-key-env HF_TOKEN`
+- **THEN** `wikiskill eval` exits non-zero naming `HF_TOKEN`, before a run directory is created

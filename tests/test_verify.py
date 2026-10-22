@@ -125,6 +125,24 @@ def test_a_secret_a_command_prints_is_redacted_before_the_tail_is_cut(workdir, m
     assert result.output.endswith("x" * 1990)
 
 
+def test_every_copy_of_a_printed_secret_is_redacted(workdir, monkeypatch):
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(
+            Verifier(kind="command", run='for i in $(seq 150); do echo "$FAKE_GRADER_TOKEN"; done'),
+        ),
+    )
+    (result,), _ = verify.verify_task(task, workdir=workdir)
+
+    assert secret not in result.output
+    assert result.output.count("[REDACTED:env_value]") > 70, "the kept tail is all markers"
+
+
 def test_a_timing_out_command_is_infrastructure_not_a_failure(workdir):
     verifier = Verifier(kind="command", run=f'{sys.executable} -c "import time; time.sleep(5)"')
 

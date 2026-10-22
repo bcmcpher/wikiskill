@@ -446,14 +446,27 @@ defaults:
 
 The runner then applies these rules, on OpenCode and on Claude Code:
 
-- The session, OpenCode's export step, `setup` and the `requires` check do not get the variable.
+- The session, OpenCode's export step, `setup`, the `requires` check and the preflight probe do not
+  get the variable.
 - A `command` verifier gets the variable with its value from your shell.
 - `wikiskill eval` refuses to start if the variable is not set, or its value is under 8 characters.
-- `run.json` records the name. No file of the run records the value: verifier output and logged
-  events show `[REDACTED:env_value]` in its place.
+- `run.json` records the name. wikiskill never writes the value: verifier output, logged events and
+  everything shown to a rubric judge show `[REDACTED:env_value]` in its place.
 
-A name may not start with `XDG_`, `OPENCODE_` or `WIKISKILL_`, and the task's `env` may not set it.
-A task without `secrets` runs as before.
+wikiskill does not clean the working directory. A verifier that writes the secret into it, for
+example `curl ... > ref.json`, leaves it there, under the run directory. Fetch a reference to a path
+outside the working directory, and remove it when the verifier ends.
+
+The suite check refuses a secret in these cases:
+
+- The name is one the runner sets to isolate a unit or reach its model: anything starting with
+  `XDG_`, `OPENCODE_`, `WIKISKILL_`, `CLAUDE_CODE_` or `ANTHROPIC_`, and `CLAUDE_CONFIG_DIR`,
+  `CLAUDECODE`, `DISABLE_AUTOUPDATER`, `HOME` and `PATH`.
+- The task's `env` sets the name, or expands it in a value (`$NAME` or `${NAME}`).
+
+`ANTHROPIC_API_KEY` is the one exception. `eval` refuses it as a secret under Claude Code without
+`--base-url`, because the session then needs the key. `eval` also refuses an `--api-key-env` that
+names a secret. A task without `secrets` runs as before.
 
 `secrets` covers the environment only. It is not a sandbox. The session can still read any file
 that your user can read, so do not keep the credential in a file inside the session's reach.

@@ -264,22 +264,12 @@
       "env": {
         "X": "REDACTED"
       },
-      "known_divergence": "Python counts occurrences once and replaces that many; TypeScript loops while the text still contains the value, so a value the marker itself contains is re-replaced up to the cap of 101.",
-      "python": {
+      "expected": {
         "text": "x [REDACTED:env_value] y",
         "redactions": [
           {
             "kind": "env_value",
             "count": 1
-          }
-        ]
-      },
-      "typescript": {
-        "text": "x [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[REDACTED:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value]:env_value] y",
-        "redactions": [
-          {
-            "kind": "env_value",
-            "count": 101
           }
         ]
       }

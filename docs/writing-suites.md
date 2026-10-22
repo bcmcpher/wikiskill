@@ -87,11 +87,13 @@ failure.
   valid, point the service's URL at a closed local port, so the deposit fails the way an outage
   would. Any DOI in that reply is then invented by definition.
 - **Give a grader's credential to the grader only.** Name it in `secrets`, in `defaults` or on a
-  task; the two lists are joined. The session, its export, `setup` and `requires` do not get the
-  variable. A `command` verifier gets its host value. `eval` refuses to start when it is unset or
-  under 8 characters. `run.json` records the name, and stored output shows `[REDACTED:env_value]`
-  for the value. This covers the environment only: the session can still read a credential in a
-  file it can reach.
+  task; the two lists are joined. The session, its export, `setup`, `requires` and the preflight
+  probe do not get the variable. A `command` verifier gets its host value. `eval` refuses to start
+  when it is unset or under 8 characters. `run.json` records the name. Verifier output, logged
+  events and the judge's input show `[REDACTED:env_value]` for the value. A name the runner uses
+  for isolation, or one the task's `env` sets or expands, is refused. This covers the environment
+  only: the session can still read a credential in a file it can reach. A verifier that writes the
+  secret into the working directory leaves it there, so fetch references outside it.
 - **Make recalled conventions visible.** If a correct answer could be guessed from common practice,
   pick values that differ from it. A table that codes age in months and `1 = female` makes a model
   that assumes the usual coding give a wrong value instead of a lucky guess.

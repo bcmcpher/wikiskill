@@ -34,6 +34,18 @@ DEFAULT_MAX_STEPS = 40
 #: Environment the runner sets to isolate a unit. A suite may not override it.
 RESERVED_ENV_PREFIXES = ("XDG_", "OPENCODE_", "WIKISKILL_")
 
+#: What a secret may not name, on either harness: every variable a runner sets or relies on to
+#: isolate a unit or route it to its model. Secrets are removed last, so withholding one of these
+#: would undo the isolation, and a Claude Code session would run against the real `~/.claude`.
+RESERVED_SECRET_PREFIXES = (*RESERVED_ENV_PREFIXES, "CLAUDE_CODE_", "ANTHROPIC_")
+RESERVED_SECRET_NAMES = frozenset(
+    {"CLAUDE_CONFIG_DIR", "CLAUDECODE", "DISABLE_AUTOUPDATER", "HOME", "PATH"}
+)
+#: The deliberate exception. With `--base-url` a Claude Code unit authenticates with the endpoint's
+#: own token, so a suite may keep a hosted Anthropic key for its grader. `eval` refuses it as a
+#: secret when there is no `--base-url`, because then the session needs it.
+SECRET_EXCEPTIONS = frozenset({"ANTHROPIC_API_KEY"})
+
 SPLITS = ("train", "val", "test")
 VERIFIER_KINDS = ("command", "file_exists", "regex")
 
@@ -209,7 +221,12 @@ class Suite:
     @property
     def secrets(self) -> tuple[str, ...]:
         """Every secret any task declares: what a process tied to no one task must not see."""
-        return tuple(dict.fromkeys(name for task in self.tasks for name in task.secrets))
+        return declared_secrets(self.tasks)
+
+
+def declared_secrets(tasks: Iterable[Task]) -> tuple[str, ...]:
+    """Every secret these tasks declare, each once, in the order first declared."""
+    return tuple(dict.fromkeys(name for task in tasks for name in task.secrets))
 
 
 # --------------------------------------------------------------------------- leak check
@@ -319,18 +336,29 @@ def verifier_problems(task: Task) -> list[str]:
     return problems
 
 
+def _reserved_secret(name: str) -> bool:
+    if name in SECRET_EXCEPTIONS:
+        return False
+    return name in RESERVED_SECRET_NAMES or name.startswith(RESERVED_SECRET_PREFIXES)
+
+
+def _refers_to(value: str, name: str) -> bool:
+    """Whether ``value`` expands ``$name`` or ``${name}``, as `Task.resolved_env` would."""
+    return re.search(rf"\$(?:{name}(?![A-Za-z0-9_])|\{{{name}\}})", value) is not None
+
+
 def env_problems(task: Task) -> list[str]:
     """What is wrong with a task's `env` and `secrets`: a name the runner owns, or a secret the
-    task's own `env` would hand to the session anyway."""
+    task's own `env` would hand to the session anyway, by name or by expanding it."""
     problems: list[str] = []
     reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
     if reserved:
         problems.append(f"sets {', '.join(reserved)}, which the runner owns to isolate the run")
-    reserved = sorted(name for name in task.secrets if name.startswith(RESERVED_ENV_PREFIXES))
+    reserved = sorted(name for name in task.secrets if _reserved_secret(name))
     if reserved:
         problems.append(
             f"declares {', '.join(reserved)} as a secret, a reserved name the runner owns to "
-            "isolate the run"
+            "isolate the run or route it to its model"
         )
     clashing = sorted(set(task.secrets) & {name for name, _ in task.env})
     if clashing:
@@ -338,6 +366,13 @@ def env_problems(task: Task) -> list[str]:
             f"declares {', '.join(clashing)} as a secret and also sets it in `env`, which would "
             "give it to the session"
         )
+    for name, value in task.env:
+        for secret in task.secrets:
+            if _refers_to(value, secret):
+                problems.append(
+                    f"sets `env` {name} from the secret {secret}, which would give its value to "
+                    "the session"
+                )
     return problems
 
 

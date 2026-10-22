@@ -283,6 +283,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     problem = problem or _judge_refusal(coll, loaded, models, tasks)
     # So is a run whose declared secrets the host cannot supply.
     problem = problem or run_mod.secret_refusal(tasks if tasks is not None else loaded.tasks)
+    problem = problem or _credential_conflict(args, loaded)
     if problem:
         return misuse(problem)
 
@@ -386,6 +387,9 @@ def _cmd_fill(args: argparse.Namespace) -> int:
     if isinstance(target, str):
         return misuse(target)
     coll, layout, manifest, loaded = target
+    problem = _credential_conflict(args, loaded)
+    if problem:
+        return misuse(problem)
     if manifest.get("proposal"):
         coll = gate_mod.candidate_collection(coll, manifest["proposal"], layout.root)
     endpoint = (
@@ -500,6 +504,32 @@ def _judge_refusal(coll: Collection | None, loaded, models: list[str], tasks) ->
         run_mod.panel_for(coll, loaded, models, tasks)
     except judge_mod.JudgeError as exc:
         return str(exc)
+    return None
+
+
+def _credential_conflict(args: argparse.Namespace, loaded) -> str | None:
+    """Why a declared secret is also a credential the session runs on, or None.
+
+    The endpoint's key reaches a Claude Code session as `ANTHROPIC_AUTH_TOKEN`, and without
+    `--base-url` a Claude Code session authenticates with `ANTHROPIC_API_KEY`. Either way the one
+    variable cannot be both the session's credential and the grader's alone. The first is refused
+    on every harness, so one suite means the same thing on both.
+    """
+    if args.api_key_env and args.api_key_env in loaded.secrets:
+        return (
+            f"--api-key-env {args.api_key_env} names a declared secret: the session would get its "
+            "value as the endpoint's key. Give the endpoint a variable of its own"
+        )
+    if (
+        args.harness == "claude-code"
+        and not args.base_url
+        and "ANTHROPIC_API_KEY" in loaded.secrets
+    ):
+        return (
+            "the suite declares ANTHROPIC_API_KEY a secret, but without --base-url the Claude Code "
+            "session needs it to reach the model. Pass --base-url, or give the grader another "
+            "variable"
+        )
     return None
 
 

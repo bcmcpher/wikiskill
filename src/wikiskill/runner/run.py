@@ -28,7 +28,7 @@ from ..rubric import Rubric, RubricError
 from ..rubric import load as load_rubric
 from ..score import judge as judge_mod
 from ..score import verify
-from ..suite import Suite, Task
+from ..suite import Suite, Task, declared_secrets
 from . import common
 from .base import (
     INFRA_OUTCOMES,
@@ -165,7 +165,7 @@ def secret_refusal(tasks: list[Task] | tuple[Task, ...]) -> str | None:
     once before anything runs rather than failing every unit. A value under
     `redact.MIN_ENV_VALUE` characters is refused too: redacting it would mangle unrelated text.
     """
-    declared = list(dict.fromkeys(name for task in tasks for name in task.secrets))
+    declared = declared_secrets(tasks)
     unset = [name for name in declared if not os.environ.get(name)]
     short = [
         name
@@ -183,10 +183,13 @@ def secret_refusal(tasks: list[Task] | tuple[Task, ...]) -> str | None:
     return "; ".join(problems) or None
 
 
-def _require_secrets(tasks: list[Task] | tuple[Task, ...]) -> None:
+def _require_secrets(suite: Suite, tasks: list[Task] | tuple[Task, ...], backend: Backend) -> None:
+    """Refuse a run the host cannot supply secrets for, and make sure the backend withholds every
+    secret the suite declares from what it starts for no one unit, whoever built it."""
     refused = secret_refusal(tasks)
     if refused:
         raise ValueError(refused)
+    backend.withheld = tuple(dict.fromkeys([*backend.withheld, *suite.secrets]))
 
 
 def run_suite(
@@ -220,7 +223,7 @@ def run_suite(
     (`Trajectory.transient`); no other outcome is ever rerun.
     """
     # Before a run directory, or a unit's, exists: a secret the host lacks fails every unit alike.
-    _require_secrets(tasks if tasks is not None else suite.tasks)
+    _require_secrets(suite, tasks if tasks is not None else suite.tasks, backend)
     run_id = run_id or new_run_id()
     collection_name = collection.name if collection else suite.name
     # A judge panel that cannot grade the run refuses it before a run directory exists.
@@ -450,6 +453,8 @@ def _judge(
             report(f"  rubric {rubric.id}: delegations unknown, not judged")
             return
         handoffs = judge_mod.delegations(events)
+    # A verifier ran first and may have left a secret in the workdir the judge is shown.
+    hide = tuple(trajectory.unit.task.secret_env().values())
     try:
         judgement = judge_mod.judge_task(
             rubric,
@@ -459,13 +464,15 @@ def _judge(
             final_text=trajectory.final_text,
             workdir=trajectory.workdir,
             models_under_test=panel.models_under_test,
+            hide=hide,
         )
     except judge_mod.JudgeError as exc:
         trajectory.rubric = {"rubric": rubric.id, "error": str(exc)}
         report(f"  rubric {rubric.id}: {exc}")
         return
 
-    trajectory.rubric = judgement.as_dict()
+    stored = judgement.as_dict()
+    trajectory.rubric = redact.redact_value(stored, hide)[0] if hide else stored
     scored = len(judgement.consensus)
     report(f"  rubric {rubric.id}: {scored}/{len(rubric.dimensions)} dimensions scored")
 
@@ -706,7 +713,7 @@ def fill_run(
         for i in todo
     ]
     needed = list(dict.fromkeys(unit.task for unit in units))
-    _require_secrets(needed)
+    _require_secrets(suite, needed, backend)
     panel, no_judge = panel_for(collection, suite, run.models, needed)
     if no_judge:
         report(f"no rubric judge: {no_judge}")

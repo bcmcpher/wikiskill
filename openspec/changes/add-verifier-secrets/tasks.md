@@ -35,8 +35,21 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
 - [x] 3.1 Document `secrets` in `docs/evaluate-and-refine-a-skill.md` §3 and `docs/writing-suites.md`,
   stating it covers the environment only; verify `bin/check` passes
 
-## 4. Verify
+## 4. Review fixes
 
-- [x] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_run.py tests/test_runner_common.py tests/test_runner_opencode.py tests/test_runner_claude.py`
-- [x] 4.2 `uv run pytest` and `bin/check`
-- [x] 4.3 `openspec validate add-verifier-secrets --strict`
+- [x] 4.1 Refuse at load an `env` value that expands a declared secret, and a secret naming a variable
+  either runner sets for isolation or routing (`ANTHROPIC_API_KEY` excepted); verify in
+  `tests/test_suite.py`
+- [x] 4.2 Redact every copy of a value in `redact.py` and `redact.ts`, capping only the count; verify
+  with over 101 copies in verifier output, a scrubbed event, and both redaction test files
+- [x] 4.3 Redact secrets from everything sent to a rubric judge and from its stored answer; verify in
+  `tests/test_judge.py` with a verifier that writes the secret into the workdir
+- [x] 4.4 Refuse `--api-key-env` naming a secret, and `ANTHROPIC_API_KEY` as a secret under Claude
+  Code without `--base-url`; `run_suite` and `fill_run` set the backend's withheld names; verify
+  in `tests/test_run.py`, including the fill path's missing-secret refusal
+
+## 5. Verify
+
+- [x] 5.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_run.py tests/test_runner_common.py tests/test_runner_opencode.py tests/test_runner_claude.py`
+- [x] 5.2 `uv run pytest` and `bin/check`
+- [x] 5.3 `openspec validate add-verifier-secrets --strict`
