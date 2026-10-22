@@ -33,8 +33,8 @@ CSV output.
 
 ## 4. Verify
 
-- [ ] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_score.py tests/test_findings_export.py`
-- [ ] 4.2 `uv run pytest` and `bin/check`
-- [ ] 4.3 Run an end-to-end unit test that scores the synthetic grader through `runner/run.py` with a
+- [x] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_score.py tests/test_findings_export.py`
+- [x] 4.2 `uv run pytest` and `bin/check`
+- [x] 4.3 Run an end-to-end unit test that scores the synthetic grader through `runner/run.py` with a
   stub session, and check `results.jsonl` and the report
-- [ ] 4.4 `openspec validate add-scored-verifier --strict`
+- [x] 4.4 `openspec validate add-scored-verifier --strict`
