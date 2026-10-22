@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+
 import pytest
 import yaml
 
-from conftest import SOURCE_FIXTURE
+from conftest import FLAT_PLUGINS, SOURCE_FIXTURE, write_manifest
 from wikiskill.build import BUILD_MARKER, BuildError, build, build_collection
+from wikiskill.cli import main
 from wikiskill.collection import Collection, Source
 from wikiskill.frontmatter import read as read_frontmatter
 
@@ -480,6 +484,81 @@ def test_mirroring_a_plugin_leaves_its_source_untouched(tmp_path):
     build_collection("opencode", collection, tmp_path / "dist")
 
     assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
+
+
+# --------------------------------------------------------------------------- flat plugin layouts
+
+FLAT_SKILLS = {"alpha", "first", "second", "solo-kit", "hybrid-kit", "child"}
+
+
+@pytest.mark.parametrize("harness", ["opencode", "claude-code"])
+def test_every_flat_skill_is_installed_exactly_once(tmp_path, harness):
+    out = tmp_path / "dist"
+    result = build_collection(harness, plugin_collection(FLAT_PLUGINS), out)
+
+    installed = sorted(p.relative_to(out / "skills") for p in (out / "skills").rglob("SKILL.md"))
+    assert [str(p.parent) for p in installed] == sorted(FLAT_SKILLS)
+    assert result.mapping["solo-kit/solo-kit"] == "solo-kit"
+    assert result.mapping["hybrid-kit/child"] == "child"
+    assert "nested-kit/beta" not in result.mapping
+
+
+def test_a_plugin_level_skill_brings_its_own_files_and_not_its_plugins(tmp_path):
+    out = tmp_path / "dist"
+    build_collection("opencode", plugin_collection(FLAT_PLUGINS), out)
+
+    hybrid = out / "skills" / "hybrid-kit"
+    assert sorted(p.name for p in hybrid.iterdir()) == ["README.md", "SKILL.md", "notes.md"]
+    assert (out / "commands" / "kit-run.md").is_file()
+    assert sorted(p.name for p in (out / "skills" / "solo-kit").iterdir()) == [
+        "README.md",
+        "SKILL.md",
+    ]
+    # `${CLAUDE_SKILL_DIR}` names the skill's own built directory, which holds the file it cites.
+    assert f"{hybrid.resolve()}/notes.md" in (hybrid / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_a_flat_child_skill_keeps_its_supporting_files(tmp_path):
+    out = tmp_path / "dist"
+    build_collection("opencode", plugin_collection(FLAT_PLUGINS), out)
+    assert (out / "skills" / "second" / "references" / "table.md").is_file()
+    # The plugin's shared files reach the mirror, not any one skill.
+    assert (out / "plugins" / "loose-kit" / "references" / "shared.md").is_file()
+    assert not (out / "skills" / "first" / "references").exists()
+
+
+@pytest.mark.parametrize("harness", ["opencode", "claude-code"])
+def test_narrowing_to_a_flat_plugin_installs_only_its_skill(tmp_path, harness):
+    out = tmp_path / "dist"
+    result = build_collection(harness, plugin_collection(FLAT_PLUGINS, ("solo-kit",)), out)
+    assert result.mapping == {"solo-kit/solo-kit": "solo-kit"}
+    assert [p.name for p in (out / "skills").iterdir()] == ["solo-kit"]
+
+
+def test_checking_and_building_flat_layouts_leave_git_status_clean(tmp_path, xdg):
+    repo = tmp_path / "collection"
+    shutil.copytree(FLAT_PLUGINS, repo / "plugins")
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+        ).stdout
+
+    git("init", "-q")
+    git("add", "-A")
+    git("commit", "-q", "-m", "fixture")
+    write_manifest(
+        xdg,
+        "flat",
+        f'name = "flat"\nsources = [{{ path = "{repo / "plugins"}", layout = "claude-plugin" }}]\n'
+        '[watch]\nskills = ["solo-kit/solo-kit"]\n',
+    )
+
+    assert main(["collection", "check", "flat"]) == 0
+    for harness in ("opencode", "claude-code"):
+        build_collection(harness, plugin_collection(repo / "plugins"), tmp_path / harness)
+
+    assert git("status", "--porcelain", "--ignored") == ""
 
 
 def test_the_review_command_leaves_writing_the_wiki_to_wikiskill(tmp_path):

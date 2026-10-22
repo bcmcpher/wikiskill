@@ -19,10 +19,10 @@ nothing; the build exclusion is in section 2 because a ROUTED run needs it.
 
 ## 2. Build
 
-- [ ] 2.1 When a skill's directory is its plugin directory, copy it without child skill directories,
+- [x] 2.1 When a skill's directory is its plugin directory, copy it without child skill directories,
   `agents/`, `commands/` and `.claude-plugin/`; verify in `tests/test_build.py` that each skill is
   installed exactly once for both harness layouts
-- [ ] 2.2 Verify `git status` of the fixture tree is unchanged after `collection check` and a build
+- [x] 2.2 Verify `git status` of the fixture tree is unchanged after `collection check` and a build
 
 ## 3. Documentation
 
