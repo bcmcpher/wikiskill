@@ -284,7 +284,7 @@ def test_eval_repeats_overrides_the_suites_and_keeps_its_hash(xdg, tmp_path, mon
     path.write_text(SUITE, encoding="utf-8")
     made: list[FakeBackend] = []
 
-    def fake(args, coll, endpoint, layout, root):
+    def fake(args, coll, endpoint, layout, root, *, withheld=()):
         made.append(FakeBackend(layout, writes="DONE.md"))
         return made[0]
 

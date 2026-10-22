@@ -1036,6 +1036,64 @@ def test_neither_the_session_nor_the_export_nor_setup_sees_a_secret(backend, tmp
     assert (trajectory.workdir / "s.txt").read_text() == "unset"
 
 
+def test_the_harness_preflight_runs_without_the_suites_secrets(
+    harness_backend, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, harness_backend.executable = recording_opencode(tmp_path)
+    harness_backend.withheld = ("FAKE_GRADER_TOKEN",)
+
+    harness_backend.preflight("opencode/big-pickle")
+
+    assert sorted(path.name for path in seen.iterdir()) == ["--version", "models", "run"]
+    assert all(path.read_text() == "unset" for path in seen.iterdir())
+
+
+def test_eval_preflight_only_withholds_every_secret_the_suite_declares(xdg, tmp_path, monkeypatch):
+    from wikiskill.cli import main
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    monkeypatch.setenv("FAKE_OTHER_TOKEN", FAKE_SECRET + "-other")
+    seen, executable = recording_opencode(tmp_path)
+    suite = tmp_path / "graded.yaml"
+    suite.write_text(
+        "suite: graded\n"
+        "defaults: { secrets: [FAKE_GRADER_TOKEN] }\n"
+        "tasks:\n"
+        "  - { id: a, prompt: Summarise the notes., split: val, verifiers: [{kind: command, "
+        'run: "true"}] }\n'
+        "  - { id: b, prompt: Tidy the notes., split: val, secrets: [FAKE_OTHER_TOKEN], "
+        'verifiers: [{kind: command, run: "true"}] }\n',
+        encoding="utf-8",
+    )
+    # A stub that also records the second secret, so the union over tasks is what is checked.
+    script = Path(executable)
+    script.write_text(
+        script.read_text().replace(
+            "#!/bin/sh\n", f'#!/bin/sh\nprintf "%s" "${{FAKE_OTHER_TOKEN-unset}}" > "{seen}/o$1"\n'
+        ),
+        encoding="utf-8",
+    )
+
+    main(
+        [
+            "eval",
+            "--suite",
+            str(suite),
+            "--models",
+            "opencode/big-pickle",
+            "--condition",
+            "off",
+            "--opencode",
+            executable,
+            "--preflight-only",
+        ]
+    )
+
+    assert (seen / "run").is_file(), "the probe ran"
+    assert all(path.read_text() == "unset" for path in seen.iterdir())
+
+
 def test_no_file_a_run_writes_holds_a_secret(backend, tmp_path, xdg, monkeypatch):
     from wikiskill import suite as suite_mod
     from wikiskill.runner import run as run_mod

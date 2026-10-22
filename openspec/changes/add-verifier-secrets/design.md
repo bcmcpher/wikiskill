@@ -2,7 +2,9 @@
 
 Environments are built in five places: `OpenCodeRunner._env` (session, `runner/opencode.py:587`),
 the OpenCode export step (`:802`), `ClaudeCodeRunner.env_for` (`runner/claude.py:245`), `run_setup`
-(`runner/common.py:83`), and `score/verify.py:_env` for verifiers. `redact.py` already scrubs
+(`runner/common.py:83`), and `score/verify.py:_env` for verifiers. Two more processes belong to no
+unit: OpenCode's harness preflight probe (`harness_preflight`), and each backend's `--version`
+check. Claude Code's preflight is HTTP from the runner's own process. `redact.py` already scrubs
 secret-looking environment values from logged events (`env_secrets`, `redact`).
 
 ## Goals / Non-Goals
@@ -26,6 +28,9 @@ secret-looking environment values from logged events (`env_secrets`, `redact`).
 - **One helper for withheld names.** A function in `runner/common.py` takes an environment and a task
   and returns the environment without its secrets. Every session, export and setup site calls it.
   The verifier builds its own environment and adds the secrets back from the host.
+- **No unit, every secret.** A process started for the run but for no one unit, such as a preflight
+  probe, runs without the union of all the suite's secrets. The backend receives that union when it
+  is built, and a sibling helper drops a list of names rather than one task's.
 - **Refuse at start, not per unit.** A missing secret is a configuration error for the whole run;
   failing every unit as `infra_error` would waste a sweep's time. The check runs after preflight
   arguments are parsed and before any unit directory is made.

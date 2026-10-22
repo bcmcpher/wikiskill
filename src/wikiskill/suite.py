@@ -206,6 +206,11 @@ class Suite:
     def split(self, name: str) -> list[Task]:
         return [t for t in self.tasks if t.split == name]
 
+    @property
+    def secrets(self) -> tuple[str, ...]:
+        """Every secret any task declares: what a process tied to no one task must not see."""
+        return tuple(dict.fromkeys(name for task in self.tasks for name in task.secrets))
+
 
 # --------------------------------------------------------------------------- leak check
 

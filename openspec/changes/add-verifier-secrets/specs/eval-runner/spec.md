@@ -5,7 +5,8 @@
 For a task that declares secrets, the runner MUST remove each named variable from every process it
 starts for the unit's harness, including the session and any export step, on OpenCode and on Claude
 Code. Setup commands and the `requires` check MUST NOT receive them. Command verifiers MUST receive
-each secret with its host value.
+each secret with its host value. Preflight probes and any other harness process started for the run
+but not for one unit MUST run without every secret the suite declares, in `defaults` or on any task.
 
 #### Scenario: Token withheld from the session
 
@@ -22,6 +23,11 @@ each secret with its host value.
 
 - **WHEN** a task declares `secrets: [HF_TOKEN]` and a setup command prints `$HF_TOKEN`
 - **THEN** the setup command prints an empty value
+
+#### Scenario: Preflight does not get the secret
+
+- **WHEN** a suite declares `secrets: [HF_TOKEN]` and preflight probes the model
+- **THEN** the probe's harness process sees no `HF_TOKEN`
 
 #### Scenario: Task without secrets
 

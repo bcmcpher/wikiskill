@@ -120,6 +120,7 @@ class OpenCodeBackend(Backend):
         max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
         thinking: str = "default",
         seed_cache: bool = True,
+        withheld: tuple[str, ...] = (),
     ) -> None:
         if thinking not in THINKING_EFFORT:
             raise RunnerError(f"thinking must be one of {', '.join(THINKING_EFFORT)}")
@@ -137,6 +138,7 @@ class OpenCodeBackend(Backend):
         self.max_output_tokens = max_output_tokens
         self.thinking = thinking
         self.seed_cache = seed_cache
+        self.withheld = withheld
         #: model → the context its server reported in preflight, which OpenCode is then told.
         self._served_context: dict[str, int] = {}
         self._version: str | None = None
@@ -166,6 +168,7 @@ class OpenCodeBackend(Backend):
                     capture_output=True,
                     text=True,
                     timeout=30,
+                    env=common.without_names(dict(os.environ), self.withheld),
                     check=False,
                 )
                 self._version = done.stdout.strip() or "unknown"
@@ -206,7 +209,10 @@ class OpenCodeBackend(Backend):
         for name in ("config", "data", "state", "cache"):
             (root / name).mkdir(parents=True, exist_ok=True)
         self._apply_seed(root)
-        env = self._env(root, self._config(model), list(BASE_DENY))
+        # A probe is a model session tied to no task, so it runs without any secret the suite names.
+        env = common.without_names(
+            self._env(root, self._config(model), list(BASE_DENY)), self.withheld
+        )
 
         try:
             details["harness_version"] = self.version()

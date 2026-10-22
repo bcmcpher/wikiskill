@@ -87,9 +87,16 @@ def without_secrets(env: dict[str, str], task: Task) -> dict[str, str]:
     Applied last, to the environment as built, at every place a unit's environment is built. Only a
     command verifier gets the secrets, and it adds them back from the host itself.
     """
-    if not task.secrets:
+    return without_names(env, task.secrets)
+
+
+def without_names(env: dict[str, str], names: Iterable[str]) -> dict[str, str]:
+    """``env`` without ``names``. For a process tied to no one unit, such as a preflight probe,
+    ``names`` is every secret the suite declares."""
+    drop = frozenset(names)
+    if not drop:
         return env
-    return {key: value for key, value in env.items() if key not in task.secrets}
+    return {key: value for key, value in env.items() if key not in drop}
 
 
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:

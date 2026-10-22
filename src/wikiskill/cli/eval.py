@@ -301,7 +301,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if args.base_url
         else None
     )
-    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root, withheld=loaded.secrets)
 
     print(
         f"run {run_id}  suite {loaded.name}  {args.harness}  {len(models)} model(s)  "
@@ -396,7 +396,7 @@ def _cmd_fill(args: argparse.Namespace) -> int:
         if args.base_url
         else None
     )
-    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root, withheld=loaded.secrets)
     problem = run_mod.fill_refusal(manifest, loaded, backend, coll)
     if problem:
         return misuse(f"cannot fill {args.fill}: {problem}")
@@ -503,8 +503,17 @@ def _judge_refusal(coll: Collection | None, loaded, models: list[str], tasks) ->
     return None
 
 
-def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):
-    """The backend for `--harness`, configured from the command line."""
+def _eval_backend(
+    args: argparse.Namespace,
+    coll: Collection | None,
+    endpoint,
+    layout,
+    root,
+    *,
+    withheld: tuple[str, ...] = (),
+):
+    """The backend for `--harness`, configured from the command line. ``withheld`` is every
+    secret the suite declares, kept from the preflight probe and the version check."""
     limit = coll.output_limit_bytes if coll else 16 * 1024
     # A run without a collection redacts: that is the safe side.
     scrub = coll.redact if coll else True
@@ -522,6 +531,7 @@ def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, l
             output_limit_bytes=limit,
             redact=scrub,
             foreground_agents=args.foreground_agents,
+            withheld=withheld,
         )
     from ..runner import opencode as opencode_backend
 
@@ -538,6 +548,7 @@ def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, l
         max_output_tokens=args.max_output_tokens,
         thinking=args.thinking,
         seed_cache=not args.no_seed_cache,
+        withheld=withheld,
     )
 
 

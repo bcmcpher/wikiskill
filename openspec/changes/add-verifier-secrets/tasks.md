@@ -17,6 +17,9 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
 
 - [x] 1.1 Call the helper from `ClaudeCodeRunner.env_for`; verify in `tests/test_runner_claude.py`
   that the session environment lacks the secret and the verifier sees it
+- [x] 1.2 Run the OpenCode harness preflight probe and both backends' `--version` check without every
+  secret the suite declares; verify with stubbed harnesses in `tests/test_runner_opencode.py` and
+  `tests/test_runner_claude.py`
 
 ## 2. Records
 

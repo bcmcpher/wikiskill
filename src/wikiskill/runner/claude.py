@@ -107,6 +107,7 @@ class ClaudeCodeBackend(Backend):
         output_limit_bytes: int = 16 * 1024,
         redact: bool = True,
         foreground_agents: bool = False,
+        withheld: tuple[str, ...] = (),
     ) -> None:
         self.collection = collection
         self.endpoint = endpoint
@@ -120,6 +121,7 @@ class ClaudeCodeBackend(Backend):
         #: Subagents run in the background when the model asks for it, as they would for a user.
         #: Forcing them into the foreground is a different harness behaviour, so it is recorded.
         self.foreground_agents = foreground_agents
+        self.withheld = withheld
         self._version: str | None = None
         #: condition → its isolation proof, completed with what the first unit was offered.
         self._proofs: dict[str, dict[str, Any]] = {}
@@ -138,6 +140,7 @@ class ClaudeCodeBackend(Backend):
                     capture_output=True,
                     text=True,
                     timeout=30,
+                    env=common.without_names(dict(os.environ), self.withheld),
                     check=False,
                 )
             except (OSError, subprocess.SubprocessError) as exc:

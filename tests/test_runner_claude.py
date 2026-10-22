@@ -502,6 +502,25 @@ def test_the_session_lacks_the_secret_and_the_verifier_has_it(tmp_path, capture,
     assert passed, "the command verifier sees the host value"
 
 
+def test_preflight_starts_no_harness_process_that_sees_a_secret(tmp_path, capture, monkeypatch):
+    """Claude Code's preflight is HTTP from this process, or a key check; the only harness process
+    started for no one unit is `claude --version`, and it runs without the suite's secrets."""
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    script = tmp_path / "claude"
+    script.write_text(
+        f'#!/bin/sh\nprintf "%s" "${{FAKE_GRADER_TOKEN-unset}}" >> {tmp_path}/seen.txt\n'
+        'echo "2.1.289 (Claude Code)"\n',
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    backend = make_backend(tmp_path, capture, None, str(script), withheld=("FAKE_GRADER_TOKEN",))
+
+    assert backend.preflight("anthropic/claude-haiku-4-5").ok
+    assert backend.version() == "2.1.289"
+    assert (tmp_path / "seen.txt").read_text() == "unset", "one process, and it saw no secret"
+
+
 def test_no_file_a_run_writes_holds_a_secret(tmp_path, xdg, capture, monkeypatch):
     from wikiskill import suite as suite_mod
     from wikiskill.runner import run as run_mod
