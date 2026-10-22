@@ -964,10 +964,12 @@ has a rubric. [data.md](data.md#evaluation-runs-evals) lists every field.
   for 0% or 100%.
 - **Per task, model and condition:** each task's result, its `route@1`, and its `pass basis`.
 - **Scores:** only when a verifier declares `score`. Each graded score's mean per task, model and
-  condition, with `n` and a 95% bootstrap interval. The bootstrap has a fixed seed, so a rebuilt
-  report gives the same interval. Units with no numeric score are counted in `no score`.
+  condition, with `n` and a 95% t-interval of the mean. The interval is not clipped to the
+  scorer's scale. One unit shows `(one unit)`, and identical scores show `(all equal)`. Units with
+  no numeric score are counted in `no score`.
   `wikiskill findings tables` exports these values to `findings.csv`. The leaderboard and the
-  version board do not show them.
+  version board do not show them. The score columns are in every study's `findings.csv`, so a
+  study made before them fails `findings tables --check` until you run `findings tables` again.
 - **Not run:** every `infra_error` and `skipped` unit, with its reason.
 
 Read the conditions against each other:

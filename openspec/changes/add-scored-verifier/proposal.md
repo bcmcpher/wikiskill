@@ -12,7 +12,7 @@ wikiskill can neither apply such a grader's own pass rule nor report the score i
 - `pass_when` maps result fields to accepted values. The verifier passes when the exit code matches
   `expect_exit` and every listed field holds one of its values.
 - `score` names a numeric result field to aggregate. Reports give the mean per task, model and
-  condition, with a 95% percentile bootstrap interval, beside the pass rate and never folded into it.
+  condition, with a 95% t-interval, beside the pass rate and never folded into it.
 - Output that is not a JSON object is an infrastructure error, not a model failure.
 - `findings tables` exports the score columns in `findings.csv`.
 
@@ -34,7 +34,7 @@ None.
 - `src/wikiskill/score/verify.py`: parsing, the pass rule, the stored result.
 - `src/wikiskill/report.py`: a per-row score summary and its markdown section.
 - `src/wikiskill/findings.py`: score columns in `findings.csv` and a score table in `report` tables.
-- A new small statistics helper for the seeded bootstrap; stdlib only.
+- A new small statistics helper for the t-interval; stdlib only.
 - Docs: `docs/evaluate-and-refine-a-skill.md` §3–§5, `docs/writing-suites.md`, `docs/data.md`.
 - Existing suites keep their hash and behaviour. Runs made before this change carry no `result`, and
   their reports are unchanged.

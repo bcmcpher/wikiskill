@@ -45,15 +45,16 @@ the value it held.
 ### Requirement: Scores are reported beside the pass rate
 
 For each verifier with `score`, a run report MUST give, per task, model and condition, the mean of
-that field over scored units, the count of units it covers, and a 95% percentile bootstrap interval
-of the mean, computed with a fixed seed so the same results give the same interval. A unit whose
+that field over scored units, the count of units it covers, and a 95% t-interval of the mean,
+mean ± t(0.975, n−1)·s/√n, not clipped to the scorer's scale. With one unit there MUST be no
+interval, and identical scores MUST be marked as such rather than printed as a range. A unit whose
 field is missing or not a number MUST be left out and counted beside the mean. `infra_error` and
 `skipped` units MUST be left out. The score MUST NOT change the pass rate.
 
 #### Scenario: Three repeats
 
 - **WHEN** three units of a task score 60, 70 and 80
-- **THEN** the report gives mean 70, n 3, and an interval inside [60, 80]
+- **THEN** the report gives mean 70, n 3, and an interval of 45.2 to 94.8, to one decimal
 
 #### Scenario: Rebuilt report
 

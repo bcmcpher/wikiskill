@@ -21,7 +21,7 @@ from math import isfinite
 from pathlib import Path
 from typing import Any
 
-from . import bootstrap, leaderboard, present
+from . import interval, leaderboard, present
 from . import score as score_mod
 from .catalogue import Catalogue
 from .compare import LoadedRun
@@ -143,7 +143,7 @@ def _row(
 
 
 def _scores(usable: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Each scored verifier's mean across a task's repeats, with its n and a bootstrap interval.
+    """Each scored verifier's mean across a task's repeats, with its n and a 95% t-interval.
 
     Reported beside the pass rate and never folded into it: the verdict a grader gives decides the
     pass, and its score says how close the work came. A unit whose result lacks the field, or holds
@@ -163,7 +163,7 @@ def _scores(usable: list[dict[str, Any]]) -> list[dict[str, Any]]:
     summaries = []
     for (index, name), held in sorted(found.items()):
         values = [value for value in held if value is not None]
-        mean, low, high = bootstrap.mean_interval(values) or (None, None, None)
+        mean, low, high = interval.mean_interval(values) or (None, None, None)
         summaries.append(
             {
                 "verifier": index,
@@ -179,10 +179,17 @@ def _scores(usable: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _number(value: Any) -> float | None:
-    """A finite JSON number as a float; anything else, `true` included, is no score."""
-    if isinstance(value, bool) or not isinstance(value, int | float) or not isfinite(value):
+    """A finite JSON number as a float; anything else, `true` included, is no score.
+
+    JSON integers are unbounded, and one past a float's range is no more a usable score than text.
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
         return None
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if isfinite(number) else None
 
 
 def _rubric(
@@ -473,8 +480,8 @@ def score_lines(rows: list[dict[str, Any]]) -> list[str]:
         "",
         (
             "Graded by the task's own scorer, reported beside the pass rate and never folded into "
-            f"it. The interval is a 95% percentile bootstrap of the mean ({bootstrap.RESAMPLES} "
-            f"resamples, seed {bootstrap.SEED})."
+            "it. The interval is a 95% t-interval of the mean, and is not clipped to the "
+            "scorer's scale."
         ),
         "",
         *present.table(
@@ -496,12 +503,19 @@ def score_lines(rows: list[dict[str, Any]]) -> list[str]:
 
 
 def score_cell(entry: dict[str, Any]) -> str:
-    """``mean (low-high)``; one unit has no interval to give, and says so."""
+    """``mean (low to high)``, or a mark where there is no interval to give.
+
+    One unit has no spread to estimate; identical scores have none at all, and a zero-width range
+    printed as `70.0 to 70.0` would read as a precise estimate. A bound can fall below 0, so the
+    range is written with `to` rather than a dash.
+    """
     if entry.get("mean") is None:
         return present.MISSING
-    if entry["n"] == 1:
+    if entry["n"] == 1 or entry.get("low") is None:
         return f"{entry['mean']:.1f} (one unit)"
-    return f"{entry['mean']:.1f} ({entry['low']:.1f}-{entry['high']:.1f})"
+    if entry["low"] == entry["high"]:
+        return f"{entry['mean']:.1f} (all equal)"
+    return f"{entry['mean']:.1f} ({entry['low']:.1f} to {entry['high']:.1f})"
 
 
 def _rubric_lines(rows: list[dict[str, Any]]) -> list[str]:

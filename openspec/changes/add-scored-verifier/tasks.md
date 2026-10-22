@@ -14,10 +14,10 @@ CSV output.
 
 ## 1. Report
 
-- [x] 1.1 Add a seeded percentile bootstrap helper (stdlib); verify with tests for n = 1, constant
-  scores, and repeat calls giving identical intervals
+- [x] 1.1 Add a 95% t-interval helper (stdlib t table); verify with tests for n = 1, constant
+  scores, [60, 70, 80] giving about [45.2, 94.8], and repeat calls giving identical intervals
 - [x] 1.2 Add a per-row score summary to `src/wikiskill/report.py` and a markdown section beside the
-  rubric section; verify in `tests/test_score.py` or a new test for each scenario of "Scores are
+  rubric section; verify in `tests/test_scores.py` for each scenario of "Scores are
   reported beside the pass rate", including a pre-change run fixture
 
 ## 2. Findings export
@@ -33,7 +33,7 @@ CSV output.
 
 ## 4. Verify
 
-- [x] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_score.py tests/test_findings_export.py`
+- [x] 4.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_scores.py tests/test_findings_export.py`
 - [x] 4.2 `uv run pytest` and `bin/check`
 - [x] 4.3 Run an end-to-end unit test that scores the synthetic grader through `runner/run.py` with a
   stub session, and check `results.jsonl` and the report

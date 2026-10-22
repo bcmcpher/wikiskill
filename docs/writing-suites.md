@@ -146,7 +146,7 @@ verifiers:
   exit code equals `expect_exit` and every field holds one of its values. A missing field fails,
   and the detail names it.
 - **`score`**: a top-level numeric field. The report gives its mean per task, model and condition,
-  with a 95% bootstrap interval, beside the pass rate. It never changes the pass rate.
+  with a 95% t-interval, beside the pass rate. It never changes the pass rate.
 
 The whole object is kept with the unit in `results.jsonl`. Output with no JSON object, or a result
 over 64 KiB, is an `infra_error`: the grader is broken, and the model is not blamed. A scorer that

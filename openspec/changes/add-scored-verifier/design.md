@@ -29,9 +29,13 @@ exit_code, output)`, where output is stdout and stderr joined and cut to 2000 ch
 - **Unparseable output is `infra_error`.** A grader that cannot report is broken infrastructure; the
   model's mistakes reach it as an `invalid` verdict, which the grader prints. This matches how a
   verifier that cannot start is treated today.
-- **Percentile bootstrap, fixed seed.** Scores are bounded and lumpy, often piled at 0 or 100, so a
-  t-interval misbehaves at small n. 2000 resamples with `random.Random(0)`, stdlib only, give the
-  same interval on every rebuild. With n = 1 the interval is the single value, marked as such.
+- **t-interval of the mean.** mean ± t(0.975, n−1)·s/√n, from a stdlib table of t for 1–30 degrees
+  of freedom and the normal 1.96 past that. A percentile bootstrap was the first choice, but it
+  under-covers at n = 3–5, the usual number of repeats: it cannot reach past the observed scores,
+  so 60, 70 and 80 give [60, 80], where the t-interval gives about [45.2, 94.8]. The t-interval is
+  honest at small n and deterministic, so a rebuilt report gives the same interval with no seed.
+  It is not clipped to the scorer's scale. With n = 1 there is no interval, and identical scores
+  give a zero-width one; reports mark both rather than print a range.
 - **Result stored under the verifier record.** `verifiers[i].result` keeps one record per verifier,
   so a task with two scored verifiers stays unambiguous. The 64 KiB cap bounds `results.jsonl`, which
   bundles commit to git.

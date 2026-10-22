@@ -1,4 +1,4 @@
-"""Graded scores: the seeded bootstrap, and a report that gives a mean beside the pass rate."""
+"""Graded scores: the t-interval of a mean, and a report that gives it beside the pass rate."""
 
 from __future__ import annotations
 
@@ -7,39 +7,45 @@ import json
 import pytest
 
 from test_score import manifest, result
-from wikiskill import bootstrap, compare
+from wikiskill import compare, interval
 from wikiskill import report as report_mod
 
-# --------------------------------------------------------------------------- bootstrap
+# --------------------------------------------------------------------------- interval
 
 
-def test_one_value_is_its_own_interval():
-    assert bootstrap.mean_interval([71.5]) == (71.5, 71.5, 71.5)
+def test_one_value_has_no_interval():
+    assert interval.mean_interval([71.5]) == (71.5, None, None)
 
 
 def test_constant_scores_have_an_interval_of_no_width():
-    assert bootstrap.mean_interval([100, 100, 100]) == (100.0, 100.0, 100.0)
+    assert interval.mean_interval([100, 100, 100]) == (100.0, 100.0, 100.0)
 
 
 def test_no_values_give_no_interval():
-    assert bootstrap.mean_interval([]) is None
+    assert interval.mean_interval([]) is None
+
+
+def test_three_scores_give_the_t_interval():
+    mean, low, high = interval.mean_interval([60, 70, 80]) or (0, 0, 0)
+
+    assert mean == 70
+    assert (round(low or 0, 1), round(high or 0, 1)) == (45.2, 94.8)
 
 
 def test_repeat_calls_give_the_same_interval():
     values = [0, 12, 40, 41, 100]
-    assert bootstrap.mean_interval(values) == bootstrap.mean_interval(values)
+    assert interval.mean_interval(values) == interval.mean_interval(values)
 
 
-def test_the_interval_holds_the_mean_and_stays_in_the_data():
-    mean, low, high = bootstrap.mean_interval([0, 0, 100, 100, 50]) or (0, 0, 0)
-
-    assert mean == 50
-    assert 0 <= low < mean < high <= 100
+def test_the_interval_is_not_clipped_to_the_scale():
+    _, low, high = interval.mean_interval([0, 0, 100]) or (0, 0, 0)
+    assert (low or 0) < 0 and (high or 0) > 100
 
 
-def test_a_different_seed_can_move_the_interval():
-    values = [3, 17, 29, 55, 61, 88]
-    assert bootstrap.mean_interval(values, seed=1) != bootstrap.mean_interval(values)
+def test_past_thirty_degrees_of_freedom_the_normal_quantile_is_used():
+    assert interval.t975(1) == 12.706
+    assert interval.t975(30) == 2.042
+    assert interval.t975(31) == 1.96
 
 
 # --------------------------------------------------------------------------- report
@@ -74,10 +80,12 @@ def test_three_repeats_give_a_mean_an_n_and_an_interval():
     assert entry["mean"] == 70
     assert entry["n"] == 3
     assert entry["missing"] == 0
-    assert 60 <= entry["low"] <= entry["high"] <= 80
+    assert (round(entry["low"], 1), round(entry["high"], 1)) == (45.2, 94.8)
     text = report_mod.render_markdown(built)
     assert "## Scores" in text
-    assert "| release | ollama/qwen2.5-coder:1.5b | routed | `score` | 70.0 (" in text
+    assert (
+        "| release | ollama/qwen2.5-coder:1.5b | routed | `score` | 70.0 (45.2 to 94.8) |" in text
+    )
 
 
 def test_a_non_numeric_score_is_left_out_and_counted():
@@ -114,9 +122,24 @@ def test_infrastructure_units_are_not_scored_and_the_score_leaves_the_rate_alone
     assert row["pass_rate"] == 0.5
 
 
+def test_an_integer_past_a_floats_range_is_not_a_score():
+    results = [graded(0, 10**400), graded(1, 50)]
+    (entry,) = report_mod.build_report(results, manifest())["rows"][0]["scores"]
+
+    assert (entry["n"], entry["missing"], entry["mean"]) == (1, 1, 50.0)
+
+
 def test_one_unit_is_marked_rather_than_given_a_range():
     built = report_mod.build_report([graded(0, 71.5)], manifest())
+    (entry,) = built["rows"][0]["scores"]
+
+    assert (entry["low"], entry["high"]) == (None, None)
     assert "71.5 (one unit)" in report_mod.render_markdown(built)
+
+
+def test_identical_scores_are_marked_rather_than_printed_as_a_range():
+    built = report_mod.build_report([graded(0, 100), graded(1, 100)], manifest())
+    assert "100.0 (all equal)" in report_mod.render_markdown(built)
 
 
 def test_two_scored_verifiers_stay_apart():
