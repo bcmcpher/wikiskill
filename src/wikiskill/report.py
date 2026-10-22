@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
-from . import leaderboard, present
+from . import bootstrap, leaderboard, present
 from . import score as score_mod
 from .catalogue import Catalogue
 from .compare import LoadedRun
@@ -132,12 +133,56 @@ def _row(
             "pass_basis": basis if measured and basis else score_mod.UNMEASURED,
             "failed_verifiers": _failed_verifiers(usable),
             "rubric": _rubric(usable, score.model, catalogue),
+            "scores": _scores(usable),
             "tokens": dict(cell.tokens) if cell else {},
             "wall_time_ms": sum(cell.durations_ms) if cell else 0,
             "outcomes": dict(cell.outcomes) if cell else {},
         }
     )
     return row
+
+
+def _scores(usable: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each scored verifier's mean across a task's repeats, with its n and a bootstrap interval.
+
+    Reported beside the pass rate and never folded into it: the verdict a grader gives decides the
+    pass, and its score says how close the work came. A unit whose result lacks the field, or holds
+    something that is not a number, is left out of the mean and counted as `missing`, so a mean of
+    three never reads as a mean of four.
+
+    Keyed by the verifier's position, so a task with two scored verifiers keeps them apart. A run
+    recorded before scores existed has no `score_field` anywhere and gives an empty list.
+    """
+    found: dict[tuple[int, str], list[float | None]] = {}
+    for result in usable:
+        for index, verifier in enumerate(result.get("verifiers") or []):
+            name = verifier.get("score_field")
+            if name:
+                value = (verifier.get("result") or {}).get(name)
+                found.setdefault((index, name), []).append(_number(value))
+    summaries = []
+    for (index, name), held in sorted(found.items()):
+        values = [value for value in held if value is not None]
+        mean, low, high = bootstrap.mean_interval(values) or (None, None, None)
+        summaries.append(
+            {
+                "verifier": index,
+                "field": name,
+                "mean": mean,
+                "low": low,
+                "high": high,
+                "n": len(values),
+                "missing": len(held) - len(values),
+            }
+        )
+    return summaries
+
+
+def _number(value: Any) -> float | None:
+    """A finite JSON number as a float; anything else, `true` included, is no score."""
+    if isinstance(value, bool) or not isinstance(value, int | float) or not isfinite(value):
+        return None
+    return float(value)
 
 
 def _rubric(
@@ -397,6 +442,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             for chosen, count in sorted(row.items(), key=lambda item: -item[1]):
                 lines.append(f"| {expected} | {chosen} | {count} |")
 
+    lines += score_lines(report.get("rows") or [])
     lines += _rubric_lines(report.get("rows") or [])
     lines += _derived_lines(report.get("derived") or {})
     lines += ["", "## Not run", ""]
@@ -414,6 +460,48 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- **{entry['kind']}** {where or entry.get('model', '')}: {entry['reason']}"
             )
     return "\n".join(lines) + "\n"
+
+
+def score_lines(rows: list[dict[str, Any]]) -> list[str]:
+    """Graded scores per row and verifier, each with its n. Nothing for a run with no `score`."""
+    found = [(row, entry) for row in rows for entry in row.get("scores") or []]
+    if not found:
+        return []
+    return [
+        "",
+        "## Scores",
+        "",
+        (
+            "Graded by the task's own scorer, reported beside the pass rate and never folded into "
+            f"it. The interval is a 95% percentile bootstrap of the mean ({bootstrap.RESAMPLES} "
+            f"resamples, seed {bootstrap.SEED})."
+        ),
+        "",
+        *present.table(
+            ["task", "model", "condition", "field", "mean (95% CI)", "n", "no score"],
+            [
+                [
+                    row["task_id"],
+                    row["model"],
+                    row["condition"],
+                    f"`{entry['field']}`",
+                    score_cell(entry),
+                    entry["n"],
+                    entry["missing"],
+                ]
+                for row, entry in found
+            ],
+        ),
+    ]
+
+
+def score_cell(entry: dict[str, Any]) -> str:
+    """``mean (low-high)``; one unit has no interval to give, and says so."""
+    if entry.get("mean") is None:
+        return present.MISSING
+    if entry["n"] == 1:
+        return f"{entry['mean']:.1f} (one unit)"
+    return f"{entry['mean']:.1f} ({entry['low']:.1f}-{entry['high']:.1f})"
 
 
 def _rubric_lines(rows: list[dict[str, Any]]) -> list[str]:

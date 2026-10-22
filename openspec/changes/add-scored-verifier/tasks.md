@@ -14,9 +14,9 @@ CSV output.
 
 ## 1. Report
 
-- [ ] 1.1 Add a seeded percentile bootstrap helper (stdlib); verify with tests for n = 1, constant
+- [x] 1.1 Add a seeded percentile bootstrap helper (stdlib); verify with tests for n = 1, constant
   scores, and repeat calls giving identical intervals
-- [ ] 1.2 Add a per-row score summary to `src/wikiskill/report.py` and a markdown section beside the
+- [x] 1.2 Add a per-row score summary to `src/wikiskill/report.py` and a markdown section beside the
   rubric section; verify in `tests/test_score.py` or a new test for each scenario of "Scores are
   reported beside the pass rate", including a pre-change run fixture
 
