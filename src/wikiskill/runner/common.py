@@ -52,8 +52,16 @@ class Scrubber:
     limit: int
 
     @classmethod
-    def of(cls, enabled: bool, env: dict[str, str], limit: int) -> Scrubber:
-        return cls(enabled, tuple(redact.env_secrets(env)) if enabled else (), limit)
+    def of(
+        cls, enabled: bool, env: dict[str, str], limit: int, declared: Iterable[str] = ()
+    ) -> Scrubber:
+        """``declared`` are the task's secret values. The harness's env no longer holds them, so
+        they are passed in, and they are redacted even where the collection turned redaction off:
+        a suite that names a secret has asked for it to be kept out of the record."""
+        values = set(redact.env_secrets(env)) if enabled else set()
+        values.update(value for value in declared if value)
+        secrets = tuple(sorted(values, key=len, reverse=True))
+        return cls(enabled or bool(secrets), secrets, limit)
 
     def text(self, raw: str) -> tuple[str, bool, list[dict[str, Any]]]:
         """``(text, truncated, redactions)`` for a free-text field that has a size bound."""

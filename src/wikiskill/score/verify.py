@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .. import redact
 from ..errors import WikiskillError
 from ..suite import Task, Verifier
 
@@ -93,7 +94,11 @@ def _env() -> dict[str, str]:
 
 
 def _command(
-    verifier: Verifier, workdir: Path, timeout_s: int, env: dict[str, str] | None = None
+    verifier: Verifier,
+    workdir: Path,
+    timeout_s: int,
+    env: dict[str, str] | None = None,
+    hide: tuple[str, ...] = (),
 ) -> VerifierResult:
     if not verifier.run:
         raise VerifierError("a command verifier needs `run`")
@@ -115,6 +120,10 @@ def _command(
         raise VerifierError(f"`{verifier.run}` could not be started: {exc}") from exc
 
     output = (done.stdout + done.stderr).strip()
+    if hide:
+        # Before the tail is cut, so a cut cannot leave half a secret behind. A scorer that echoes
+        # its configuration must not write the secret into `results.jsonl`.
+        output, _ = redact.redact(output, sorted(hide, key=len, reverse=True))
     return VerifierResult(
         kind=verifier.kind,
         passed=done.returncode == verifier.expect_exit,
@@ -183,13 +192,15 @@ def run_verifier(
     transcript: str = "",
     timeout_s: int = VERIFIER_TIMEOUT_S,
     env: dict[str, str] | None = None,
+    hide: tuple[str, ...] = (),
 ) -> VerifierResult:
     """Carry out one verifier and return its verdict, with `negate` applied last.
 
-    `env` is the task's own environment, laid over the host's for a command verifier.
+    `env` is the task's own environment, laid over the host's for a command verifier. `hide` holds
+    secret values that a command's kept output must not show.
     """
     if verifier.kind == "command":
-        result = _command(verifier, workdir, timeout_s, env)
+        result = _command(verifier, workdir, timeout_s, env, hide)
     elif verifier.kind == "file_exists":
         result = _file_exists(verifier, workdir)
     elif verifier.kind == "regex":
@@ -230,7 +241,8 @@ def verify_task(
 
     # The one process of a unit that gets the task's secrets, each with its host value. Named
     # explicitly rather than left to inheritance, so the grant does not hang on what `_env` keeps.
-    env = {**task.resolved_env(), **task.secret_env()}
+    secrets = task.secret_env()
+    env = {**task.resolved_env(), **secrets}
     results = [
         run_verifier(
             verifier,
@@ -239,6 +251,7 @@ def verify_task(
             transcript=transcript,
             timeout_s=timeout_s,
             env=env,
+            hide=tuple(secrets.values()),
         )
         for verifier in task.verifiers
     ]

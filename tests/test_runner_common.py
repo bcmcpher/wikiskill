@@ -192,6 +192,16 @@ def test_a_disabled_scrubber_only_bounds():
     assert scrub.value({"k": KEY}) == ({"k": KEY}, [])
 
 
+def test_a_declared_secret_is_redacted_even_with_redaction_off():
+    secret = "fake-grader-value-0123456789"
+    scrub = common.Scrubber.of(False, {}, 1024, [secret])
+
+    text, _, found = scrub.text(f"saw {secret}")
+
+    assert text == "saw [REDACTED:env_value]"
+    assert found == [{"kind": "env_value", "count": 1}]
+
+
 def test_scrubber_redacts_every_string_in_a_nested_input():
     scrub = common.Scrubber.of(True, {}, 1024)
     clean, found = scrub.value({"command": f"echo {KEY}", "env": [{"v": KEY}], "n": 3})

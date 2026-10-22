@@ -1036,6 +1036,52 @@ def test_neither_the_session_nor_the_export_nor_setup_sees_a_secret(backend, tmp
     assert (trajectory.workdir / "s.txt").read_text() == "unset"
 
 
+def test_no_file_a_run_writes_holds_a_secret(backend, tmp_path, xdg, monkeypatch):
+    from wikiskill import suite as suite_mod
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, backend.executable = recording_opencode(tmp_path)
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+    suite = suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "echoes",
+                    "prompt": "Summarise the notes.",
+                    "split": "val",
+                    "verifiers": [{"kind": "command", "run": 'echo "got $FAKE_GRADER_TOKEN"'}],
+                }
+            ],
+        }
+    )
+
+    run = run_mod.run_suite(
+        suite,
+        backend,
+        collection=backend.collection,
+        models=["ollama/qwen2.5-coder:1.5b"],
+        conditions=["off"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["verifiers"][0]["output"] == "got [REDACTED:env_value]", result
+    assert (seen / "run").read_text() == "unset"
+    for root in (backend.layout.root, xdg["data"]):
+        leaked = [
+            path
+            for path in root.rglob("*")
+            if path.is_file() and FAKE_SECRET in path.read_text(errors="replace")
+        ]
+        assert leaked == [], root
+
+
 # --------------------------------------------------------------------------- redaction
 
 KEY = "ghp_" + "A" * 36

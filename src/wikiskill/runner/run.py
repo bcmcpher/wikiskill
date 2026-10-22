@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import __version__, paths, rawlog, sources
+from .. import __version__, paths, rawlog, redact, sources
 from ..collection import Collection, Role
 from ..rubric import Rubric, RubricError
 from ..rubric import load as load_rubric
@@ -158,6 +158,37 @@ def missing_capabilities(task: Task) -> list[str]:
     return [name for name in task.requires if shutil.which(name, path=path) is None]
 
 
+def secret_refusal(tasks: list[Task] | tuple[Task, ...]) -> str | None:
+    """Why the host cannot supply these tasks' secrets, or None when it can.
+
+    A missing secret is the whole run's configuration, not one unit's bad luck, so it is refused
+    once before anything runs rather than failing every unit. A value under
+    `redact.MIN_ENV_VALUE` characters is refused too: redacting it would mangle unrelated text.
+    """
+    declared = list(dict.fromkeys(name for task in tasks for name in task.secrets))
+    unset = [name for name in declared if not os.environ.get(name)]
+    short = [
+        name
+        for name in declared
+        if name not in unset and len(os.environ[name]) < redact.MIN_ENV_VALUE
+    ]
+    problems = []
+    if unset:
+        problems.append(f"declared secret(s) not set on this host: {', '.join(unset)}")
+    if short:
+        problems.append(
+            f"declared secret(s) shorter than {redact.MIN_ENV_VALUE} characters, too short to "
+            f"redact safely: {', '.join(short)}"
+        )
+    return "; ".join(problems) or None
+
+
+def _require_secrets(tasks: list[Task] | tuple[Task, ...]) -> None:
+    refused = secret_refusal(tasks)
+    if refused:
+        raise ValueError(refused)
+
+
 def run_suite(
     suite: Suite,
     backend: Backend,
@@ -188,6 +219,8 @@ def run_suite(
     `retries` is how many times a unit is run again when the harness lost it
     (`Trajectory.transient`); no other outcome is ever rerun.
     """
+    # Before a run directory, or a unit's, exists: a secret the host lacks fails every unit alike.
+    _require_secrets(tasks if tasks is not None else suite.tasks)
     run_id = run_id or new_run_id()
     collection_name = collection.name if collection else suite.name
     # A judge panel that cannot grade the run refuses it before a run directory exists.
@@ -494,6 +527,8 @@ def _manifest(
         # As run: `eval --repeats` changes these without changing the suite file or its hash.
         "repeats": {task.id: task.repeats for task in run.suite.tasks},
         "env": {task.id: dict(task.env) for task in run.suite.tasks if task.env},
+        # Names only. A value is read from the host when a verifier needs it and never written.
+        "secrets": {task.id: list(task.secrets) for task in run.suite.tasks if task.secrets},
         "setup": {task.id: list(task.setup) for task in run.suite.tasks if task.setup},
         "components": run.components,
         # A candidate run evaluates a proposal from a copy of its source; a baseline names none.
@@ -671,6 +706,7 @@ def fill_run(
         for i in todo
     ]
     needed = list(dict.fromkeys(unit.task for unit in units))
+    _require_secrets(needed)
     panel, no_judge = panel_for(collection, suite, run.models, needed)
     if no_judge:
         report(f"no rubric judge: {no_judge}")

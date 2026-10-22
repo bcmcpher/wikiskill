@@ -502,6 +502,55 @@ def test_the_session_lacks_the_secret_and_the_verifier_has_it(tmp_path, capture,
     assert passed, "the command verifier sees the host value"
 
 
+def test_no_file_a_run_writes_holds_a_secret(tmp_path, xdg, capture, monkeypatch):
+    from wikiskill import suite as suite_mod
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    executable = fake_claude(tmp_path, isolated_capture(tmp_path))
+    backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+    suite = suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "count",
+                    "prompt": "How many words does notes.txt have?",
+                    "split": "val",
+                    "expect": {"skill": "capture/word-count"},
+                    "verifiers": [{"kind": "command", "run": 'echo "got $FAKE_GRADER_TOKEN"'}],
+                }
+            ],
+        }
+    )
+
+    run = run_mod.run_suite(
+        suite,
+        backend,
+        collection=capture,
+        models=["ollama/qwen3:30b-a3b"],
+        conditions=["routed"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["outcome"] == "completed", result
+    assert result["verifiers"][0]["output"] == "got [REDACTED:env_value]"
+    assert FAKE_SECRET not in (tmp_path / "env.txt").read_text(encoding="utf-8")
+    for root in (backend.layout.root, xdg["data"]):
+        leaked = [
+            path
+            for path in root.rglob("*")
+            if path.is_file() and FAKE_SECRET in path.read_text(errors="replace")
+        ]
+        assert leaked == [], root
+
+
 def test_an_unisolated_session_is_infrastructure_not_a_result(tmp_path, capture):
     executable = fake_claude(tmp_path, SUBAGENT)
     backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))

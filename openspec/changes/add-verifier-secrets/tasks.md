@@ -20,11 +20,11 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
 
 ## 2. Records
 
-- [ ] 2.1 Refuse to start when a declared secret is unset or shorter than 8 characters, naming each,
+- [x] 2.1 Refuse to start when a declared secret is unset or shorter than 8 characters, naming each,
   before any unit directory exists; verify in `tests/test_run.py`
-- [ ] 2.2 Record each task's secret names in `run.json`; verify a test asserts names present and
+- [x] 2.2 Record each task's secret names in `run.json`; verify a test asserts names present and
   values absent
-- [ ] 2.3 Redact secret values from stored verifier output and logged events via `redact.redact`;
+- [x] 2.3 Redact secret values from stored verifier output and logged events via `redact.redact`;
   verify with a verifier that echoes the secret, and a scan of every file under the run directory
 
 ## 3. Documentation

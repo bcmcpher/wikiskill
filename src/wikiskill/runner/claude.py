@@ -464,7 +464,10 @@ class _Normaliser:
         self.unit = trajectory.unit
         self.provider, self.model = common.split_model(self.unit.model)
         self.scrub = common.Scrubber.of(
-            backend.redact, backend.unit_env(self.unit), backend.output_limit_bytes
+            backend.redact,
+            backend.unit_env(self.unit),
+            backend.output_limit_bytes,
+            self.unit.task.secret_env().values(),
         )
         stream = (trajectory.sessions[0] if trajectory.sessions else {}).get("stream") or []
         self.stream: list[dict[str, Any]] = stream

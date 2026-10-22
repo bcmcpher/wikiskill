@@ -281,6 +281,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     tasks, problem = _eval_tasks(args, loaded)
     # A judge panel that cannot grade the run is refused before a run directory exists.
     problem = problem or _judge_refusal(coll, loaded, models, tasks)
+    # So is a run whose declared secrets the host cannot supply.
+    problem = problem or run_mod.secret_refusal(tasks if tasks is not None else loaded.tasks)
     if problem:
         return misuse(problem)
 

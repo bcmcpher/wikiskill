@@ -107,6 +107,24 @@ def test_command_sees_each_secret_with_its_host_value(workdir, monkeypatch):
     assert passed
 
 
+def test_a_secret_a_command_prints_is_redacted_before_the_tail_is_cut(workdir, monkeypatch):
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    # The secret then 1990 characters: a tail of 2000 would start inside it.
+    script = "import os; print(os.environ['FAKE_GRADER_TOKEN'] + 'x' * 1990)"
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(Verifier(kind="command", run=f'{sys.executable} -c "{script}"'),),
+    )
+    (result,), _ = verify.verify_task(task, workdir=workdir)
+
+    assert secret[-10:] not in result.output
+    assert result.output.endswith("x" * 1990)
+
+
 def test_a_timing_out_command_is_infrastructure_not_a_failure(workdir):
     verifier = Verifier(kind="command", run=f'{sys.executable} -c "import time; time.sleep(5)"')
 

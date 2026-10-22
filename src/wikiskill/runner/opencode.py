@@ -876,7 +876,12 @@ class OpenCodeBackend(Backend):
         from the raw log per task, condition and repeat without a side file.
         """
         unit = trajectory.unit
-        scrub = common.Scrubber.of(self.redact, self._unit_env(unit), self.output_limit_bytes)
+        scrub = common.Scrubber.of(
+            self.redact,
+            self._unit_env(unit),
+            self.output_limit_bytes,
+            unit.task.secret_env().values(),
+        )
         provider, model = common.split_model(unit.model)
         root_session = trajectory.session_id or ""
         collection = self.collection.name if self.collection else unit.suite

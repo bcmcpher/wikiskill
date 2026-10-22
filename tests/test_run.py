@@ -425,3 +425,87 @@ def test_the_requires_check_does_not_see_a_secret(tmp_path, monkeypatch):
         id="t", prompt="p", split="val", requires=("sometool",), secrets=("PATH",)
     )
     assert run_mod.missing_capabilities(withheld) == ["sometool"]
+
+
+# --------------------------------------------------------------------------- secrets
+
+#: Not a credential: a fake value only these tests set.
+FAKE_SECRET = "fake-grader-value-0123456789"
+
+SECRET_SUITE = """
+suite: graded
+defaults: { repeats: 1, secrets: [FAKE_GRADER_TOKEN] }
+tasks:
+  - id: echoes
+    prompt: Rename the variable n to count.
+    split: val
+    verifiers:
+      - { kind: command, run: 'echo "token is $FAKE_GRADER_TOKEN"' }
+"""
+
+
+@pytest.fixture
+def secret_suite(tmp_path):
+    path = tmp_path / "graded.yaml"
+    path.write_text(SECRET_SUITE, encoding="utf-8")
+    return suite_mod.load(path)
+
+
+def files_holding(root: Path, value: str) -> list[Path]:
+    return [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and value in path.read_text(encoding="utf-8", errors="replace")
+    ]
+
+
+def test_a_missing_secret_refuses_the_run_before_any_unit(xdg, secret_suite, layout, monkeypatch):
+    monkeypatch.delenv("FAKE_GRADER_TOKEN", raising=False)
+    backend = FakeBackend(layout)
+
+    with pytest.raises(ValueError, match="not set on this host: FAKE_GRADER_TOKEN"):
+        go(secret_suite, backend, layout)
+
+    assert backend.executed == []
+    assert list(layout.root.iterdir()) == [], "no unit directory, and no run.json"
+
+
+def test_a_secret_too_short_to_redact_is_refused(xdg, secret_suite, layout, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "short")
+
+    with pytest.raises(ValueError, match=r"shorter than 8 characters.*FAKE_GRADER_TOKEN"):
+        go(secret_suite, FakeBackend(layout), layout)
+
+
+def test_eval_names_a_missing_secret_and_makes_no_run_directory(xdg, tmp_path, monkeypatch, capsys):
+    from wikiskill.cli import main
+
+    monkeypatch.delenv("FAKE_GRADER_TOKEN", raising=False)
+    path = tmp_path / "graded.yaml"
+    path.write_text(SECRET_SUITE, encoding="utf-8")
+
+    code = main(["eval", "--suite", str(path), "--models", "fake/model", "--condition", "off"])
+
+    assert code != 0
+    assert "FAKE_GRADER_TOKEN" in capsys.readouterr().err
+    assert not any(xdg["data"].rglob("evals")), "refused before a run directory exists"
+
+
+def test_run_json_names_the_secrets_and_no_file_holds_a_value(
+    xdg, secret_suite, layout, monkeypatch
+):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+
+    run = go(secret_suite, FakeBackend(layout), layout)
+
+    (result,) = run.results
+    assert result["passed"] is True
+    assert result["verifiers"][0]["output"] == "token is [REDACTED:env_value]"
+    assert run_mod.load_manifest(layout)["secrets"] == {"echoes": ["FAKE_GRADER_TOKEN"]}
+    assert files_holding(layout.root, FAKE_SECRET) == []
+    assert files_holding(xdg["data"], FAKE_SECRET) == [], "nor the raw event log"
+
+
+def test_a_run_without_secrets_records_none(xdg, suite, layout):
+    go(suite, FakeBackend(layout, writes="DONE.md"), layout)
+    assert run_mod.load_manifest(layout)["secrets"] == {}
