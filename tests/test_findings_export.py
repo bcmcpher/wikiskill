@@ -15,7 +15,7 @@ from test_leaderboard import result
 from test_pilot_reporting import judged
 from test_version_board import COMPONENT, V1, V2, units
 from test_version_board import write_run as write_versioned
-from wikiskill import findings
+from wikiskill import compare, findings
 from wikiskill import report as report_mod
 from wikiskill.cli import main
 
@@ -28,6 +28,7 @@ ROW_KEYS = {
     "pass_basis",
     "failed_verifiers",
     "rubric",
+    "scores",
     "tokens",
     "wall_time_ms",
     "outcomes",
@@ -354,3 +355,81 @@ def test_csv_rows_carry_the_catalogues_family_size_and_shape(sources, tmp_path):
 
     assert rows, "the study renders rows"
     assert {(r["family"], r["size_b"], r["shape"]) for r in rows} == {("qwen", "30.5", "moe")}
+
+
+# --------------------------------------------------------------------------- scores
+
+SCORE_COLUMNS = (
+    "score_field",
+    "score_mean",
+    "score_low",
+    "score_high",
+    "score_n",
+    "score_missing",
+)
+
+
+def scored_unit(repeat, score):
+    unit = result("graded", "ollama/m", "routed", passed=score is not None and score >= 50)
+    unit.update(
+        repeat=repeat,
+        verifiers=[
+            {
+                "kind": "command",
+                "passed": unit["passed"],
+                "detail": "`grade` exited 0, expected 0",
+                "result": {"verdict": "acceptable", "score": score},
+                "score_field": "score",
+            }
+        ],
+    )
+    return unit
+
+
+def report_study(tmp_path, results):
+    from test_leaderboard import write_run
+
+    run = write_run(tmp_path / "evals", "r1", results)
+    root = study_with(
+        tmp_path,
+        '\n[[tables]]\nname = "graded"\nkind = "report"\nroles = ["scored"]\n',
+        [("r1", "scored", run, None)],
+    )
+    findings.bundle(findings.load(root))
+    return root
+
+
+def test_a_scored_study_exports_what_the_run_report_gives(tmp_path):
+    results = [scored_unit(0, 60), scored_unit(1, 70), scored_unit(2, 80), scored_unit(3, None)]
+    results.append(result("plain", "ollama/m", "routed", passed=True))
+    root = report_study(tmp_path, results)
+
+    rendered = findings.render(findings.load(root))
+    rows = {r["task"]: r for r in csv.DictReader(rendered.files["findings.csv"].splitlines())}
+    # The run report, built from the bundled copy, is what the CSV must agree with.
+    bundled = compare.load_run("", root / "runs" / "r1")
+    report = report_mod.build_report(list(bundled.results), bundled.manifest)
+    (entry,) = next(row["scores"] for row in report["rows"] if row["task_id"] == "graded")
+
+    graded = rows["graded"]
+    assert graded["score_field"] == "score"
+    assert graded["score_mean"] == findings._cell(entry["mean"]) == "70"
+    assert graded["score_low"] == findings._cell(entry["low"])
+    assert graded["score_high"] == findings._cell(entry["high"])
+    assert (graded["score_n"], graded["score_missing"]) == ("3", "1")
+    assert all(rows["plain"][column] == "" for column in SCORE_COLUMNS)
+    slim = rendered.files["tables/graded.scores.slim.md"]
+    assert "| graded | m | routed | `score` | 70.0 (" in slim
+    assert "| 3 (1 no score) |" in slim
+
+
+def test_a_study_without_scores_has_empty_score_columns_and_no_score_table(tmp_path):
+    root = report_study(tmp_path, [result("plain", "ollama/m", "routed", passed=True)])
+
+    rendered = findings.render(findings.load(root))
+    rows = list(csv.DictReader(rendered.files["findings.csv"].splitlines()))
+
+    assert rows
+    assert set(SCORE_COLUMNS) <= set(findings.CSV_COLUMNS)
+    assert all(row[column] == "" for row in rows for column in SCORE_COLUMNS)
+    assert "tables/graded.scores.slim.md" not in rendered.files

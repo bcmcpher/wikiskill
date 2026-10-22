@@ -77,6 +77,13 @@ CSV_COLUMNS = (
     "median_tokens_in",
     "median_tokens_out",
     "runs",
+    # A scored verifier's mean, from `report` tables only; empty where no verifier declared `score`.
+    "score_field",
+    "score_mean",
+    "score_low",
+    "score_high",
+    "score_n",
+    "score_missing",
 )
 
 
@@ -533,7 +540,7 @@ def _best_row(board: board_mod.VersionBoard, model: str) -> list[Any]:
 def _report(
     runs: list[LoadedRun], catalogue: Catalogue | None
 ) -> tuple[str, dict[str, str], list[dict[str, Any]]]:
-    full, slim_rows, rows = [], [], []
+    full, slim_rows, score_rows, rows = [], [], [], []
     for run in runs:
         built = report_mod.build_report(list(run.results), run.manifest, catalogue)
         full.append(f"## Run `{run.run_id}`\n\n" + _demoted(report_mod.render_markdown(built)))
@@ -551,8 +558,20 @@ def _report(
                     "rate": row.get("pass_rate"),
                     "outcomes": json.dumps(row.get("outcomes") or {}, sort_keys=True),
                     "runs": 1,
+                    **_score_columns(row.get("scores") or []),
                 }
             )
+            for entry in row.get("scores") or []:
+                score_rows.append(
+                    [
+                        row["task_id"],
+                        names.model_id(row["model"]),
+                        row["condition"],
+                        f"`{entry['field']}`",
+                        report_mod.score_cell(entry),
+                        _scored(entry),
+                    ]
+                )
             rubric = row.get("rubric") or {}
             for dimension, counts in (rubric.get("dimensions") or {}).items():
                 others = (rubric.get("others_majority") or {}).get(dimension)
@@ -570,7 +589,39 @@ def _report(
         ["task", "model", "condition", "dimension", "levels", "without same family"], slim_rows
     )
     text = "\n".join(slim) if slim_rows else "No rubric was judged."
-    return "\n\n".join(full), {"": text}, rows
+    parts = {"": text}
+    # Only a study with scores gets the file, so adding scores leaves existing studies' tables as
+    # they were.
+    if score_rows:
+        parts["scores"] = "\n".join(
+            present.table(["task", "model", "condition", "field", "mean (95% CI)", "n"], score_rows)
+        )
+    return "\n\n".join(full), parts, rows
+
+
+def _score_columns(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """The first scored verifier's summary, as the report gives it, for one CSV row.
+
+    One row per task, model and condition carries one score. A task with a second scored verifier
+    keeps it in `report.json` and the full table; the CSV names which field it gives.
+    """
+    if not entries:
+        return {}
+    entry = entries[0]
+    return {
+        "score_field": entry["field"],
+        "score_mean": entry["mean"],
+        "score_low": entry["low"],
+        "score_high": entry["high"],
+        "score_n": entry["n"],
+        "score_missing": entry["missing"],
+    }
+
+
+def _scored(entry: dict[str, Any]) -> str:
+    """``n``, with the units that gave no score beside it when there were any."""
+    missing = entry["missing"]
+    return f"{entry['n']} ({missing} no score)" if missing else str(entry["n"])
 
 
 def _levels(counts: dict[str, int]) -> str:

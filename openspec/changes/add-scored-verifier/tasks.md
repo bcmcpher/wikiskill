@@ -22,7 +22,7 @@ CSV output.
 
 ## 2. Findings export
 
-- [ ] 2.1 Add the score columns to `CSV_COLUMNS` and fill them for `report` table rows in
+- [x] 2.1 Add the score columns to `CSV_COLUMNS` and fill them for `report` table rows in
   `src/wikiskill/findings.py`; add a slim score table; verify in `tests/test_findings_export.py` that
   values equal the run report's and that unscored studies leave the columns empty
 
