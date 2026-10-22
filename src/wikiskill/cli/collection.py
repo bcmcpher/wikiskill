@@ -41,13 +41,20 @@ def register(sub) -> None:
 
 def _detect_layout(directory: Path) -> str:
     """Guess a source layout: components at the top level, or one level down per plugin."""
+    from ..collection import flat_skill_dirs
+
     if any((directory / d).is_dir() for d in ("skills", "skill", "commands", "command")):
         return "opencode"
     if directory.is_dir():
         for child in directory.iterdir():
-            if child.is_dir() and (
-                (child / ".claude-plugin").is_dir()
-                or any((child / d).is_dir() for d in ("skills", "agents", "commands"))
+            if (
+                child.is_dir()
+                and not child.name.startswith(".")
+                and (
+                    (child / ".claude-plugin").is_dir()
+                    or any((child / d).is_dir() for d in ("skills", "agents", "commands"))
+                    or flat_skill_dirs(child)
+                )
             ):
                 return "claude-plugin"
     return "opencode"
@@ -99,7 +106,8 @@ def _check_frontmatter(components) -> list[str]:
 
 def _check_plugin_paths(components) -> None:
     """Print plugin-variable paths that resolve to nothing: a warning, as Claude Code misses too."""
-    from ..build import unresolved_plugin_paths
+    from ..build import plugin_skill_skip, unresolved_plugin_paths
+    from ..collection import flat_skill_dirs
 
     problems: list[str] = []
     for component in components:
@@ -107,11 +115,26 @@ def _check_plugin_paths(components) -> None:
             continue
         plugin_dir = component.source.path / component.name.split("/", 1)[0]
         skill_dir = component.path.parent if component.kind == "skill" else None
-        problems.extend(unresolved_plugin_paths(component.path, plugin_dir, skill_dir))
+        skip: set[str] = set()
+        if skill_dir == plugin_dir:
+            # A plugin that is itself a skill builds without the rest of the plugin.
+            names = {d.name for d in flat_skill_dirs(plugin_dir) or ()}
+            skip = plugin_skill_skip(plugin_dir, names)
+        problems.extend(unresolved_plugin_paths(component.path, plugin_dir, skill_dir, skip))
     if problems:
         print(f"  plugin paths that resolve to nothing ({len(problems)}):")
         for problem in problems:
             print(f"    ~ {problem}")
+
+
+def _report(failures: list[str], title: str, entries: list[str], failure: str) -> None:
+    """Print one kind of `check` problem and record it as a failure, when there is any."""
+    if not entries:
+        return
+    print(f"  {title}:")
+    for entry in entries:
+        print(f"    ! {entry}")
+    failures.append(f"{len(entries)} {failure}")
 
 
 # --------------------------------------------------------------------------- handlers
@@ -207,11 +230,7 @@ def cmd_collection_check(args: argparse.Namespace) -> int:
             print(f"  source  {source.path}  [{source.layout}]  ok")
 
     missing_plugins = coll.unresolved_plugins()
-    if missing_plugins:
-        print("  unresolved plugins:")
-        for entry in missing_plugins:
-            print(f"    ! {entry}")
-        failures.append(f"{len(missing_plugins)} selected plugins do not exist")
+    _report(failures, "unresolved plugins", missing_plugins, "selected plugins do not exist")
 
     discovered = coll.discover()
     watched = coll.watched(discovered)
@@ -220,12 +239,18 @@ def cmd_collection_check(args: argparse.Namespace) -> int:
     failures.extend(_check_frontmatter(discovered))
     _check_plugin_paths(discovered)
 
-    unresolved = coll.unresolved(discovered)
-    if unresolved:
-        print("  unresolved watch-list entries:")
-        for entry in unresolved:
-            print(f"    ! {entry}")
-        failures.append(f"{len(unresolved)} watch-list entries match nothing")
+    _report(
+        failures,
+        "components sharing a name",
+        coll.duplicates(discovered),
+        "component names are discovered more than once",
+    )
+    _report(
+        failures,
+        "unresolved watch-list entries",
+        coll.unresolved(discovered),
+        "watch-list entries match nothing",
+    )
 
     if args.sync:
         runtime, published, sync_problems = collection_mod.publish_runtime_config(prefer=coll)

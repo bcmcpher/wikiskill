@@ -125,6 +125,41 @@ def test_agents_and_commands_are_never_flat_skills(tmp_path):
     assert skills == {"kit/tool"}
 
 
+def write_skill(directory, name="s"):
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "SKILL.md").write_text(f"---\nname: {name}\ndescription: d\n---\n")
+
+
+def test_a_hidden_directory_is_never_a_plugin(tmp_path):
+    write_skill(tmp_path / ".github")
+    write_skill(tmp_path / "kit")
+    source = Source(path=tmp_path, layout="claude-plugin")
+    assert [p.name for p in source.plugin_dirs()] == ["kit"]
+    assert {c.name for c in collection_mod.discover(source)} == {"kit/kit"}
+
+
+def test_a_singular_skill_directory_is_not_scanned_flat(tmp_path):
+    write_skill(tmp_path / "sing" / "skill" / "foo")
+    write_skill(tmp_path / "sing" / "bar")
+    source = Source(path=tmp_path, layout="claude-plugin")
+    assert {c.name for c in collection_mod.discover(source)} == {"sing/foo"}
+
+
+def test_a_plugin_skill_and_a_child_of_the_same_name_are_reported(tmp_path):
+    write_skill(tmp_path / "dup")
+    write_skill(tmp_path / "dup" / "dup")
+    write_skill(tmp_path / "dup" / "other")
+    coll = Collection(
+        name="d",
+        sources=(Source(path=tmp_path, layout="claude-plugin"),),
+        watch={"skill": ("*",)},
+    )
+    (problem,) = coll.duplicates()
+    assert problem.startswith("skill:dup/dup (")
+    assert str(tmp_path / "dup" / "SKILL.md") in problem
+    assert str(tmp_path / "dup" / "dup" / "SKILL.md") in problem
+
+
 def test_narrowing_and_the_watch_list_see_flat_skills():
     coll = Collection(
         name="flat",

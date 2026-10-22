@@ -12,12 +12,13 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from . import __version__, names, paths
-from .collection import Collection, Source, flat_skill_dirs
+from .collection import DIR_NAMES, NOT_SKILL_DIRS, Collection, Source, flat_skill_dirs
 from .errors import WikiskillError
 from .frontmatter import Document, repaired_warning
 from .frontmatter import read as read_frontmatter
@@ -84,8 +85,9 @@ PLUGINS_DIR = "plugins"
 #: Never mirrored: version control and installed dependencies are not plugin content.
 MIRROR_IGNORE = (".git", "node_modules", "__pycache__", ".venv")
 
-#: Never copied into a plugin-level skill: they hold the plugin's agents, commands and manifest.
-PLUGIN_ONLY_DIRS = ("agents", "agent", "commands", "command", ".claude-plugin")
+#: Never copied into a plugin-level skill: the plugin's agents, commands, manifest, hooks and MCP
+#: or LSP servers. Hidden entries and `MIRROR_IGNORE` are left out too; see `plugin_skill_skip`.
+PLUGIN_ONLY = NOT_SKILL_DIRS | {".claude-plugin", "hooks", ".mcp.json", ".lsp.json"}
 
 #: `${CLAUDE_PLUGIN_ROOT}` and its unbraced form, which Claude Code also expands.
 _PLUGIN_ROOT_VAR = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT\b")
@@ -166,10 +168,17 @@ def build(
     if harness == "claude-code":
         _plugin_files(target, result, plugin_name, hooks if hooks is not None else source is None)
 
-    skills = _entries(src / "skills") if skills is None else skills
+    skills = _kind_entries(src, "skill") if skills is None else skills
     skill_names = {e.name for e in skills}
+    built: dict[tuple[str, str], Path] = {}
     for kind, directory in (("skill", "skills"), ("agent", "agents"), ("command", "commands")):
-        for entry in skills if kind == "skill" else _entries(src / directory):
+        for entry in skills if kind == "skill" else _kind_entries(src, kind):
+            previous = built.setdefault((directory, entry.name), entry)
+            if previous != entry:
+                raise BuildError(
+                    f"{previous} and {entry} both build to {directory}/{entry.name}; one would "
+                    "replace the other"
+                )
             if harness == "claude-code" and kind == "command" and entry.stem in skill_names:
                 # Claude Code names a plugin's commands and skills alike, and the command shadowed
                 # the skill: `Skill(<plugin>:<name>)` loaded the command's text. The skill is
@@ -188,7 +197,7 @@ def build(
             if kind == "skill":
                 # A plugin that is itself a skill: its other skills, agents and commands are built
                 # in their own right, so copying them into this one would install them twice.
-                skip = {e.name for e in skills} | set(PLUGIN_ONLY_DIRS) if entry == src else set()
+                skip = plugin_skill_skip(entry, skill_names) if entry == src else set()
                 _build_skill(entry, target / directory, skip=skip, **common)
             else:
                 _build_flat(kind, entry, target / directory, **common)
@@ -358,9 +367,24 @@ def component_roots(source: Source) -> list[Path]:
     return [
         child
         for child in source.plugin_dirs()
-        if any((child / d).is_dir() for d in ("skills", "agents", "commands"))
+        if any((child / d).is_dir() for names in DIR_NAMES.values() for d in names)
         or flat_skill_dirs(child)
     ]
+
+
+def plugin_skill_skip(plugin_dir: Path, skill_names: set[str]) -> set[str]:
+    """What a plugin that is itself a skill leaves behind when that skill is built.
+
+    Its other skills, agents and commands are built in their own right, so copying them into this
+    one would install them twice; its manifest, hooks and hidden or installed files are not skill
+    content.
+    """
+    try:
+        names = {e.name for e in plugin_dir.iterdir()}
+    except OSError:
+        names = set()
+    hidden = {n for n in names if n.startswith(".")}
+    return skill_names | PLUGIN_ONLY | set(MIRROR_IGNORE) | hidden
 
 
 def _mirror_plugin(root: Path, destination: Path) -> None:
@@ -392,13 +416,17 @@ def _expand_plugin_root(staged: Path, plugin_root: Path) -> None:
             path.write_text(expanded, encoding="utf-8")
 
 
-def unresolved_plugin_paths(main: Path, plugin_dir: Path, skill_dir: Path | None) -> list[str]:
+def unresolved_plugin_paths(
+    main: Path, plugin_dir: Path, skill_dir: Path | None, skill_skip: Iterable[str] = ()
+) -> list[str]:
     """Paths a component cites through a plugin variable that name no file in its plugin.
 
     Claude Code expands `${CLAUDE_PLUGIN_ROOT}` to the plugin's directory and `${CLAUDE_SKILL_DIR}`
     to the skill's, so a path written as if one were the other finds nothing in either harness. One
     that climbs out of the plugin is reported too, since an installed plugin has no neighbours.
+    ``skill_skip`` names entries of the skill directory its build leaves behind.
     """
+    skip = set(skill_skip)
     try:
         text = main.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -412,6 +440,15 @@ def unresolved_plugin_paths(main: Path, plugin_dir: Path, skill_dir: Path | None
         cited = Path(os.path.normpath(base / relative.lstrip("/")))
         if not cited.is_relative_to(plugin_dir):
             problems.append(f"{main}: ${{{variable}}}{relative} leaves the plugin")
+        elif (
+            skip
+            and variable == "CLAUDE_SKILL_DIR"
+            and skill_dir is not None
+            and cited != skill_dir
+            and cited.is_relative_to(skill_dir)
+            and cited.relative_to(skill_dir).parts[0] in skip
+        ):
+            problems.append(f"{main}: ${{{variable}}}{relative} is not built with the skill")
         elif not cited.exists():
             problems.append(f"{main}: ${{{variable}}}{relative} names no file")
     return sorted(set(problems))
@@ -429,8 +466,14 @@ def _flat_names(staged: Path) -> list[tuple[str, str]]:
     return names
 
 
-def _entries(directory: Path) -> list[Path]:
-    return sorted(directory.iterdir()) if directory.is_dir() else []
+def _kind_entries(src: Path, kind: str) -> list[Path]:
+    """Every entry of ``kind`` in a component root, across each directory name the kind may use."""
+    return [
+        entry
+        for name in DIR_NAMES[kind]
+        if (src / name).is_dir()
+        for entry in sorted((src / name).iterdir())
+    ]
 
 
 def _clear(target: Path) -> None:

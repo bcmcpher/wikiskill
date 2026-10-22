@@ -535,6 +535,43 @@ def test_narrowing_to_a_flat_plugin_installs_only_its_skill(tmp_path, harness):
     assert [p.name for p in (out / "skills").iterdir()] == ["solo-kit"]
 
 
+def write_skill(directory, name):
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "SKILL.md").write_text(f"---\nname: {name}\ndescription: d\n---\n\nbody\n")
+
+
+def test_a_plugin_skill_leaves_hidden_installed_and_plugin_files_behind(tmp_path):
+    root = tmp_path / "plugins"
+    write_skill(root / "solo", "solo")
+    for relative in (".git/HEAD", "node_modules/x.js", ".mcp.json", "hooks/hooks.json", "keep.md"):
+        (root / "solo" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (root / "solo" / relative).write_text("x\n")
+    out = tmp_path / "dist"
+    build_collection("opencode", plugin_collection(root), out)
+    assert sorted(p.name for p in (out / "skills" / "solo").iterdir()) == ["SKILL.md", "keep.md"]
+
+
+@pytest.mark.parametrize("harness", ["opencode", "claude-code"])
+def test_singular_component_directories_are_built(tmp_path, harness):
+    root = tmp_path / "plugins"
+    write_skill(root / "sing" / "skill" / "foo", "foo")
+    add_agent(root, "other", "doer")
+    (root / "other" / "agents").rename(root / "other" / "agent")
+    out = tmp_path / "dist"
+    result = build_collection(harness, plugin_collection(root), out)
+    assert result.mapping == {"sing/foo": "foo", "other/doer": "doer"}
+    assert (out / "skills" / "foo" / "SKILL.md").is_file()
+    assert (out / "agents" / "doer.md").is_file()
+
+
+def test_a_plugin_skill_and_a_child_of_the_same_name_fail_the_build(tmp_path):
+    root = tmp_path / "plugins"
+    write_skill(root / "dup", "dup")
+    write_skill(root / "dup" / "dup", "dup")
+    with pytest.raises(BuildError, match="both build to skills/dup"):
+        build_collection("opencode", plugin_collection(root), tmp_path / "dist")
+
+
 def test_checking_and_building_flat_layouts_leave_git_status_clean(tmp_path, xdg):
     repo = tmp_path / "collection"
     shutil.copytree(FLAT_PLUGINS, repo / "plugins")
