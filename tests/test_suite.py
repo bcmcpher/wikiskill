@@ -298,3 +298,18 @@ def test_result_fields_out_of_place_are_refused(tmp_path, capsys, verifier, expe
 def test_the_schema_gives_result_fields_their_shape(tmp_path, verifier):
     with pytest.raises(SuiteError):
         suite_mod.load(write(tmp_path, GRADED % verifier))
+
+
+def test_a_bare_yes_in_pass_when_is_a_warning_not_an_error(tmp_path, capsys):
+    bare = "{ kind: command, run: x, result: json, pass_when: { usable: [yes, maybe] } }"
+    path = write(tmp_path, GRADED % bare)
+
+    loaded = suite_mod.load(path)
+    assert loaded.tasks[0].verifiers[0].pass_when == (("usable", (True, "maybe")),)
+    (warning,) = loaded.warnings
+    assert "`usable` accepts the boolean true" in warning
+    assert "quote the value" in warning
+    assert main(["suite", "check", str(path)]) == 0
+
+    quoted = write(tmp_path, GRADED % bare.replace("[yes,", '["yes",'))
+    assert suite_mod.load(quoted).warnings == ()

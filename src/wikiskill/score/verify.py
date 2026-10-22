@@ -167,20 +167,37 @@ def _json_result(verifier: Verifier, stdout: str) -> dict[str, Any]:
     found: Any = None
     for candidate in (text, lines[-1] if lines else ""):
         try:
-            found = json.loads(candidate)
+            found = json.loads(candidate, parse_constant=_refuse_constant)
+        except _NotJson as exc:
+            raise VerifierError(
+                f"`{verifier.run}` printed {exc}, which JSON does not allow"
+            ) from exc
+        except RecursionError as exc:
+            raise VerifierError(f"`{verifier.run}` printed JSON nested too deeply to read") from exc
         except ValueError:
             continue
         if isinstance(found, dict):
             break
     if not isinstance(found, dict):
         raise VerifierError(f"`{verifier.run}` printed no JSON object on stdout")
-    size = len(json.dumps(found).encode("utf-8"))
+    # Measured as `results.jsonl` stores it, so the cap is the size the bundle actually grows by.
+    size = len(json.dumps(found, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     if size > RESULT_CAP:
         raise VerifierError(
             f"`{verifier.run}` printed a {size}-byte result, over the {RESULT_CAP}-byte cap; "
             "point `run` at a summary of it"
         )
     return found
+
+
+class _NotJson(WikiskillError):
+    """`NaN` or `Infinity` in a grader's output. Python reads them; JSON, and so every other reader
+    of `results.jsonl`, does not. Never escapes `_json_result`, which turns it into a
+    `VerifierError`."""
+
+
+def _refuse_constant(name: str) -> Any:
+    raise _NotJson(name)
 
 
 def _misses(verifier: Verifier, result: dict[str, Any]) -> list[str]:

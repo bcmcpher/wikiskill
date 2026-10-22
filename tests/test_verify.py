@@ -251,6 +251,36 @@ def test_an_oversized_result_is_infrastructure(workdir):
         run(graded(f"acceptable 1 --pad {verify.RESULT_CAP}"), workdir)
 
 
+def printing(workdir, text: str) -> Verifier:
+    """A `result: json` verifier whose command prints ``text`` exactly, written as UTF-8."""
+    (workdir / "out.txt").write_text(text, encoding="utf-8")
+    return Verifier(kind="command", run="cat out.txt", result="json")
+
+
+def test_the_cap_counts_bytes_as_results_jsonl_stores_them(workdir):
+    # 25,000 `é` are 50 KB in UTF-8 and 150 KB ASCII-escaped; results.jsonl stores the first.
+    result = run(printing(workdir, '{"note": "' + "é" * 25_000 + '"}'), workdir)
+    assert result.result == {"note": "é" * 25_000}
+
+
+def test_spaces_in_the_grader_output_do_not_count_against_the_cap(workdir):
+    padded = "{" + ", ".join(f'"k{i}":{" " * 20}{i}' for i in range(3000)) + "}"
+    assert len(padded) > verify.RESULT_CAP
+    assert run(printing(workdir, padded), workdir).result is not None
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_a_non_finite_constant_is_infrastructure(workdir, constant):
+    with pytest.raises(verify.VerifierError, match=f"printed {constant}"):
+        run(printing(workdir, f'{{"verdict": "ok", "score": {constant}}}'), workdir)
+
+
+def test_json_nested_too_deeply_is_infrastructure(workdir):
+    deep = '{"a": ' * 100_000 + "1" + "}" * 100_000
+    with pytest.raises(verify.VerifierError, match="nested too deeply"):
+        run(printing(workdir, deep), workdir)
+
+
 def test_stderr_is_never_parsed(workdir):
     verifier = Verifier(kind="command", run='echo \'{"verdict": "ok"}\' >&2', result="json")
 

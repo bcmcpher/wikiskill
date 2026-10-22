@@ -584,11 +584,13 @@ A command has 120 seconds. Use it for anything about state: git, files, JSON.
 2. The verifier passes when the exit code equals `expect_exit` **and** every `pass_when` field holds
    one of its values. A failing verifier's detail names each field and the value it held.
 3. The whole object is stored with the unit in `results.jsonl`.
-4. Output with no JSON object, or a result over 64 KiB, makes the unit an `infra_error`. A broken
-   grader never counts against the model.
+4. These make the unit an `infra_error`: output with no JSON object, `NaN` or `Infinity` in it,
+   JSON nested too deeply to read, or a result over 64 KiB. A broken grader never counts against
+   the model.
 
 `pass_when` compares for equality, on top-level fields only. Give a grader with nested output a
-top-level verdict field.
+top-level verdict field. Quote a value such as `"yes"` or `"off"`: bare, YAML reads it as a
+boolean, and `suite check` warns.
 
 **`file_exists`** passes when `path` exists. `path` is relative to the working directory. An
 absolute path, a path that starts with `~`, or a path that contains `..` is refused when the

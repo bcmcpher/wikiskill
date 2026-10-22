@@ -319,6 +319,26 @@ def verifier_problems(task: Task) -> list[str]:
     return problems
 
 
+def verifier_warnings(task: Task) -> list[str]:
+    """What looks wrong in a task's verifiers but may be meant.
+
+    YAML reads a bare `yes`, `no`, `on` or `off` as a boolean, so `pass_when: {usable: [yes]}`
+    accepts `true` and never the string `"yes"` a grader prints. A grader may print a real boolean,
+    so this is a warning for a reader to judge, not a refusal.
+    """
+    warnings = []
+    for index, verifier in enumerate(task.verifiers):
+        for name, accepted in verifier.pass_when:
+            flags = [json.dumps(value) for value in accepted if isinstance(value, bool)]
+            if flags:
+                warnings.append(
+                    f"verifier {index}: `pass_when` field `{name}` accepts the boolean "
+                    f"{', '.join(flags)}. YAML reads a bare yes, no, on or off as a boolean; "
+                    "quote the value if the grader prints a string"
+                )
+    return warnings
+
+
 def _result_problems(verifier: Verifier) -> list[str]:
     """`result`, `pass_when` and `score` only mean something on a command that prints a result.
 
@@ -419,6 +439,8 @@ def parse(
             )
         for problem in verifier_problems(task):
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
+        for warning in verifier_warnings(task):
+            warnings.append(f"tasks/{index}: task {task.id!r} {warning}")
         reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
         if reserved:
             problems.append(

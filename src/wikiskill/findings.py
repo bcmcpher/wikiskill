@@ -590,8 +590,8 @@ def _report(
     )
     text = "\n".join(slim) if slim_rows else "No rubric was judged."
     parts = {"": text}
-    # Only a study with scores gets the file, so adding scores leaves existing studies' tables as
-    # they were.
+    # Only a study with scores gets the score file. The CSV header gains the score columns in every
+    # study, though, so a committed `findings.csv` reads as stale until `findings tables` is rerun.
     if score_rows:
         parts["scores"] = "\n".join(
             present.table(["task", "model", "condition", "field", "mean (95% CI)", "n"], score_rows)
