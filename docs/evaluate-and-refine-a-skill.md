@@ -175,6 +175,20 @@ plugins/                                my-skills/
     └── skills/ ...
 ```
 
+In the claude-plugin layout, a plugin's skills can be in one of three locations. wikiskill selects
+the location for each plugin separately, so one source can mix them:
+
+| Location | Skill name | When wikiskill uses it |
+|---|---|---|
+| `<plugin>/skills/<name>/SKILL.md` | `<plugin>/<name>` | The plugin has a `skills/` directory. wikiskill then looks nowhere else for its skills. |
+| `<plugin>/<name>/SKILL.md` | `<plugin>/<name>` | The plugin has no `skills/` directory. |
+| `<plugin>/SKILL.md` | `<plugin>/<plugin>` | The plugin has no `skills/` directory. The plugin directory is the skill. |
+
+A plugin without `skills/` can use both of the last two locations. In those locations, wikiskill
+ignores hidden directories, `agents/`, `commands/`, and any directory without a `SKILL.md`. Agents
+and commands are always in `agents/` and `commands/`. A plugin that is a skill does not take its
+plugin's other skills, agents or commands with it when wikiskill builds it.
+
 Each component's **main file** is the file the harness loads: `SKILL.md` for a skill, and the
 Markdown file for an agent or a command. Its YAML frontmatter holds the `name` and the
 `description`. The description is what the model reads when it decides which skill to use, so it
@@ -188,6 +202,8 @@ wikiskill collection init my-skills --source ~/src/my-plugins/plugins
 
 `init` detects the layout, lists every component it finds, and writes the manifest to
 `~/.config/wikiskill/collections/my-skills.toml`. It writes nothing into the source directory.
+If no plugin has a `skills/`, `agents/`, `commands/` or `.claude-plugin/` directory, `init`
+cannot detect the claude-plugin layout. Add `--layout claude-plugin`.
 
 ### 2.3 The manifest's structure
 

@@ -26,7 +26,7 @@ nothing; the build exclusion is in section 2 because a ROUTED run needs it.
 
 ## 3. Documentation
 
-- [ ] 3.1 Describe the three skill locations in `docs/evaluate-and-refine-a-skill.md` §2; verify
+- [x] 3.1 Describe the three skill locations in `docs/evaluate-and-refine-a-skill.md` §2; verify
   `bin/check` passes
 
 ## 4. Verify
