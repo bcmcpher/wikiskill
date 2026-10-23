@@ -1140,6 +1140,127 @@ def test_no_file_a_run_writes_holds_a_secret(backend, tmp_path, xdg, monkeypatch
         assert leaked == [], root
 
 
+def graded_suite():
+    from wikiskill import suite as suite_mod
+
+    return suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "echoes",
+                    "prompt": "Summarise the notes.",
+                    "split": "val",
+                    "verifiers": [{"kind": "command", "run": "true"}],
+                }
+            ],
+        }
+    )
+
+
+def files_holding(root, value):
+    return [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and value in path.read_text(errors="replace")
+    ]
+
+
+def test_run_suite_withholds_the_suites_secrets_whoever_built_the_backend(
+    harness_backend, tmp_path, xdg, monkeypatch
+):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, harness_backend.executable = recording_opencode(tmp_path)
+    assert harness_backend.withheld == (), "built by a caller that did not pass the secrets"
+
+    run_mod.run_suite(
+        graded_suite(),
+        harness_backend,
+        collection=harness_backend.collection,
+        models=["opencode/big-pickle"],
+        conditions=["off"],
+        layout=harness_backend.layout,
+        run_id=RUN_ID,
+    )
+
+    # `models` is listed only by the preflight: the probe ran, and saw no secret.
+    assert {"--version", "models", "run"} <= {path.name for path in seen.iterdir()}
+    assert all(path.read_text() == "unset" for path in seen.iterdir())
+
+
+def leaky_opencode(tmp_path):
+    """A stand-in `opencode` whose session read the secret from the host, as one running as this
+    user can, and printed it to its stream, its stderr, its export and its own data directory."""
+    session = json.dumps(
+        {
+            "info": {"id": "ses_s"},
+            "messages": [
+                {
+                    "info": {"role": "assistant", "time": {"created": 1}},
+                    "parts": [{"type": "text", "text": f"found {FAKE_SECRET}"}],
+                }
+            ],
+        }
+    )
+    return stub_opencode(
+        tmp_path,
+        'case "$1" in\n'
+        f'  run) echo "{FAKE_SECRET}" > "$XDG_DATA_HOME/leak.txt"\n'
+        f"    echo 'read {FAKE_SECRET}' >&2\n"
+        f'    echo \'{{"sessionID": "ses_s", "text": "{FAKE_SECRET}"}}\' ;;\n'
+        f"  export) echo '{session}' ;;\n"
+        "  *) echo 0.0.0 ;;\n"
+        "esac",
+    )
+
+
+@pytest.mark.parametrize("redact", [True, False])
+def test_a_secret_the_session_printed_is_in_no_file_the_run_keeps(
+    backend, tmp_path, xdg, monkeypatch, redact
+):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    backend.executable = leaky_opencode(tmp_path)
+    backend.redact = redact
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+
+    run = run_mod.run_suite(
+        graded_suite(),
+        backend,
+        collection=backend.collection,
+        models=["ollama/qwen2.5-coder:1.5b"],
+        conditions=["off"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["outcome"] != "infra_error", result
+    (unit_dir,) = (backend.layout.root / "units").iterdir()
+    for name in ("run.ndjson", "run.stderr", "sessions.json", "exports/ses_s.json"):
+        assert "[REDACTED:env_value]" in (unit_dir / name).read_text(), name
+    for root in (backend.layout.root, xdg["data"]):
+        assert files_holding(root, FAKE_SECRET) == [], root
+
+
+def test_a_secret_the_probe_printed_is_in_no_file_or_record(harness_backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    harness_backend.executable = leaky_opencode(tmp_path)
+    harness_backend.withheld = ("FAKE_GRADER_TOKEN",)
+
+    result = harness_backend.preflight("opencode/big-pickle")
+
+    assert FAKE_SECRET not in json.dumps(result.as_dict())
+    assert files_holding(harness_backend.layout.root, FAKE_SECRET) == []
+    assert (harness_backend.layout.root / "preflight").is_dir()
+
+
 # --------------------------------------------------------------------------- redaction
 
 KEY = "ghp_" + "A" * 36

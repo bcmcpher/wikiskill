@@ -173,7 +173,7 @@ def register(sub) -> None:
     ev.set_defaults(func=cmd_eval)
 
 
-def _report_preflight(backend, models: list[str], layout) -> int:
+def _report_preflight(backend, models: list[str], layout, loaded) -> int:
     """Check every model and say what it would cost the run, without running anything.
 
     Worth its own mode because the answer is what decides whether a suite is worth starting at all,
@@ -187,12 +187,18 @@ def _report_preflight(backend, models: list[str], layout) -> int:
                 print(f"    {key}: {checked.details[key]}")
         for problem in checked.problems:
             print(f"  - {problem}")
+    from ..runner import common
+    from ..suite import host_values
+
     layout.write_manifest(
-        {
-            "run_id": layout.run_id,
-            "preflight_only": True,
-            "preflight": {model: checked.as_dict() for model, checked in checks.items()},
-        }
+        common.hide_value(
+            {
+                "run_id": layout.run_id,
+                "preflight_only": True,
+                "preflight": {model: checked.as_dict() for model, checked in checks.items()},
+            },
+            host_values(loaded.secrets),
+        )
     )
     return OK if all(checked.ok for checked in checks.values()) else 1
 
@@ -311,7 +317,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"  results  {layout.root}")
 
     if args.preflight_only:
-        return _report_preflight(backend, models, layout)
+        return _report_preflight(backend, models, layout, loaded)
     try:
         run = run_mod.run_suite(
             loaded,

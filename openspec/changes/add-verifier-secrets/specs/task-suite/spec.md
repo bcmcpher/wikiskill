@@ -6,8 +6,8 @@ A suite MUST accept `secrets`, a list of environment variable names, in `default
 task's secrets MUST be the union of its own list and the default list. Loading MUST fail when a name
 is not a valid variable name, when it is a name either runner sets to isolate a unit or route it to
 its model (a name starting with `XDG_`, `OPENCODE_`, `WIKISKILL_`, `CLAUDE_CODE_` or `ANTHROPIC_`,
-or one of `CLAUDE_CONFIG_DIR`, `CLAUDECODE`, `DISABLE_AUTOUPDATER`, `HOME`, `PATH`), when the same
-task's `env` sets it, or when a value in that `env` expands it as `$NAME` or `${NAME}`.
+or one of `CLAUDE_CONFIG_DIR`, `CLAUDECODE`, `DISABLE_AUTOUPDATER`, `HOME`, `PATH`), or when any
+task's `env` sets it or expands it in a value as `$NAME` or `${NAME}`, whichever task declares it.
 `ANTHROPIC_API_KEY` is the one exception to the reserved names.
 
 #### Scenario: Default and task secrets join
@@ -34,3 +34,9 @@ task's `env` sets it, or when a value in that `env` expands it as `$NAME` or `${
 
 - **WHEN** a task declares `secrets: [HF_TOKEN]` and `env: {FOO: "$HF_TOKEN"}`
 - **THEN** `wikiskill suite check` names `FOO` and `HF_TOKEN` and exits non-zero
+
+#### Scenario: Another task expands a secret
+
+- **WHEN** task A declares `secrets: [HF_TOKEN]` and task B, which declares none, sets
+  `env: {FOO: "$HF_TOKEN"}`
+- **THEN** `wikiskill suite check` names B, `FOO` and `HF_TOKEN` and exits non-zero

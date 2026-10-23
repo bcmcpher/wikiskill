@@ -28,7 +28,7 @@ from ..rubric import Rubric, RubricError
 from ..rubric import load as load_rubric
 from ..score import judge as judge_mod
 from ..score import verify
-from ..suite import Suite, Task, declared_secrets
+from ..suite import Suite, Task, declared_secrets, host_values
 from . import common
 from .base import (
     INFRA_OUTCOMES,
@@ -167,11 +167,15 @@ def secret_refusal(tasks: list[Task] | tuple[Task, ...]) -> str | None:
     """
     declared = declared_secrets(tasks)
     unset = [name for name in declared if not os.environ.get(name)]
-    short = [
+    # Every value any record is scrubbed of: a task that is not running still has its secret
+    # withheld and redacted from those that are, so its value has to be redactable too.
+    present = [
         name
-        for name in declared
-        if name not in unset and len(os.environ[name]) < redact.MIN_ENV_VALUE
+        for name in dict.fromkeys(n for task in tasks for n in task.withheld)
+        if os.environ.get(name)
     ]
+    short = [name for name in present if len(os.environ[name]) < redact.MIN_ENV_VALUE]
+    padded = [name for name in present if os.environ[name] != os.environ[name].strip()]
     problems = []
     if unset:
         problems.append(f"declared secret(s) not set on this host: {', '.join(unset)}")
@@ -179,6 +183,13 @@ def secret_refusal(tasks: list[Task] | tuple[Task, ...]) -> str | None:
         problems.append(
             f"declared secret(s) shorter than {redact.MIN_ENV_VALUE} characters, too short to "
             f"redact safely: {', '.join(short)}"
+        )
+    if padded:
+        problems.append(
+            "declared secret(s) whose value starts or ends with whitespace, such as a trailing "
+            "newline or carriage return from the file it was read from; output trimmed of it "
+            f"would not match the value, so it could not be redacted: {', '.join(padded)}. "
+            "Strip the value before exporting it"
         )
     return "; ".join(problems) or None
 
@@ -189,6 +200,12 @@ def _require_secrets(suite: Suite, tasks: list[Task] | tuple[Task, ...], backend
     refused = secret_refusal(tasks)
     if refused:
         raise ValueError(refused)
+    withhold(suite, backend)
+
+
+def withhold(suite: Suite, backend: Backend) -> None:
+    """Add every secret the suite declares to the backend's withheld names. Called before the
+    backend starts anything, a `--version` check included, whoever built it."""
     backend.withheld = tuple(dict.fromkeys([*backend.withheld, *suite.secrets]))
 
 
@@ -279,7 +296,7 @@ def run_suite(
         # One lock for the whole hand-off: `results.jsonl` and the raw log are both append-only
         # files, and a half-written line is worse than a slow one.
         with keeping:
-            result = trajectory.as_result()
+            result = _result(trajectory)
             run.results.append(result)
             where.append_result(result)
             run.events_written += _write_events(backend, trajectory, raw_root)
@@ -304,16 +321,16 @@ def run_suite(
             ):
                 record(trajectory)
 
-    where.write_manifest(
-        _manifest(
-            run,
-            backend=backend,
-            collection=collection,
-            proofs=proofs,
-            duration_s=round(time.time() - started, 1),
-            proposal=proposal,
-        )
+    manifest = _manifest(
+        run,
+        backend=backend,
+        collection=collection,
+        proofs=proofs,
+        duration_s=round(time.time() - started, 1),
+        proposal=proposal,
     )
+    # A preflight probe's words and an isolation proof come from harness processes too.
+    where.write_manifest(common.hide_value(manifest, host_values(suite.secrets)))
     for warning in run.warnings:
         report(f"warning: {warning}")
     return run
@@ -360,6 +377,7 @@ def _execute(unit: Unit, backend: Backend, run: RunResult, report) -> Trajectory
     earlier: list[dict[str, Any]] = []
     while True:
         trajectory = backend.execute(unit)
+        _scrub_unit(trajectory, run.layout)
         lost = trajectory.outcome == "infra_error" and trajectory.transient
         if not lost or len(earlier) >= run.retries:
             break
@@ -369,6 +387,23 @@ def _execute(unit: Unit, backend: Backend, run: RunResult, report) -> Trajectory
     trajectory.attempts = len(earlier) + 1
     trajectory.retried = earlier
     return trajectory
+
+
+def _scrub_unit(trajectory: Trajectory, layout: RunLayout) -> None:
+    """Take every secret value out of what the unit's harness left: its files on disk, and the
+    reason built from its stderr. The session cannot see a secret in its environment, but it runs
+    as this user and can read one from this process's, so anything it printed is not trusted."""
+    values = trajectory.unit.task.withheld_values()
+    if not values:
+        return
+    common.hide_in_files(layout.root / "units" / trajectory.unit.slug, values)
+    trajectory.reason = common.hide_value(trajectory.reason, values)
+    trajectory.error = common.hide_value(trajectory.error, values)
+
+
+def _result(trajectory: Trajectory) -> dict[str, Any]:
+    """The unit's `results.jsonl` line, with no secret value anywhere in it."""
+    return common.hide_value(trajectory.as_result(), trajectory.unit.task.withheld_values())
 
 
 def _attempt(result: dict[str, Any], aside: Path | None, layout: RunLayout) -> dict[str, Any]:
@@ -454,7 +489,7 @@ def _judge(
             return
         handoffs = judge_mod.delegations(events)
     # A verifier ran first and may have left a secret in the workdir the judge is shown.
-    hide = tuple(trajectory.unit.task.secret_env().values())
+    hide = trajectory.unit.task.withheld_values()
     try:
         judgement = judge_mod.judge_task(
             rubric,
@@ -607,6 +642,8 @@ def fill_refusal(
     A filled unit has to be the unit the run would have produced: the same suite file, harness,
     component text and model options. Anything else would make one run of two experiments.
     """
+    # `_changed_since` asks the harness its version, so the secrets go first.
+    withhold(suite, backend)
     return unfillable(manifest) or _changed_since(manifest, suite, backend, collection)
 
 
@@ -736,7 +773,7 @@ def fill_run(
             *trajectory.retried,
         ]
         trajectory.attempts = int(prior.get("attempts") or 1) + trajectory.attempts
-        results[i] = trajectory.as_result()
+        results[i] = _result(trajectory)
         superseded.append({**prior, "superseded_at": at})
         run.events_written += _write_events(backend, trajectory, raw_root)
         trajectory.events = None
@@ -759,13 +796,16 @@ def fill_run(
         }
     )
     layout.write_manifest(
-        {
-            **manifest,
-            "fills": fills,
-            "outcomes": run.counts(),
-            "events_written": int(manifest.get("events_written") or 0) + run.events_written,
-            "warnings": [*(manifest.get("warnings") or []), *run.warnings],
-        }
+        common.hide_value(
+            {
+                **manifest,
+                "fills": fills,
+                "outcomes": run.counts(),
+                "events_written": int(manifest.get("events_written") or 0) + run.events_written,
+                "warnings": [*(manifest.get("warnings") or []), *run.warnings],
+            },
+            host_values(suite.secrets),
+        )
     )
     return run, [unit.slug for unit in units]
 

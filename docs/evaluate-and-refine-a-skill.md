@@ -28,7 +28,7 @@ This guide uses these terms with one meaning each.
 | **suite** | A YAML file of tasks that evaluates a collection. |
 | **task** | One prompt, its starting state, and the checks that decide its result. |
 | **verifier** | A deterministic check that runs after a task: a shell command, a file test or a regular expression. |
-| **secret** | A host environment variable that a suite names in `secrets`. Only command verifiers get it. |
+| **secret** | A host environment variable that a suite names in `secrets`. Only the command verifiers of the task that names it get it. |
 | **route** | The component a correct run activates first. A task declares it with `expect`. |
 | **condition** | How the collection is offered to the model: OFF, ROUTED or INJECTED. |
 | **unit** | One task, on one model, under one condition, in one repeat. The smallest thing that passes or fails. |
@@ -399,7 +399,7 @@ default:
 | `repeats`, `timeout_s`, `max_steps` | The task's value replaces the default. |
 | `setup` | The task's list **replaces** the default list. It does not add to it. |
 | `env` | Merged. The task's value wins for a name set in both. |
-| `secrets` | Joined. The task gets every name from both lists. |
+| `secrets` | Joined. The task gets every name from both lists. Every session withholds every secret in the suite. |
 | `requires`, `guard` | The task's value replaces the default. |
 
 An empty value does not clear a default. `setup: []`, `requires: []` and `guard: {}` count as
@@ -446,12 +446,18 @@ defaults:
 
 The runner then applies these rules, on OpenCode and on Claude Code:
 
-- The session, OpenCode's export step, `setup`, the `requires` check and the preflight probe do not
-  get the variable.
-- A `command` verifier gets the variable with its value from your shell.
-- `wikiskill eval` refuses to start if the variable is not set, or its value is under 8 characters.
-- `run.json` records the name. wikiskill never writes the value: verifier output, logged events and
-  everything shown to a rubric judge show `[REDACTED:env_value]` in its place.
+- No session gets the variable, on any task of the suite. OpenCode's export step, `setup`, the
+  `requires` check, the preflight probe and the harness's `--version` check do not get it either.
+- A `command` verifier of the task that names the secret gets it, with its value from your shell.
+  The verifiers of other tasks do not.
+- `wikiskill eval` refuses to start if the variable is not set, if its value is under 8 characters,
+  or if its value starts or ends with whitespace. Strip a value read from a file before you export
+  it.
+- `run.json` records the name. wikiskill does not write the value. `[REDACTED:env_value]` replaces
+  it in verifier output, logged events, everything shown to a rubric judge, `results.jsonl`, and
+  the harness's own files in the unit directory: `stream.jsonl`, `run.ndjson`, `run.stderr`,
+  `exports/`, `sessions.json`, `setup.log` and the harness's state. The replacement happens when
+  the harness exits, and it also applies when the collection sets `redact = false`.
 
 wikiskill does not clean the working directory. A verifier that writes the secret into it, for
 example `curl ... > ref.json`, leaves it there, under the run directory. Fetch a reference to a path
@@ -462,14 +468,20 @@ The suite check refuses a secret in these cases:
 - The name is one the runner sets to isolate a unit or reach its model: anything starting with
   `XDG_`, `OPENCODE_`, `WIKISKILL_`, `CLAUDE_CODE_` or `ANTHROPIC_`, and `CLAUDE_CONFIG_DIR`,
   `CLAUDECODE`, `DISABLE_AUTOUPDATER`, `HOME` and `PATH`.
-- The task's `env` sets the name, or expands it in a value (`$NAME` or `${NAME}`).
+- A task's `env` sets the name, or expands it in a value (`$NAME` or `${NAME}`). This applies to
+  every task, not only the task that declares the secret.
 
 `ANTHROPIC_API_KEY` is the one exception. `eval` refuses it as a secret under Claude Code without
 `--base-url`, because the session then needs the key. `eval` also refuses an `--api-key-env` that
-names a secret. A task without `secrets` runs as before.
+names a secret. A suite without `secrets` runs as before.
 
-`secrets` covers the environment only. It is not a sandbox. The session can still read any file
-that your user can read, so do not keep the credential in a file inside the session's reach.
+`secrets` keeps the value out of the session's environment and out of the records. It does not keep
+the value out of reach of the agent. The session runs as your user, so it can read any file your
+user can read. It can also read the environment of wikiskill itself and of the shell that started
+it, in `/proc/<pid>/environ`. wikiskill cannot remove the value from there. To keep a credential
+from the agent, run the session in a sandbox: as a separate user, or in its own PID namespace.
+Without a sandbox, treat `secrets` as a guard against an accidental leak, not against an agent that
+looks for the credential.
 
 ### 3.4 Four kinds of task
 

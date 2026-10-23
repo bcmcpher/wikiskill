@@ -470,7 +470,7 @@ class _Normaliser:
             backend.redact,
             backend.unit_env(self.unit),
             backend.output_limit_bytes,
-            self.unit.task.secret_env().values(),
+            self.unit.task.withheld_values(),
         )
         stream = (trajectory.sessions[0] if trajectory.sessions else {}).get("stream") or []
         self.stream: list[dict[str, Any]] = stream

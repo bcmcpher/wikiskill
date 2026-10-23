@@ -11,6 +11,7 @@ Nothing here executes a task or touches a collection's source tree.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -167,6 +168,9 @@ class Task:
     env: tuple[tuple[str, str], ...] = ()
     #: Host variables only command verifiers receive: the suite default's joined with the task's.
     secrets: tuple[str, ...] = ()
+    #: Every secret the suite declares, on any task, set at load. Withheld from this task's session
+    #: too, because a secret another task declares is still on the host this session runs on.
+    suite_secrets: tuple[str, ...] = ()
     #: Shell commands that build the workdir's starting state before the session.
     setup: tuple[str, ...] = ()
     followups: tuple[str, ...] = ()
@@ -186,6 +190,18 @@ class Task:
         """Each declared secret that is set on the host, with its value. Read when needed, never
         stored, so the value reaches a verifier and a redaction list and nothing else."""
         return {name: os.environ[name] for name in self.secrets if name in os.environ}
+
+    @property
+    def withheld(self) -> tuple[str, ...]:
+        """What this task's harness, setup and `requires` check may not see: its own secrets and
+        every other secret the suite declares."""
+        return tuple(dict.fromkeys([*self.secrets, *self.suite_secrets]))
+
+    def withheld_values(self) -> tuple[str, ...]:
+        """The host value of each withheld name that is set, longest first: what no record of
+        this task may show. A verifier gets only `secret_env`, but a session could still read
+        another task's value from the host, so every one is redacted."""
+        return host_values(self.withheld)
 
     @property
     def judged(self) -> bool:
@@ -222,6 +238,13 @@ class Suite:
     def secrets(self) -> tuple[str, ...]:
         """Every secret any task declares: what a process tied to no one task must not see."""
         return declared_secrets(self.tasks)
+
+
+def host_values(names: Iterable[str]) -> tuple[str, ...]:
+    """The host value of each of ``names`` that is set, each once, longest first, so a value that
+    contains another is redacted whole."""
+    values = {os.environ[name] for name in names if os.environ.get(name)}
+    return tuple(sorted(values, key=len, reverse=True))
 
 
 def declared_secrets(tasks: Iterable[Task]) -> tuple[str, ...]:
@@ -349,7 +372,9 @@ def _refers_to(value: str, name: str) -> bool:
 
 def env_problems(task: Task) -> list[str]:
     """What is wrong with a task's `env` and `secrets`: a name the runner owns, or a secret the
-    task's own `env` would hand to the session anyway, by name or by expanding it."""
+    task's own `env` would hand to the session anyway, by name or by expanding it. Any secret the
+    suite declares counts, not only the task's own, since every one is withheld from every
+    session."""
     problems: list[str] = []
     reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
     if reserved:
@@ -360,14 +385,21 @@ def env_problems(task: Task) -> list[str]:
             f"declares {', '.join(reserved)} as a secret, a reserved name the runner owns to "
             "isolate the run or route it to its model"
         )
-    clashing = sorted(set(task.secrets) & {name for name, _ in task.env})
+    setting = {name for name, _ in task.env}
+    clashing = sorted(set(task.secrets) & setting)
     if clashing:
         problems.append(
             f"declares {', '.join(clashing)} as a secret and also sets it in `env`, which would "
             "give it to the session"
         )
+    others = sorted((set(task.withheld) - set(task.secrets)) & setting)
+    if others:
+        problems.append(
+            f"sets {', '.join(others)} in `env`, which another task declares as a secret: every "
+            "session runs without it"
+        )
     for name, value in task.env:
-        for secret in task.secrets:
+        for secret in task.withheld:
             if _refers_to(value, secret):
                 problems.append(
                     f"sets `env` {name} from the secret {secret}, which would give its value to "
@@ -438,6 +470,11 @@ def parse(
 
     defaults = document.get("defaults") or {}
     tasks = [_as_task(raw, defaults) for raw in document["tasks"]]
+    # Every task's session runs on the same host, so a secret one task declares is withheld from
+    # all of them; only its own task's verifiers receive it.
+    everyone = declared_secrets(tasks)
+    if everyone:
+        tasks = [dataclasses.replace(task, suite_secrets=everyone) for task in tasks]
 
     warnings: list[str] = []
     seen: dict[str, int] = {}

@@ -48,8 +48,24 @@ command verifier does. Deferred to later sections: Claude Code, redaction, the s
   Code without `--base-url`; `run_suite` and `fill_run` set the backend's withheld names; verify
   in `tests/test_run.py`, including the fill path's missing-secret refusal
 
-## 5. Verify
+## 5. Follow-up review fixes
 
-- [x] 5.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_run.py tests/test_runner_common.py tests/test_runner_opencode.py tests/test_runner_claude.py`
-- [x] 5.2 `uv run pytest` and `bin/check`
-- [x] 5.3 `openspec validate add-verifier-secrets --strict`
+- [x] 5.1 Withhold every secret the suite declares from every task's session, setup and `requires`
+  check, and refuse any task's `env` that sets or expands one; a verifier gets only its own task's;
+  verify in `tests/test_suite.py`, `tests/test_runner_common.py` and `tests/test_verify.py`
+- [x] 5.2 Scrub every secret value from the unit directory's files once the harness exits, from the
+  OpenCode probe's directory and result, and from `results.jsonl` and `run.json`, with or without
+  `redact`; verify with stub sessions that print the value, in `tests/test_runner_claude.py`,
+  `tests/test_runner_opencode.py` and `tests/test_run.py`
+- [x] 5.3 Redact verifier output before trimming it, and refuse a secret value with leading or
+  trailing whitespace at the start of a run; verify in `tests/test_verify.py` and `tests/test_run.py`
+- [x] 5.4 Set the backend's withheld names in `fill_refusal` before the version check; verify with a
+  stub `claude` that records its environment
+- [x] 5.5 Document that secrets keep the value out of the session environment and the records, not
+  out of reach of an agent running as the same user, in both docs and `design.md`
+
+## 6. Verify
+
+- [x] 6.1 `uv run pytest tests/test_suite.py tests/test_verify.py tests/test_run.py tests/test_runner_common.py tests/test_runner_opencode.py tests/test_runner_claude.py`
+- [x] 6.2 `uv run pytest` and `bin/check`
+- [x] 6.3 `openspec validate add-verifier-secrets --strict`

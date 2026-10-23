@@ -338,3 +338,49 @@ def test_secret_env_reads_only_what_the_host_sets(monkeypatch):
         id="t", prompt="p", split="val", secrets=("FAKE_GRADER_TOKEN", "FAKE_UNSET_TOKEN")
     )
     assert task.secret_env() == {"FAKE_GRADER_TOKEN": "fake-grader-value-123"}
+
+
+#: Two tasks; only the first declares a secret.
+TWO_TASKS = """
+suite: graded
+tasks:
+  - id: fetch
+    prompt: Summarise the dataset card.
+    split: val
+    secrets: [FAKE_GRADER_KEY]
+    verifiers:
+      - { kind: command, run: "true" }
+  - id: tidy
+    prompt: Tidy the notes.
+    split: val
+    verifiers:
+      - { kind: command, run: "true" }
+"""
+
+
+def test_every_task_withholds_a_secret_any_task_declares(tmp_path):
+    fetch, tidy = suite_mod.load(write(tmp_path, TWO_TASKS)).tasks
+
+    assert fetch.secrets == ("FAKE_GRADER_KEY",)
+    assert tidy.secrets == (), "a verifier gets only its own task's secrets"
+    assert fetch.withheld == tidy.withheld == ("FAKE_GRADER_KEY",)
+
+
+def test_another_tasks_env_may_not_expand_a_secret(tmp_path, capsys):
+    body = TWO_TASKS.replace(
+        "    prompt: Tidy the notes.\n",
+        "    prompt: Tidy the notes.\n    env: { FAKE_FOO: '$FAKE_GRADER_KEY' }\n",
+    )
+    path = write(tmp_path, body)
+    with pytest.raises(SuiteError, match="'tidy' sets `env` FAKE_FOO from the secret FAKE_GRADER"):
+        suite_mod.load(path)
+    assert main(["suite", "check", str(path)]) == 1
+
+
+def test_another_tasks_env_may_not_set_a_secret(tmp_path):
+    body = TWO_TASKS.replace(
+        "    prompt: Tidy the notes.\n",
+        "    prompt: Tidy the notes.\n    env: { FAKE_GRADER_KEY: x }\n",
+    )
+    with pytest.raises(SuiteError, match="FAKE_GRADER_KEY in `env`, which another task declares"):
+        suite_mod.load(write(tmp_path, body))

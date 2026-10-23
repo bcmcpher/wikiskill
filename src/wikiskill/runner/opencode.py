@@ -26,7 +26,7 @@ from .. import RAW_SCHEMA_VERSION, build, calls, names, paths, rawlog
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
-from ..suite import Task
+from ..suite import Task, host_values
 from . import common
 from .base import INJECTED, OFF, ROUTED, Backend, PreflightResult, RunnerError, Trajectory, Unit
 from .preflight import MIN_CONTEXT_TOKENS, Endpoint, check
@@ -203,9 +203,30 @@ class OpenCodeBackend(Backend):
         return self.harness_preflight(model)
 
     def harness_preflight(self, model: str) -> PreflightResult:
-        """Reachability, model listing, a tool-call probe and context, all through the harness."""
+        """Reachability, model listing, a tool-call probe and context, all through the harness.
+
+        The probe is a model session running as this user, so it could read a withheld secret from
+        this process; its files and its words are scrubbed of every withheld value.
+        """
+        result = self._harness_preflight(model)
+        values = host_values(self.withheld)
+        if not values:
+            return result
+        # The probe's workdir too: no verifier reads it, so nothing needs it as the model left it.
+        common.hide_in_files(self._probe_root(model), values, skip=())
+        return PreflightResult(
+            model=result.model,
+            ok=result.ok,
+            problems=tuple(common.hide_value(list(result.problems), values)),
+            details=common.hide_value(result.details, values),
+        )
+
+    def _probe_root(self, model: str) -> Path:
+        return Path(self.layout.root) / "preflight" / model.replace("/", "-").replace(":", "-")
+
+    def _harness_preflight(self, model: str) -> PreflightResult:
         details: dict[str, Any] = {"via": "harness", "model": model}
-        root = Path(self.layout.root) / "preflight" / model.replace("/", "-").replace(":", "-")
+        root = self._probe_root(model)
         for name in ("config", "data", "state", "cache"):
             (root / name).mkdir(parents=True, exist_ok=True)
         self._apply_seed(root)
@@ -886,7 +907,7 @@ class OpenCodeBackend(Backend):
             self.redact,
             self._unit_env(unit),
             self.output_limit_bytes,
-            unit.task.secret_env().values(),
+            unit.task.withheld_values(),
         )
         provider, model = common.split_model(unit.model)
         root_session = trajectory.session_id or ""

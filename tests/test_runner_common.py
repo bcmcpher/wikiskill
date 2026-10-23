@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import pytest
 
@@ -223,3 +224,36 @@ def test_scrubber_redacts_every_string_in_a_nested_input():
         "n": 3,
     }
     assert common.merged(found) == [{"kind": "api_key", "count": 2}]
+
+
+def test_a_task_without_secrets_withholds_the_suites():
+    task = Task(id="t", prompt="p", split="val", suite_secrets=("FAKE_GRADER_TOKEN",))
+    env = {"FAKE_GRADER_TOKEN": "x" * 20, "PATH": "/usr/bin"}
+
+    assert common.without_secrets(env, task) == {"PATH": "/usr/bin"}
+
+
+def test_hide_takes_a_value_out_as_written_and_as_json_escapes_it():
+    secret = 'fake"grader\\value-0123'
+    raw = f'plain {secret} and json {{"t": {json.dumps(secret)}}} sk-ant-' + "k" * 20
+
+    clean = common.hide(raw, [secret])
+
+    assert "grader" not in clean
+    assert clean.count(common.MARKER) == 2
+    assert clean.endswith("sk-ant-" + "k" * 20), "no pattern redaction: only the named values"
+
+
+def test_hide_in_files_scrubs_text_and_binary_and_spares_the_workdir(tmp_path):
+    secret = "fake-grader-value-0123456789"
+    (tmp_path / "work").mkdir()
+    (tmp_path / "work" / "answer.txt").write_text(secret)
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state" / "db").write_bytes(b"\xff\x00" + secret.encode() + b"\x00")
+    (tmp_path / "run.stderr").write_text(f"saw {secret}\n")
+
+    common.hide_in_files(tmp_path, [secret])
+
+    assert (tmp_path / "run.stderr").read_text() == f"saw {common.MARKER}\n"
+    assert (tmp_path / "state" / "db").read_bytes() == b"\xff\x00" + b"*" * len(secret) + b"\x00"
+    assert (tmp_path / "work" / "answer.txt").read_text() == secret, "the task's output is its own"

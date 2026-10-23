@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import subprocess
 from collections.abc import Iterable
@@ -82,12 +83,12 @@ def merged(*found: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def without_secrets(env: dict[str, str], task: Task) -> dict[str, str]:
-    """``env`` without the task's declared secrets: what the unit's harness and setup may see.
+    """``env`` without every secret the suite declares: what the unit's harness and setup may see.
 
     Applied last, to the environment as built, at every place a unit's environment is built. Only a
-    command verifier gets the secrets, and it adds them back from the host itself.
+    command verifier gets secrets, its own task's, and it adds them back from the host itself.
     """
-    return without_names(env, task.secrets)
+    return without_names(env, task.withheld)
 
 
 def without_names(env: dict[str, str], names: Iterable[str]) -> dict[str, str]:
@@ -97,6 +98,77 @@ def without_names(env: dict[str, str], names: Iterable[str]) -> dict[str, str]:
     if not drop:
         return env
     return {key: value for key, value in env.items() if key not in drop}
+
+
+#: What a withheld value is replaced with in a raw file, as `redact.redact` marks it in events.
+MARKER = "[REDACTED:env_value]"
+
+
+def _forms(values: Iterable[str]) -> list[str]:
+    """Each value as text holds it and as a JSON string holds it, longest first. A harness's raw
+    stream is JSON, where a value with a quote or a backslash is written escaped."""
+    forms: set[str] = set()
+    for value in values:
+        if value:
+            forms.update(
+                {value, json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1]}
+            )
+    return sorted(forms, key=len, reverse=True)
+
+
+def hide(text: str, values: Iterable[str]) -> str:
+    """``text`` with every copy of each of ``values`` replaced by `MARKER`, and nothing else
+    changed: no pattern redaction, so a raw file stays what the harness wrote, less the secrets."""
+    for form in _forms(values):
+        text = text.replace(form, MARKER)
+    return text
+
+
+def hide_value(obj: Any, values: tuple[str, ...]) -> Any:
+    """`hide` applied to every string inside ``obj``, keeping its structure."""
+    if not values:
+        return obj
+    if isinstance(obj, str):
+        return hide(obj, values)
+    if isinstance(obj, list):
+        return [hide_value(item, values) for item in obj]
+    if isinstance(obj, dict):
+        return {key: hide_value(item, values) for key, item in obj.items()}
+    return obj
+
+
+def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("work",)) -> None:
+    """Replace each of ``values`` in every file under ``root`` but the top-level ``skip``
+    directories: the raw stream, stderr, exports, setup log and the harness's own state.
+
+    Called once the unit's harness has exited, so a stream is parsed from what the harness wrote
+    and only the copy on disk loses the value. The workdir is skipped: it is the task's output,
+    and a verifier or judge reads it as the session left it. A file that is not UTF-8, such as a
+    harness database, has each copy overwritten in place with as many `*` bytes, so its layout
+    survives. Applied whether or not the collection redacts, as declared secrets always are.
+    """
+    forms = _forms(values)
+    if not forms or not root.is_dir():
+        return
+    skipped = {root / name for name in skip}
+    encoded = [form.encode("utf-8") for form in forms]
+    for path in root.rglob("*"):
+        if not path.is_file() or path.is_symlink() or any(p in skipped for p in path.parents):
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError:
+            continue
+        if not any(form in data for form in encoded):
+            continue
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            for form in encoded:
+                data = data.replace(form, b"*" * len(form))
+            path.write_bytes(data)
+            continue
+        path.write_text(hide(text, forms), encoding="utf-8")
 
 
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:

@@ -511,18 +511,6 @@ def test_a_run_without_secrets_records_none(xdg, suite, layout):
     assert run_mod.load_manifest(layout)["secrets"] == {}
 
 
-def test_run_suite_withholds_the_suites_secrets_whoever_built_the_backend(
-    xdg, secret_suite, layout, monkeypatch
-):
-    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
-    backend = FakeBackend(layout)
-    assert backend.withheld == ()
-
-    go(secret_suite, backend, layout)
-
-    assert backend.withheld == ("FAKE_GRADER_TOKEN",)
-
-
 def test_a_fill_refuses_a_missing_secret_before_any_unit(xdg, secret_suite, layout, monkeypatch):
     layout.append_result(
         {
@@ -618,3 +606,55 @@ def test_a_hosted_key_may_be_a_secret_when_an_endpoint_serves_the_session(tmp_pa
     )
 
     assert eval_cli._credential_conflict(args, loaded) is None
+
+
+def test_a_secret_with_surrounding_whitespace_is_refused(xdg, secret_suite, layout, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET + "\r")
+
+    with pytest.raises(ValueError, match=r"starts or ends with whitespace.*FAKE_GRADER_TOKEN"):
+        go(secret_suite, FakeBackend(layout), layout)
+
+
+class LeakyBackend(FakeBackend):
+    """A session that read a secret it was not given, as one running as this user can, and put
+    it in its stderr, its stream, its state and the reason it failed."""
+
+    def execute(self, unit) -> Trajectory:
+        workdir = self.prepare(unit)
+        root = workdir.parent
+        (root / "run.stderr").write_text(f"error: {FAKE_SECRET}\n", encoding="utf-8")
+        (root / "state").mkdir(exist_ok=True)
+        (root / "state" / "session.json").write_text(f'{{"t": "{FAKE_SECRET}"}}', "utf-8")
+        reason = f"produced no session (exit 1). error: {FAKE_SECRET}"
+        return Trajectory(unit=unit, outcome="infra_error", error=reason, reason=reason)
+
+
+def test_a_secret_another_tasks_session_printed_is_in_no_file(xdg, tmp_path, layout, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    path = tmp_path / "two.yaml"
+    path.write_text(
+        SECRET_SUITE.replace("defaults: { repeats: 1, secrets: [FAKE_GRADER_TOKEN] }", "").replace(
+            "    split: val\n", "    split: val\n    secrets: [FAKE_GRADER_TOKEN]\n", 1
+        )
+        + "  - id: other\n    prompt: Tidy the notes.\n    split: val\n    repeats: 1\n"
+        "    verifiers:\n      - { kind: command, run: 'true' }\n",
+        encoding="utf-8",
+    )
+    two = suite_mod.load(path)
+    other = two.task("other")
+    assert other.secrets == () and other.withheld == ("FAKE_GRADER_TOKEN",)
+
+    run = run_mod.run_suite(
+        two,
+        LeakyBackend(layout),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        tasks=[other],
+        layout=layout,
+        run_id="01JRUN",
+    )
+
+    (result,) = run.results
+    assert result["reason"] == "produced no session (exit 1). error: [REDACTED:env_value]"
+    assert files_holding(layout.root, FAKE_SECRET) == []

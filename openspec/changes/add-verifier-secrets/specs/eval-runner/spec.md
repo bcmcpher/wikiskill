@@ -2,11 +2,13 @@
 
 ### Requirement: Secrets reach verifiers only
 
-For a task that declares secrets, the runner MUST remove each named variable from every process it
-starts for the unit's harness, including the session and any export step, on OpenCode and on Claude
-Code. Setup commands and the `requires` check MUST NOT receive them. Command verifiers MUST receive
-each secret with its host value. Preflight probes and any other harness process started for the run
-but not for one unit MUST run without every secret the suite declares, in `defaults` or on any task.
+The runner MUST remove every secret the suite declares, in `defaults` or on any task, from every
+process it starts for any unit's harness, including the session and any export step, on OpenCode and
+on Claude Code. Setup commands and the `requires` check MUST NOT receive them. A task's command
+verifiers MUST receive that task's own secrets with their host values, and MUST NOT receive a secret
+only another task declares. Preflight probes, the harness version check and any other harness
+process started for the run but not for one unit MUST run without every secret the suite declares,
+whoever built the backend and before the first such process starts, a fill's checks included.
 
 #### Scenario: Token withheld from the session
 
@@ -29,21 +31,38 @@ but not for one unit MUST run without every secret the suite declares, in `defau
 - **WHEN** a suite declares `secrets: [HF_TOKEN]` and preflight probes the model
 - **THEN** the probe's harness process sees no `HF_TOKEN`
 
-#### Scenario: Task without secrets
+#### Scenario: Another task's secret is withheld too
 
-- **WHEN** a task declares no secrets
-- **THEN** its session environment is the same as before this change
+- **WHEN** a suite has tasks A and B, only A declares `secrets: [HF_TOKEN]`, and `HF_TOKEN` is set
+  on the host
+- **THEN** B's session sees no `HF_TOKEN`, and B's command verifier sees no `HF_TOKEN` either
+
+#### Scenario: A fill checks the version without the secret
+
+- **WHEN** a caller builds a backend without naming the suite's secrets and asks whether a run can
+  be filled
+- **THEN** the harness version check it runs sees no `HF_TOKEN`
+
+#### Scenario: Suite without secrets
+
+- **WHEN** no task of a suite declares secrets
+- **THEN** every session environment is the same as before this change
 
 ### Requirement: A run checks its secrets before starting and never records their values
 
 `wikiskill eval` MUST refuse to start, before any unit runs, when a declared secret is not set on
-the host, and MUST name each missing variable. It MUST also refuse to start when `--api-key-env`
+the host, and MUST name each missing variable. It MUST refuse a secret whose value is under 8
+characters or starts or ends with whitespace, and name it. It MUST also refuse to start when `--api-key-env`
 names a declared secret, and, with `--harness claude-code` and no `--base-url`, when
 `ANTHROPIC_API_KEY` is a declared secret. `run.json` MUST record each task's secret names and MUST
-NOT record their values. A secret's value MUST be redacted, every occurrence, from stored verifier
-output, from logged events, and from everything sent to a rubric judge and stored from its answer.
-wikiskill MUST NOT write the value into any file; a file a verifier itself writes into the working
-directory is the verifier's own.
+NOT record their values. Every secret value the suite declares MUST be redacted, every occurrence, from stored verifier
+output, before the output is trimmed, from logged events, from `results.jsonl` and `run.json`, and
+from everything sent to a rubric judge and stored from its answer. Once a unit's harness exits, and
+after a preflight probe, the value MUST be replaced in every file under that unit's or probe's
+directory, including the harness's raw stream, stderr, exports, setup log and state, whether or not
+the collection redacts. wikiskill MUST NOT write the value into any file; a file in the working
+directory is the task's own. The documentation MUST state that secrets keep the value out of the
+session's environment and records but not out of reach of an agent that runs as the same user.
 
 #### Scenario: Missing secret
 
@@ -54,6 +73,18 @@ directory is the verifier's own.
 
 - **WHEN** a command verifier prints the value of a declared secret
 - **THEN** the verifier output stored in `results.jsonl` shows a redaction marker in its place
+
+#### Scenario: The session prints a secret it read from the host
+
+- **WHEN** a session reads a declared secret's value from the host and prints it to its stream, its
+  stderr and its state directory
+- **THEN** after the unit, no file under the run directory outside the working directory contains
+  the value, and the result's reason shows a redaction marker in its place
+
+#### Scenario: A value with surrounding whitespace
+
+- **WHEN** a declared secret's value ends in a carriage return
+- **THEN** `wikiskill eval` exits non-zero naming the variable, and no unit directory is created
 
 #### Scenario: Names, not values
 

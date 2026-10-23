@@ -304,9 +304,10 @@ A saved sample is refused as stale once the component's patterns have changed.
 ## Things to be aware of
 
 - **Unit transcripts under `evals/` are not redacted.** Their events in `raw/` are, but the
-  harness's own records (`exports/`, `stream.jsonl`, `run.ndjson`) are kept as written. An eval
-  runs in a sandbox with its own config, but a secret that a task's fixtures or setup put into the
-  workdir can appear there.
+  harness's own records (`exports/`, `stream.jsonl`, `run.ndjson`) are kept as written, with one
+  exception: the value of a variable the suite declares in `secrets` is replaced in them when the
+  harness exits. An eval runs with its own config, but a secret that a task's fixtures
+  or setup put into the workdir can appear there.
 - **Logs written before eval and note redaction existed are not rewritten.** Eval events and notes
   from those versions may hold secrets in the clear; delete the old `raw/` day directories if that
   matters.
