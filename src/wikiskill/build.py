@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__, names, paths
-from .collection import DIR_NAMES, NOT_SKILL_DIRS, Collection, Source, flat_skill_dirs
+from .collection import DIR_NAMES, NOT_SKILL_DIRS, Collection, Source, _main_file, flat_skill_dirs
 from .errors import WikiskillError
 from .frontmatter import Document, repaired_warning
 from .frontmatter import read as read_frontmatter
@@ -85,9 +85,22 @@ PLUGINS_DIR = "plugins"
 #: Never mirrored: version control and installed dependencies are not plugin content.
 MIRROR_IGNORE = (".git", "node_modules", "__pycache__", ".venv")
 
-#: Never copied into a plugin-level skill: the plugin's agents, commands, manifest, hooks and MCP
-#: or LSP servers. Hidden entries and `MIRROR_IGNORE` are left out too; see `plugin_skill_skip`.
-PLUGIN_ONLY = NOT_SKILL_DIRS | {".claude-plugin", "hooks", ".mcp.json", ".lsp.json"}
+#: Never copied into a plugin-level skill: the plugin-level entries of Claude Code's standard plugin
+#: layout — agents, commands, manifest, hooks, MCP and LSP servers, output styles, workflows,
+#: themes, monitors, executables and settings. Hidden entries, `MIRROR_IGNORE` and any directory
+#: holding a nested `SKILL.md` are left out too; see `plugin_skill_skip`.
+PLUGIN_ONLY = NOT_SKILL_DIRS | {
+    ".claude-plugin",
+    "hooks",
+    ".mcp.json",
+    ".lsp.json",
+    "output-styles",
+    "workflows",
+    "themes",
+    "monitors",
+    "bin",
+    "settings.json",
+}
 
 #: `${CLAUDE_PLUGIN_ROOT}` and its unbraced form, which Claude Code also expands.
 _PLUGIN_ROOT_VAR = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT\b")
@@ -172,7 +185,9 @@ def build(
     skill_names = {e.name for e in skills}
     built: dict[tuple[str, str], Path] = {}
     for kind, directory in (("skill", "skills"), ("agent", "agents"), ("command", "commands")):
-        for entry in skills if kind == "skill" else _kind_entries(src, kind):
+        entries = skills if kind == "skill" else _kind_entries(src, kind)
+        # A README or stray file beside the components is not built, so it cannot clash.
+        for entry in (e for e in entries if _main_file(kind, e) is not None):
             previous = built.setdefault((directory, entry.name), entry)
             if previous != entry:
                 raise BuildError(
@@ -377,14 +392,21 @@ def plugin_skill_skip(plugin_dir: Path, skill_names: set[str]) -> set[str]:
 
     Its other skills, agents and commands are built in their own right, so copying them into this
     one would install them twice; its manifest, hooks and hidden or installed files are not skill
-    content.
+    content. A directory with a `SKILL.md` anywhere below it is left out as well: OpenCode loads
+    every `SKILL.md` under `skills/`, so copying it would install a skill discovery never reported.
     """
     try:
-        names = {e.name for e in plugin_dir.iterdir()}
+        entries = list(plugin_dir.iterdir())
     except OSError:
-        names = set()
-    hidden = {n for n in names if n.startswith(".")}
-    return skill_names | PLUGIN_ONLY | set(MIRROR_IGNORE) | hidden
+        entries = []
+    hidden = {e.name for e in entries if e.name.startswith(".")}
+    skip = skill_names | PLUGIN_ONLY | set(MIRROR_IGNORE) | hidden
+    nested = {
+        e.name
+        for e in entries
+        if e.name not in skip and e.is_dir() and next(e.rglob("SKILL.md"), None) is not None
+    }
+    return skip | nested
 
 
 def _mirror_plugin(root: Path, destination: Path) -> None:

@@ -586,6 +586,21 @@ def test_init_detects_a_source_of_flat_plugins_only(xdg, tmp_path):
     assert {c.name for c in coll.discover()} == {"solo/solo", "loose/one"}
 
 
+def test_init_detects_a_source_of_singular_directory_plugins_only(xdg, tmp_path):
+    (tmp_path / "plugins" / "sing" / "skill" / "foo").mkdir(parents=True)
+    (tmp_path / "plugins" / "sing" / "skill" / "foo" / "SKILL.md").write_text(
+        "---\nname: foo\ndescription: d\n---\n"
+    )
+    (tmp_path / "plugins" / "other" / "agent").mkdir(parents=True)
+    (tmp_path / "plugins" / "other" / "agent" / "doer.md").write_text(
+        "---\nname: doer\ndescription: d\n---\n"
+    )
+    assert main(["collection", "init", "sing", "--source", str(tmp_path / "plugins")]) == 0
+    coll = collection_mod.load("sing")
+    assert coll.sources[0].layout == "claude-plugin"
+    assert {c.name for c in coll.discover()} == {"sing/foo", "other/doer"}
+
+
 def test_check_fails_on_two_components_with_one_name(xdg, tmp_path, capsys):
     for skill in ("dup/SKILL.md", "dup/dup/SKILL.md"):
         (tmp_path / "plugins" / skill).parent.mkdir(parents=True, exist_ok=True)

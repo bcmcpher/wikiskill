@@ -572,6 +572,56 @@ def test_a_plugin_skill_and_a_child_of_the_same_name_fail_the_build(tmp_path):
         build_collection("opencode", plugin_collection(root), tmp_path / "dist")
 
 
+@pytest.mark.parametrize("harness", ["opencode", "claude-code"])
+def test_a_plugin_skill_leaves_nested_skills_behind(tmp_path, harness):
+    root = tmp_path / "plugins"
+    write_skill(root / "p", "p")
+    write_skill(root / "p" / "examples" / "inner", "inner")
+    (root / "p" / "examples" / "other.md").write_text("x\n")
+    (root / "p" / "keep.md").write_text("x\n")
+    coll = plugin_collection(root)
+    assert {c.name for c in coll.discover()} == {"p/p"}
+
+    out = tmp_path / "dist"
+    result = build_collection(harness, coll, out)
+    # OpenCode loads every SKILL.md under skills/, so a nested one would be a skill nobody reported.
+    assert sorted(str(p.relative_to(out)) for p in (out / "skills").rglob("SKILL.md")) == [
+        "skills/p/SKILL.md"
+    ]
+    assert sorted(p.name for p in (out / "skills" / "p").iterdir()) == ["SKILL.md", "keep.md"]
+    assert result.mapping == {"p/p": "p"}
+
+
+def test_a_plugin_skill_leaves_every_plugin_level_component_behind(tmp_path):
+    root = tmp_path / "plugins"
+    write_skill(root / "solo", "solo")
+    plugin_level = (
+        "output-styles/terse.md",
+        "workflows/audit.js",
+        "themes/dark.json",
+        "monitors/monitors.json",
+        "bin/tool",
+        "settings.json",
+    )
+    for relative in (*plugin_level, "keep.md"):
+        (root / "solo" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (root / "solo" / relative).write_text("x\n")
+    out = tmp_path / "dist"
+    build_collection("opencode", plugin_collection(root), out)
+    assert sorted(p.name for p in (out / "skills" / "solo").iterdir()) == ["SKILL.md", "keep.md"]
+
+
+@pytest.mark.parametrize("harness", ["opencode", "claude-code"])
+def test_plain_files_in_both_directory_forms_do_not_clash(tmp_path, harness):
+    root = tmp_path / "plugins"
+    write_skill(root / "kit" / "skills" / "a", "a")
+    for relative in ("skills/README.md", "skill/README.md", "agents/README", "agent/README"):
+        (root / "kit" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (root / "kit" / relative).write_text("x\n")
+    result = build_collection(harness, plugin_collection(root), tmp_path / "dist")
+    assert result.mapping == {"kit/a": "a"}
+
+
 def test_checking_and_building_flat_layouts_leave_git_status_clean(tmp_path, xdg):
     repo = tmp_path / "collection"
     shutil.copytree(FLAT_PLUGINS, repo / "plugins")

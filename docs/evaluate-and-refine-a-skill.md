@@ -192,8 +192,10 @@ ignores hidden directories, `agents/`, `commands/`, and any directory without a 
 and commands are always in `agents/` and `commands/`.
 
 A plugin that is a skill builds without the rest of its plugin. The build leaves out the plugin's
-other skills, `agents/`, `commands/`, `hooks/`, `.claude-plugin/`, `.mcp.json`, `.lsp.json`, and
-hidden or installed files such as `.git/` and `node_modules/`. Do not name a child skill after its
+other skills and its plugin-level components: `agents/`, `commands/`, `hooks/`, `.claude-plugin/`,
+`.mcp.json`, `.lsp.json`, `output-styles/`, `workflows/`, `themes/`, `monitors/`, `bin/` and
+`settings.json`. It also leaves out hidden or installed files such as `.git/` and `node_modules/`,
+and any directory with a `SKILL.md` below it, such as `examples/inner/SKILL.md`. Do not name a child skill after its
 plugin: `<plugin>/<plugin>/SKILL.md` beside `<plugin>/SKILL.md` gives two skills one name, and
 `collection check` fails.
 
@@ -210,6 +212,9 @@ wikiskill collection init my-skills --source ~/src/my-plugins/plugins
 
 `init` detects the layout, lists every component it finds, and writes the manifest to
 `~/.config/wikiskill/collections/my-skills.toml`. It writes nothing into the source directory.
+`init` detects the claude-plugin layout when a plugin has a `.claude-plugin/` directory, a
+`SKILL.md`, a child directory with a `SKILL.md`, or a components directory in the plural or
+singular form. Otherwise, add `--layout claude-plugin`.
 
 ### 2.3 The manifest's structure
 

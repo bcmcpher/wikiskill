@@ -41,7 +41,7 @@ def register(sub) -> None:
 
 def _detect_layout(directory: Path) -> str:
     """Guess a source layout: components at the top level, or one level down per plugin."""
-    from ..collection import flat_skill_dirs
+    from ..collection import DIR_NAMES, flat_skill_dirs
 
     if any((directory / d).is_dir() for d in ("skills", "skill", "commands", "command")):
         return "opencode"
@@ -52,7 +52,7 @@ def _detect_layout(directory: Path) -> str:
                 and not child.name.startswith(".")
                 and (
                     (child / ".claude-plugin").is_dir()
-                    or any((child / d).is_dir() for d in ("skills", "agents", "commands"))
+                    or any((child / d).is_dir() for names in DIR_NAMES.values() for d in names)
                     or flat_skill_dirs(child)
                 )
             ):
