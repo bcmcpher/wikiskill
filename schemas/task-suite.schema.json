@@ -40,13 +40,13 @@
       "enum": ["train", "val", "test"]
     },
     "requires": {
-      "description": "Capabilities the run environment must provide. An unmet requirement skips the task with a reason; it is never scored as a failure.",
+      "description": "Capabilities the run environment must provide. An unmet requirement skips the task with a reason; it is never scored as a failure. A task's list, empty included, replaces the suite default's; `requires: []` requires nothing.",
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
     "setup": {
-      "description": "Shell commands run in the workdir, in order, after fixtures are copied and before the session starts. A failing command makes the unit an infrastructure error, never a model failure. A task's list replaces the suite default's.",
+      "description": "Shell commands run in the workdir, in order, after fixtures are copied and before the session starts. A failing command makes the unit an infrastructure error, never a model failure. A task's list, empty included, replaces the suite default's; `setup: []` runs no commands.",
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
     },
@@ -57,13 +57,13 @@
       "additionalProperties": { "type": "string" }
     },
     "secrets": {
-      "description": "Names of host environment variables that only the declaring task's command verifiers receive. The runner removes every secret the suite declares from every task's session, any export step, setup commands and the `requires` check. A task's list is joined with the suite default's, unlike `requires` and `setup`, which a task replaces. A name any task's `env` sets or expands, or one the runner uses for isolation, is refused. This keeps the value out of the session environment and the records, not out of reach of an agent running as the same user, which can read the user's files and /proc/<pid>/environ.",
+      "description": "Names of host environment variables that only the declaring task's command verifiers receive. The runner removes every secret the suite declares from every task's session, any export step, setup commands and the `requires` check. A task's list is joined with the suite default's, unlike `requires`, `setup` and `guard`, which a task replaces; `secrets: []` withholds nothing less. A name any task's `env` sets or expands, or one the runner uses for isolation, is refused. This keeps the value out of the session environment and the records, not out of reach of an agent running as the same user, which can read the user's files and /proc/<pid>/environ.",
       "type": "array",
       "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
       "uniqueItems": true
     },
     "guard": {
-      "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions.",
+      "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions. A task's guard, empty included, replaces the suite default's; `guard: {}` denies no patterns.",
       "type": "object",
       "unevaluatedProperties": false,
       "properties": {

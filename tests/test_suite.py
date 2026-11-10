@@ -229,6 +229,66 @@ def test_setup_is_the_tasks_own_or_the_suite_defaults(tmp_path):
     assert suite_mod.load(write(tmp_path, own)).tasks[0].setup == ("touch a", "touch b")
 
 
+OVERRIDES = """
+suite: toy
+defaults:
+  setup: ["git init -q"]
+  guard: { deny: ["git push*"] }
+  requires: [no-such-program-wikiskill]
+  env: { A: "1" }
+  secrets: [GRADER_KEY]
+tasks:
+  - id: cleared
+    prompt: p
+    split: val
+    rubric: Does the reply answer?
+    setup: []
+    guard: {}
+    requires: []
+    env: {}
+    secrets: []
+  - id: inherited
+    prompt: p
+    split: val
+    rubric: Does the reply answer?
+  - id: unguarded
+    prompt: p
+    split: val
+    rubric: Does the reply answer?
+    guard: { deny: [] }
+  - id: added
+    prompt: p
+    split: val
+    rubric: Does the reply answer?
+    env: { B: "2" }
+"""
+
+
+def test_an_empty_task_value_clears_the_default_and_absent_takes_it(tmp_path):
+    from wikiskill.runner.run import missing_capabilities
+
+    tasks = {t.id: t for t in suite_mod.load(write(tmp_path, OVERRIDES)).tasks}
+    cleared, inherited = tasks["cleared"], tasks["inherited"]
+
+    assert cleared.setup == ()
+    assert cleared.guard_deny == ()
+    assert tasks["unguarded"].guard_deny == ()
+    assert cleared.requires == ()
+    assert missing_capabilities(cleared) == [], "requires: [] is never skipped"
+
+    assert inherited.setup == ("git init -q",)
+    assert inherited.guard_deny == ("git push*",)
+    assert missing_capabilities(inherited) == ["no-such-program-wikiskill"]
+
+
+def test_an_empty_task_env_or_secrets_changes_nothing(tmp_path):
+    tasks = {t.id: t for t in suite_mod.load(write(tmp_path, OVERRIDES)).tasks}
+
+    assert dict(tasks["cleared"].env) == {"A": "1"}
+    assert dict(tasks["added"].env) == {"A": "1", "B": "2"}
+    assert tasks["cleared"].secrets == ("GRADER_KEY",)
+
+
 def test_env_expands_home_and_host_variables(monkeypatch):
     monkeypatch.setenv("HOME", "/home/someone")
     monkeypatch.setenv("PATH", "/usr/bin")
