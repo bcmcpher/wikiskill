@@ -226,6 +226,24 @@ def test_a_scored_verifier_end_to_end(xdg, tmp_path, layout):
     assert "| graded | fake/model | off | `score` | 70.0 (" in text
 
 
+def test_a_result_results_jsonl_cannot_hold_demotes_only_its_unit(xdg, tmp_path, layout):
+    out = tmp_path / "out.json"
+    out.write_text('{"verdict": "ok", "s": "\\ud800"}\n', encoding="utf-8")
+    path = tmp_path / "surrogate.yaml"
+    path.write_text(
+        "suite: toy\ndefaults: { repeats: 1 }\ntasks:\n"
+        "  - id: control\n    prompt: Rename the variable n to count.\n    split: val\n"
+        f"    verifiers:\n      - {{ kind: command, run: cat {out}, result: json }}\n",
+        encoding="utf-8",
+    )
+    run = go(suite_mod.load(path), FakeBackend(layout), layout)
+
+    (result,) = layout.read_results()
+    assert result["outcome"] == "infra_error"
+    assert "unpaired surrogate" in result["reason"]
+    assert layout.read_results() == run.results
+
+
 # --------------------------------------------------------------------------- workers
 
 

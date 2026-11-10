@@ -20,6 +20,7 @@ import json
 import os
 import re
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -165,13 +166,11 @@ def _json_result(verifier: Verifier, stdout: str) -> dict[str, Any]:
     text = stdout.strip()
     lines = text.splitlines()
     found: Any = None
+    constants: list[str] = []
     for candidate in (text, lines[-1] if lines else ""):
+        constants.clear()
         try:
-            found = json.loads(candidate, parse_constant=_refuse_constant)
-        except _NotJson as exc:
-            raise VerifierError(
-                f"`{verifier.run}` printed {exc}, which JSON does not allow"
-            ) from exc
+            found = json.loads(candidate, parse_constant=_note_constant(constants))
         except RecursionError as exc:
             raise VerifierError(f"`{verifier.run}` printed JSON nested too deeply to read") from exc
         except ValueError:
@@ -180,8 +179,17 @@ def _json_result(verifier: Verifier, stdout: str) -> dict[str, Any]:
             break
     if not isinstance(found, dict):
         raise VerifierError(f"`{verifier.run}` printed no JSON object on stdout")
+    # Refused only in the object taken as the result: a log line before it may hold anything.
+    if constants:
+        raise VerifierError(f"`{verifier.run}` printed {constants[0]}, which JSON does not allow")
     # Measured as `results.jsonl` stores it, so the cap is the size the bundle actually grows by.
-    size = len(json.dumps(found, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    try:
+        size = len(json.dumps(found, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        # A lone surrogate escape (`"\ud800"`) reads as a string no UTF-8 file can hold.
+        raise VerifierError(
+            f"`{verifier.run}` printed a string with an unpaired surrogate, which UTF-8 cannot hold"
+        ) from exc
     if size > RESULT_CAP:
         raise VerifierError(
             f"`{verifier.run}` printed a {size}-byte result, over the {RESULT_CAP}-byte cap; "
@@ -190,14 +198,16 @@ def _json_result(verifier: Verifier, stdout: str) -> dict[str, Any]:
     return found
 
 
-class _NotJson(WikiskillError):
-    """`NaN` or `Infinity` in a grader's output. Python reads them; JSON, and so every other reader
-    of `results.jsonl`, does not. Never escapes `_json_result`, which turns it into a
-    `VerifierError`."""
+def _note_constant(seen: list[str]) -> Callable[[str], Any]:
+    """A `parse_constant` hook that records `NaN` or `Infinity`. Python reads them; JSON, and so
+    every other reader of `results.jsonl`, does not. Recorded rather than raised, so a log line
+    holding one does not stop the search for the result after it."""
 
+    def note(name: str) -> Any:
+        seen.append(name)
+        return None
 
-def _refuse_constant(name: str) -> Any:
-    raise _NotJson(name)
+    return note
 
 
 def _misses(verifier: Verifier, result: dict[str, Any]) -> list[str]:

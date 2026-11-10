@@ -21,6 +21,11 @@ def test_constant_scores_have_an_interval_of_no_width():
     assert interval.mean_interval([100, 100, 100]) == (100.0, 100.0, 100.0)
 
 
+def test_constant_scores_that_do_not_sum_exactly_still_have_no_width():
+    # fsum([0.1] * 3) / 3 is not 0.1, so a computed interval would be a sliver, not a point.
+    assert interval.mean_interval([0.1, 0.1, 0.1]) == (0.1, 0.1, 0.1)
+
+
 def test_no_values_give_no_interval():
     assert interval.mean_interval([]) is None
 
@@ -140,6 +145,11 @@ def test_one_unit_is_marked_rather_than_given_a_range():
 def test_identical_scores_are_marked_rather_than_printed_as_a_range():
     built = report_mod.build_report([graded(0, 100), graded(1, 100)], manifest())
     assert "100.0 (all equal)" in report_mod.render_markdown(built)
+
+
+def test_identical_inexact_scores_are_marked_too():
+    built = report_mod.build_report([graded(i, 0.1) for i in range(3)], manifest())
+    assert "0.1 (all equal)" in report_mod.render_markdown(built)
 
 
 def test_two_scored_verifiers_stay_apart():

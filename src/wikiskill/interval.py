@@ -34,8 +34,8 @@ def mean_interval(values: Sequence[float]) -> tuple[float, float | None, float |
     """``(mean, low, high)`` of ``values``: mean ± t(0.975, n-1)·s/√n.
 
     `None` for no values. One value has no spread to estimate, so its bounds are `None`. Values that
-    are all the same give an interval of no width, which the caller marks rather than prints as a
-    range.
+    are all the same give ``(value, value, value)`` exactly, which the caller marks rather than
+    prints as a range; computed, rounding in the mean would leave a sliver of width.
     """
     if not values:
         return None
@@ -43,6 +43,8 @@ def mean_interval(values: Sequence[float]) -> tuple[float, float | None, float |
     mean = math.fsum(values) / n
     if n == 1:
         return mean, None, None
+    if max(values) == min(values):
+        return float(values[0]), float(values[0]), float(values[0])
     spread = math.sqrt(math.fsum((value - mean) ** 2 for value in values) / (n - 1))
     half = t975(n - 1) * spread / math.sqrt(n)
     return mean, mean - half, mean + half

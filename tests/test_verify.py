@@ -275,6 +275,22 @@ def test_a_non_finite_constant_is_infrastructure(workdir, constant):
         run(printing(workdir, f'{{"verdict": "ok", "score": {constant}}}'), workdir)
 
 
+def test_a_non_finite_constant_in_a_log_line_before_the_result_is_skipped(workdir):
+    result = run(printing(workdir, '{"debug": NaN}\n{"verdict": "ok"}\n'), workdir)
+    assert result.result == {"verdict": "ok"}
+
+
+def test_a_non_finite_constant_in_a_last_line_result_is_infrastructure(workdir):
+    with pytest.raises(verify.VerifierError, match="printed Infinity"):
+        run(printing(workdir, 'grading\n{"verdict": "ok", "score": Infinity}\n'), workdir)
+
+
+def test_an_unpaired_surrogate_escape_is_infrastructure(workdir):
+    # Valid JSON text, but the string it reads as cannot be written to results.jsonl as UTF-8.
+    with pytest.raises(verify.VerifierError, match="unpaired surrogate"):
+        run(printing(workdir, '{"verdict": "ok", "s": "\\ud800"}'), workdir)
+
+
 def test_json_nested_too_deeply_is_infrastructure(workdir):
     deep = '{"a": ' * 100_000 + "1" + "}" * 100_000
     with pytest.raises(verify.VerifierError, match="nested too deeply"):
