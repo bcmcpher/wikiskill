@@ -80,6 +80,10 @@ Each unit starts in a fresh, empty working directory. `fixtures` are copied in f
 `setup` commands run there. A failing `setup` command makes the unit `infra_error`, not a model
 failure.
 
+A task's own `setup`, `requires` or `guard` replaces the suite default, even when it is empty. Use
+`setup: []` for a task that must start from an empty directory while the other tasks share a
+default history.
+
 - **Build state; don't assume it.** `git init`, write the files, commit, tag. Use placeholder
   content where nothing reads it: a large data file no task opens can be empty.
 - **Close every way out.** Set every credential the component might use to `""` in `env`. List the

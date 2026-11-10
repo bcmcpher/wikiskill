@@ -8,7 +8,7 @@
 
 ## 2. Schema and documentation
 
-- [ ] 2.1 In `schemas/task-suite.schema.json`, say in the `setup`, `requires` and `guard`
+- [x] 2.1 In `schemas/task-suite.schema.json`, say in the `setup`, `requires` and `guard`
   descriptions that a task's value, empty included, replaces the default's
-- [ ] 2.2 In `docs/evaluate-and-refine-a-skill.md` §3.3, replace the note that an empty value does
+- [x] 2.2 In `docs/evaluate-and-refine-a-skill.md` §3.3, replace the note that an empty value does
   not clear a default; add the rule to `docs/writing-suites.md` §3; verify `bin/check` passes

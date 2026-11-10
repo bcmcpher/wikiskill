@@ -40,13 +40,13 @@
       "enum": ["train", "val", "test"]
     },
     "requires": {
-      "description": "Capabilities the run environment must provide. An unmet requirement skips the task with a reason; it is never scored as a failure.",
+      "description": "Capabilities the run environment must provide. An unmet requirement skips the task with a reason; it is never scored as a failure. A task's list, empty included, replaces the suite default's; `requires: []` requires nothing.",
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
     "setup": {
-      "description": "Shell commands run in the workdir, in order, after fixtures are copied and before the session starts. A failing command makes the unit an infrastructure error, never a model failure. A task's list replaces the suite default's.",
+      "description": "Shell commands run in the workdir, in order, after fixtures are copied and before the session starts. A failing command makes the unit an infrastructure error, never a model failure. A task's list, empty included, replaces the suite default's; `setup: []` runs no commands.",
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
     },
@@ -63,7 +63,7 @@
       "uniqueItems": true
     },
     "guard": {
-      "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions.",
+      "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions. A task's guard, empty included, replaces the suite default's; `guard: {}` denies no patterns.",
       "type": "object",
       "unevaluatedProperties": false,
       "properties": {
