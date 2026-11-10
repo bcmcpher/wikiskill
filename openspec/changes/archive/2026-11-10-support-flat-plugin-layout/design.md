@@ -29,7 +29,17 @@ into the harness layout.
   components. Only a direct child holding `SKILL.md` counts.
 - **A plugin-level skill's build copies only what the skill needs.** When the skill directory is the
   plugin directory, the build copies it without its child skill directories, `agents/`, `commands/`
-  and `.claude-plugin/`, so a ROUTED run does not install a sibling skill twice.
+  and `.claude-plugin/`, so a ROUTED run does not install a sibling skill twice. It also leaves out
+  `hooks/`, `.mcp.json`, `.lsp.json`, hidden entries and the mirror's ignored directories (`.git/`,
+  `node_modules/`), and `collection check` reports a `${CLAUDE_SKILL_DIR}` path into any of them.
+- **The build reads every directory name discovery reads.** `skill/`, `agent/` and `command/` build
+  like their plural forms, so discovery and the build list the same components.
+- **Two components with one name are a check failure and a build error.** `<plugin>/SKILL.md` and
+  `<plugin>/<plugin>/SKILL.md` are both `<plugin>/<plugin>`. Discovery keeps both, `collection check`
+  lists them under "components sharing a name" and fails, and the build raises a `BuildError` naming
+  both paths, as it does for a flat-name collision between plugins. Alternative: drop the child
+  silently; rejected because the user would evaluate a skill without knowing its sibling was lost.
+- **Hidden directories are never plugins.** `.github/` under a source root is not scanned.
 
 ## Risks / Trade-offs
 

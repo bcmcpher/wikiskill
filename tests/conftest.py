@@ -13,6 +13,8 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures"
 RAW_FIXTURES = FIXTURES / "raw"
 SOURCE_FIXTURE = FIXTURES / "source"
+#: A claude-plugin source mixing every skill layout: `skills/`, flat children, and a plugin skill.
+FLAT_PLUGINS = FIXTURES / "flat-plugins"
 
 
 @pytest.fixture(autouse=True)

@@ -9,8 +9,9 @@
 name = "my-collection"
 
 # Where the components live. `claude-plugin`: a directory of plugins, each with skills/, agents/ or
-# commands/ inside (a Claude Code marketplace). `opencode`: skills/, agents/ and commands/ at the
-# top level. wikiskill never writes into a source.
+# commands/ inside (a Claude Code marketplace); a plugin without skills/ may keep each skill in its
+# own subdirectory, or be a skill itself. `opencode`: skills/, agents/ and commands/ at the top
+# level. wikiskill never writes into a source.
 sources = [
   { path = "~/src/my-plugins/plugins", layout = "claude-plugin" },
   # Narrow a plugin source to the plugins under test:

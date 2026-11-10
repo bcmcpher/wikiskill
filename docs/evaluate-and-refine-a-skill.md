@@ -175,6 +175,30 @@ plugins/                                my-skills/
     └── skills/ ...
 ```
 
+In the claude-plugin layout, a plugin's skills can be in one of three locations. wikiskill selects
+the location for each plugin separately, so one source can mix them:
+
+| Location | Skill name | When wikiskill uses it |
+|---|---|---|
+| `<plugin>/skills/<name>/SKILL.md` | `<plugin>/<name>` | The plugin has a `skills/` directory. wikiskill then looks nowhere else for its skills. |
+| `<plugin>/<name>/SKILL.md` | `<plugin>/<name>` | The plugin has no `skills/` directory. |
+| `<plugin>/SKILL.md` | `<plugin>/<plugin>` | The plugin has no `skills/` directory. The plugin directory is the skill. |
+
+wikiskill also reads the singular forms `skill/`, `agent/` and `command/`. A hidden directory, such
+as `.github/`, is never a plugin.
+
+A plugin without `skills/` can use both of the last two locations. In those locations, wikiskill
+ignores hidden directories, `agents/`, `commands/`, and any directory without a `SKILL.md`. Agents
+and commands are always in `agents/` and `commands/`.
+
+A plugin that is a skill builds without the rest of its plugin. The build leaves out the plugin's
+other skills and its plugin-level components: `agents/`, `commands/`, `hooks/`, `.claude-plugin/`,
+`.mcp.json`, `.lsp.json`, `output-styles/`, `workflows/`, `themes/`, `monitors/`, `bin/` and
+`settings.json`. It also leaves out hidden or installed files such as `.git/` and `node_modules/`,
+and any directory with a `SKILL.md` below it, such as `examples/inner/SKILL.md`. Do not name a child skill after its
+plugin: `<plugin>/<plugin>/SKILL.md` beside `<plugin>/SKILL.md` gives two skills one name, and
+`collection check` fails.
+
 Each component's **main file** is the file the harness loads: `SKILL.md` for a skill, and the
 Markdown file for an agent or a command. Its YAML frontmatter holds the `name` and the
 `description`. The description is what the model reads when it decides which skill to use, so it
@@ -188,6 +212,9 @@ wikiskill collection init my-skills --source ~/src/my-plugins/plugins
 
 `init` detects the layout, lists every component it finds, and writes the manifest to
 `~/.config/wikiskill/collections/my-skills.toml`. It writes nothing into the source directory.
+`init` detects the claude-plugin layout when a plugin has a `.claude-plugin/` directory, a
+`SKILL.md`, a child directory with a `SKILL.md`, or a components directory in the plural or
+singular form. Otherwise, add `--layout claude-plugin`.
 
 ### 2.3 The manifest's structure
 
@@ -262,14 +289,15 @@ through `opencode run`, for a model that OpenCode serves itself.
 wikiskill collection check my-skills
 ```
 
-`check` reads every component the way an evaluation will. It must end with `ok`. It reports three
+`check` reads every component the way an evaluation will. It must end with `ok`. It reports four
 kinds of problem:
 
 | Mark | Message | What to do |
 |---|---|---|
 | `~` | `frontmatter read leniently` | A line Claude Code accepts but YAML does not, such as an unquoted `argument-hint: [path]`. Quote the value. |
 | `!` | `unreadable frontmatter` | The evaluation would stop on this component. Fix the YAML. |
-| `~` | `plugin paths that resolve to nothing` | A `${CLAUDE_PLUGIN_ROOT}` or `${CLAUDE_SKILL_DIR}` path points to a missing file. It is broken in Claude Code too. |
+| `~` | `plugin paths that resolve to nothing` | A `${CLAUDE_PLUGIN_ROOT}` or `${CLAUDE_SKILL_DIR}` path points to a missing file. It is broken in Claude Code too. In a plugin that is a skill, a `${CLAUDE_SKILL_DIR}` path to a file the build leaves out is reported as `is not built with the skill`. |
+| `!` | `components sharing a name` | Two components have one name, for example a plugin that is a skill and holds a child of the same name. Rename one. |
 
 The two plugin variables mean:
 

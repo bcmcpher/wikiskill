@@ -22,12 +22,16 @@ LAYOUTS = ("opencode", "claude-plugin")
 KINDS = ("skill", "agent", "command")
 ROLES = ("judge", "maintainer", "proposer")
 
-#: Directory names each layout may use, most conventional first.
-_DIR_NAMES = {
+#: Directory names each layout may use, most conventional first. Discovery and the build both read
+#: every one of them.
+DIR_NAMES = {
     "skill": ("skills", "skill"),
     "agent": ("agents", "agent"),
     "command": ("commands", "command"),
 }
+
+#: A flat plugin's children that hold its agents and commands, and so are never one of its skills.
+NOT_SKILL_DIRS = frozenset(DIR_NAMES["agent"] + DIR_NAMES["command"])
 
 DEFAULT_BUFFER_SIZE = 200
 DEFAULT_OUTPUT_LIMIT = 16 * 1024
@@ -61,10 +65,13 @@ class Source:
             return [self.path]
         if not self.path.is_dir():
             return []
+        # A hidden directory (`.github/`) is repository furniture, never a plugin.
         return sorted(
             p
             for p in self.path.iterdir()
-            if p.is_dir() and (self.plugins is None or p.name in self.plugins)
+            if p.is_dir()
+            and not p.name.startswith(".")
+            and (self.plugins is None or p.name in self.plugins)
         )
 
     def missing_plugins(self) -> list[str]:
@@ -78,8 +85,11 @@ class Source:
 
         ``opencode``      → ``<root>/skills/``
         ``claude-plugin`` → ``<root>/<plugin>/skills/`` for each selected plugin under the root
+
+        A claude-plugin plugin with no skills directory keeps its skills flat; see
+        `flat_skill_dirs`.
         """
-        names = _DIR_NAMES[kind]
+        names = DIR_NAMES[kind]
         return [
             root / name for root in self.plugin_dirs() for name in names if (root / name).is_dir()
         ]
@@ -169,6 +179,22 @@ class Collection:
                     missing.append(f"{kind}:{pattern}")
         return missing
 
+    def duplicates(self, components: Iterable[Component] | None = None) -> list[str]:
+        """Names two discovered components of one kind share, as ``<kind>:<name>`` with each path.
+
+        `<plugin>/SKILL.md` and `<plugin>/<plugin>/SKILL.md` are both `<plugin>/<plugin>`, and both
+        would build to the same directory, so neither can be evaluated as itself.
+        """
+        pool = list(components) if components is not None else self.discover()
+        paths_by_name: dict[tuple[str, str], list[str]] = {}
+        for c in pool:
+            paths_by_name.setdefault((c.kind, c.name), []).append(str(c.path))
+        return [
+            f"{kind}:{name} ({' and '.join(found)})"
+            for (kind, name), found in sorted(paths_by_name.items())
+            if len(found) > 1
+        ]
+
     def unresolved_plugins(self) -> list[str]:
         """Plugins a source selects that do not exist, as ``<source>/<plugin>`` strings."""
         return [
@@ -239,6 +265,38 @@ def discover(source: Source) -> list[Component]:
                 base = entry.name if kind == "skill" else entry.stem
                 name = names.qualify(plugin, base)
                 found.append(Component(kind=kind, name=name, path=main, source=source))
+    if source.layout == "claude-plugin":
+        for plugin_dir in source.plugin_dirs():
+            for entry in flat_skill_dirs(plugin_dir) or ():
+                name = names.qualify(plugin_dir.name, entry.name)
+                found.append(
+                    Component(kind="skill", name=name, path=entry / "SKILL.md", source=source)
+                )
+    return found
+
+
+def flat_skill_dirs(plugin_dir: Path) -> list[Path] | None:
+    """A claude-plugin plugin's skill directories when it has no skills directory, else None.
+
+    The plugin directory is itself a skill when it holds a `SKILL.md`, named `<plugin>/<plugin>` so
+    that every component of a claude-plugin source stays qualified. Each direct child holding one is
+    a skill too, except hidden directories and the plugin's agents and commands.
+    """
+    if any((plugin_dir / name).is_dir() for name in DIR_NAMES["skill"]):
+        return None
+    try:
+        children = sorted(plugin_dir.iterdir())
+    except OSError:
+        return []
+    found = [plugin_dir] if (plugin_dir / "SKILL.md").is_file() else []
+    found.extend(
+        child
+        for child in children
+        if child.is_dir()
+        and not child.name.startswith(".")
+        and child.name not in NOT_SKILL_DIRS
+        and (child / "SKILL.md").is_file()
+    )
     return found
 
 
