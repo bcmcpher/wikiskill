@@ -7,6 +7,7 @@ what actually happened on disk, so a mocked one would test nothing.
 from __future__ import annotations
 
 import dataclasses
+import json
 import sys
 from pathlib import Path
 
@@ -511,3 +512,61 @@ def test_a_verifier_does_not_inherit_another_tasks_secret(workdir, monkeypatch):
     _, passed = verify.verify_task(task, workdir=workdir)
 
     assert passed, "only the task that declares a secret has its verifiers given it"
+
+
+# --------------------------------------------------------------------------- secrets in a result
+
+
+def scored(run: str, **fields) -> Verifier:
+    return Verifier(kind="command", run=run, result="json", **fields)
+
+
+def test_a_secret_a_grader_prints_as_a_key_is_stored_scrubbed(workdir, tmp_path):
+    secret = "fake-grader-value-0123456789"
+    out = tmp_path / "result.json"
+    out.write_text(json.dumps({"verdict": "ok", "per_key": {secret: 1}}))
+
+    result = verify.run_verifier(
+        scored(f"cat {out}", pass_when=(("verdict", ("ok",)),)), workdir=workdir, hide=(secret,)
+    )
+
+    assert result.passed
+    assert result.result == {"verdict": "ok", "per_key": {"[REDACTED:env_value]": 1}}
+
+
+def test_a_secret_a_grader_prints_as_a_number_is_refused_not_stored(workdir, tmp_path):
+    secret = "12345678901"
+    out = tmp_path / "result.json"
+    out.write_text(json.dumps({"verdict": "ok", "account": int(secret)}))
+
+    with pytest.raises(verify.VerifierError, match="cannot be redacted") as caught:
+        verify.run_verifier(scored(f"cat {out}"), workdir=workdir, hide=(secret,))
+    assert secret not in str(caught.value)
+
+
+def test_a_secret_quoted_in_a_miss_is_scrubbed_from_the_detail(workdir, tmp_path):
+    secret = "fake-grader-value-0123456789"
+    out = tmp_path / "result.json"
+    out.write_text(json.dumps({"verdict": secret}))
+
+    result = verify.run_verifier(
+        scored(f"cat {out}", pass_when=(("verdict", ("ok",)),)), workdir=workdir, hide=(secret,)
+    )
+
+    assert not result.passed
+    assert secret not in result.detail and "[REDACTED:env_value]" in result.detail
+
+
+def test_an_escaped_secret_at_the_tail_cut_leaves_no_part_behind(workdir, tmp_path):
+    # A grader writes a secret holding a quote escaped, as JSON does. Placed so the tail cut would
+    # fall inside it, were only the raw form redacted before the cut.
+    secret = 'fake"grader-value-0123'
+    escaped = 'fake\\"grader-value-0123'
+    out = tmp_path / "out.txt"
+    out.write_text(escaped[:4] + escaped[4:] + "x" * (verify.OUTPUT_TAIL - len(escaped) + 4))
+
+    result = verify.run_verifier(
+        Verifier(kind="command", run=f"cat {out}"), workdir=workdir, hide=(secret,)
+    )
+
+    assert "grader-value" not in result.output

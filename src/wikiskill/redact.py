@@ -9,6 +9,7 @@ cases. Pure: the environment snapshot is an argument, taken once per hook proces
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
@@ -192,3 +193,62 @@ def bound(text: str, limit_bytes: int) -> Bounded:
     if len(data) <= limit_bytes:
         return Bounded(text, len(text), False)
     return Bounded(data[:limit_bytes].decode("utf-8", errors="ignore"), len(text), True)
+
+
+#: What a withheld value is replaced with, in a raw file or a stored record, as `redact` marks it.
+MARKER = "[REDACTED:env_value]"
+
+
+def withheld_forms(values: Iterable[str]) -> list[str]:
+    """Each value as text holds it and as a JSON string holds it, longest first. A harness's raw
+    stream is JSON, where a value with a quote or a backslash is written escaped."""
+    forms: set[str] = set()
+    for value in values:
+        if value:
+            forms.update(
+                {value, json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1]}
+            )
+    return sorted(forms, key=len, reverse=True)
+
+
+def hide_values_in(text: str, forms: list[str]) -> str:
+    """``text`` with every one of ``forms``, from `withheld_forms`, replaced by `MARKER`."""
+    for form in forms:
+        text = text.replace(form, MARKER)
+    return text
+
+
+def hide(text: str, values: Iterable[str]) -> str:
+    """``text`` with every copy of each of ``values`` replaced by `MARKER`, and nothing else
+    changed: no pattern redaction, so a raw file stays what the harness wrote, less the secrets."""
+    return hide_values_in(text, withheld_forms(values))
+
+
+def hide_value(obj: Any, values: Iterable[str]) -> Any:
+    """`hide` applied to every string inside ``obj``, dict keys included, keeping its structure.
+
+    A value that is not a string, such as a number, is left as it is: a caller storing data a
+    grader chose checks for what this cannot remove (`holds_withheld`)."""
+    forms = withheld_forms(values)
+    if not forms:
+        return obj
+
+    def walk(item: Any) -> Any:
+        if isinstance(item, str):
+            return hide_values_in(item, forms)
+        if isinstance(item, list):
+            return [walk(entry) for entry in item]
+        if isinstance(item, dict):
+            return {walk(key): walk(entry) for key, entry in item.items()}
+        return item
+
+    return walk(obj)
+
+
+def holds_withheld(obj: Any, values: Iterable[str]) -> bool:
+    """Whether any of ``values`` is still somewhere in ``obj`` as JSON writes it."""
+    forms = withheld_forms(values)
+    if not forms:
+        return False
+    text = json.dumps(obj, ensure_ascii=False)
+    return any(form in text for form in forms)

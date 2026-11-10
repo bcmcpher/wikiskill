@@ -140,13 +140,10 @@ def _command(
     except OSError as exc:
         raise VerifierError(f"`{verifier.run}` could not be started: {exc}") from exc
 
-    output = done.stdout + done.stderr
-    if hide:
-        # Before the tail is cut, so a cut cannot leave half a secret behind, and before the strip,
-        # so a value ending in whitespace is still whole. A scorer that echoes its configuration
-        # must not write the secret into `results.jsonl`.
-        output, _ = redact.redact(output, sorted(hide, key=len, reverse=True))
-    output = output.strip()
+    # Scrubbed before the tail is cut, in every form JSON may write it, so a cut cannot leave part
+    # of a secret behind; and before the strip, so a value ending in whitespace is still whole. A
+    # scorer that echoes its configuration must not write the secret into `results.jsonl`.
+    output = redact.hide(done.stdout + done.stderr, hide).strip()
     exited = done.returncode == verifier.expect_exit
     detail = f"`{verifier.run}` exited {done.returncode}, expected {verifier.expect_exit}"
     if verifier.result != "json":
@@ -158,20 +155,20 @@ def _command(
             output=output[-OUTPUT_TAIL:],
         )
 
-    # Read and judged unredacted, so `pass_when` sees what the grader printed. The stored result
-    # and the detail quoting it are scrubbed of every withheld value when the unit's line is
-    # written (`runner.run._result`).
+    # Judged as printed, so `pass_when` sees the grader's own values; stored, and quoted in the
+    # detail, without any withheld value.
     result = _json_result(verifier, done.stdout)
+    stored = _stored_result(verifier, result, hide)
     misses = _misses(verifier, result)
     if misses:
-        detail += "; " + "; ".join(misses)
+        detail = redact.hide(detail + "; " + "; ".join(misses), hide)
     return VerifierResult(
         kind=verifier.kind,
         passed=exited and not misses,
         detail=detail,
         exit_code=done.returncode,
         output=output[-OUTPUT_TAIL:],
-        result=result,
+        result=stored,
         score_field=verifier.score,
     )
 
@@ -202,6 +199,23 @@ def _json_result(verifier: Verifier, stdout: str) -> dict[str, Any]:
     # Refused only in the object taken as the result: a log line before it may hold anything.
     if constants:
         raise VerifierError(f"`{verifier.run}` printed {constants[0]}, which JSON does not allow")
+    return found
+
+
+def _stored_result(
+    verifier: Verifier, result: dict[str, Any], hide: tuple[str, ...]
+) -> dict[str, Any]:
+    """``result`` as `results.jsonl` keeps it: every withheld value replaced, keys included.
+
+    A withheld value no replacement can reach, such as one a grader printed as a number, makes the
+    result unstorable, which is the grader's fault and not a verdict on the model.
+    """
+    found = redact.hide_value(result, hide)
+    if redact.holds_withheld(found, hide):
+        raise VerifierError(
+            f"`{verifier.run}` printed a declared secret in its result where it cannot be "
+            "redacted, such as a number; print it as a string, or not at all"
+        )
     # Measured as `results.jsonl` stores it, so the cap is the size the bundle actually grows by.
     try:
         size = len(json.dumps(found, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))

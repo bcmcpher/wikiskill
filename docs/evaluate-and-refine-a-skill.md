@@ -487,6 +487,9 @@ The runner then applies these rules, on OpenCode and on Claude Code:
   the harness's own files in the unit directory: `stream.jsonl`, `run.ndjson`, `run.stderr`,
   `exports/`, `sessions.json`, `setup.log` and the harness's state. The replacement happens when
   the harness exits, and it also applies when the collection sets `redact = false`.
+- A scored verifier (`result: json`) is judged on the result as the grader printed it. The stored
+  result has the value replaced in every string, dict keys included. A result that holds the value
+  where no string can replace it, such as a number, is an infrastructure error, not a stored value.
 
 wikiskill does not clean the working directory. A verifier that writes the secret into it, for
 example `curl ... > ref.json`, leaves it there, under the run directory. Fetch a reference to a path
