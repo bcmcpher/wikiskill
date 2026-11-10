@@ -470,8 +470,13 @@ def env_problems(task: Task) -> list[str]:
 # --------------------------------------------------------------------------- loading
 
 
+def _own(raw: dict[str, Any], defaults: dict[str, Any], key: str) -> Any:
+    """The task's value when it sets ``key``, empty included; otherwise the suite default's."""
+    return raw[key] if key in raw else defaults.get(key)
+
+
 def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
-    guard = raw.get("guard") or defaults.get("guard") or {}
+    guard = _own(raw, defaults, "guard") or {}
     return Task(
         id=raw["id"],
         prompt=raw["prompt"],
@@ -480,7 +485,7 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
         verifiers=tuple(Verifier.from_dict(v) for v in raw.get("verifiers", ())),
         rubric=raw.get("rubric"),
         fixtures=raw.get("fixtures"),
-        requires=tuple(raw.get("requires") or defaults.get("requires") or ()),
+        requires=tuple(_own(raw, defaults, "requires") or ()),
         guard_deny=tuple(guard.get("deny", ())),
         env=tuple(sorted({**(defaults.get("env") or {}), **(raw.get("env") or {})}.items())),
         # Joined rather than replaced: withholding more is never harmful, so a task adding its own
@@ -488,7 +493,7 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
         secrets=tuple(
             dict.fromkeys([*(defaults.get("secrets") or ()), *(raw.get("secrets") or ())])
         ),
-        setup=tuple(raw.get("setup") or defaults.get("setup") or ()),
+        setup=tuple(_own(raw, defaults, "setup") or ()),
         followups=tuple(raw.get("followups", ())),
         repeats=int(raw.get("repeats", defaults.get("repeats", DEFAULT_REPEATS))),
         timeout_s=int(raw.get("timeout_s", defaults.get("timeout_s", DEFAULT_TIMEOUT_S))),

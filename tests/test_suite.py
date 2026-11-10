@@ -229,6 +229,40 @@ def test_setup_is_the_tasks_own_or_the_suite_defaults(tmp_path):
     assert suite_mod.load(write(tmp_path, own)).tasks[0].setup == ("touch a", "touch b")
 
 
+OVERRIDE_DEFAULTS = {
+    "setup": ["git init -q"],
+    "guard": {"deny": ["git push*"]},
+    "requires": ["datalad"],
+    "env": {"A": "1"},
+}
+
+
+def _override(**own):
+    return suite_mod._as_task({"id": "t", "prompt": "p", "split": "val", **own}, OVERRIDE_DEFAULTS)
+
+
+def test_an_empty_task_value_clears_the_default():
+    task = _override(setup=[], guard={}, requires=[])
+
+    assert task.setup == ()
+    assert task.guard_deny == ()
+    assert task.requires == ()
+    assert task.guard_deny == _override(guard={"deny": []}).guard_deny
+
+
+def test_an_absent_task_key_takes_the_default():
+    task = _override()
+
+    assert task.setup == ("git init -q",)
+    assert task.guard_deny == ("git push*",)
+    assert task.requires == ("datalad",)
+
+
+def test_an_empty_task_env_changes_nothing():
+    assert dict(_override(env={}).env) == {"A": "1"}
+    assert dict(_override(env={"B": "2"}).env) == {"A": "1", "B": "2"}
+
+
 def test_env_expands_home_and_host_variables(monkeypatch):
     monkeypatch.setenv("HOME", "/home/someone")
     monkeypatch.setenv("PATH", "/usr/bin")
