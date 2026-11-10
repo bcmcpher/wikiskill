@@ -1,21 +1,31 @@
-# Resume note — 2026-11-10: skills-comm pilot merged
+# Resume note — 2026-11-10 (end of session): honour-empty-task-overrides merged
 
 ## Done
 
-The three skills-comm pilot changes are archived and merged into `main` through
-`proposals/skills-comm-pilot`: `support-flat-plugin-layout`, `add-verifier-secrets` and
-`add-scored-verifier`. Their worktrees and `change/*` branches are removed. Nothing is pushed.
+- The three skills-comm pilot changes are archived and merged into `main` through
+  `proposals/skills-comm-pilot`: `support-flat-plugin-layout`, `add-verifier-secrets` and
+  `add-scored-verifier`. That work is pushed (`94fd5df..2307620`).
+- `honour-empty-task-overrides` is archived and merged (`a857a3e`). A task's `setup: []`,
+  `requires: []` or `guard: {}` now clears the suite default. `env` and `secrets` still combine.
+  Pooling across the change was accepted and is noted in the guide §3.3. Not pushed.
+
+## The GB10 is gone
+
+The GB10 is no longer accessible. Its `evals/` runs beyond the bundles in `docs/pilots/` are out
+of reach, and no live eval can run. Build against synthetic fixtures and the bundled pilot
+results, and list live verification as outstanding. Live secret checks on both harnesses cannot
+run. Check whether `findings tables` for the three `docs/pilots/*` studies can be regenerated from
+the committed bundles.
 
 ## Next
 
-1. On the batch machine: rerun `findings tables` for the three `docs/pilots/*` studies (new score
-   columns), and check verifier secrets live on both harnesses.
-2. The remaining open changes, in this order:
-   1. `honour-empty-task-overrides`. Decision: may runs before and after pool? Recommended: yes.
-   2. `warn-unsent-followups`. Must be archived before `add-scripted-followups`.
-   3. `add-run-archive`. Reuse the secret scrub (`runner.common.hide_in_files`, `redact.hide`).
-   4. `add-scripted-followups`. Only after the DSH study runs are closed.
-   5. `enforce-task-splits`. Blocked on the DSH split decision below.
+1. `warn-unsent-followups` (6 tasks, no open decision). Present it, then start on
+   `change/warn-unsent-followups`. Must be archived before `add-scripted-followups`.
+2. `add-run-archive`. Reuse the secret scrub (`runner.common.hide_in_files`, `redact.hide`). Test
+   on synthetic runs.
+3. `add-scripted-followups`. No longer waits for the DSH study runs. Live multi-turn runs stay
+   unverified.
+4. `enforce-task-splits`. Decided: accept the hash-based DSH split.
 
 ## Open decisions and follow-ups
 
@@ -29,6 +39,9 @@ The three skills-comm pilot changes are archived and merged into `main` through
   `Task.suite_secrets` duplicates `Suite.secrets`.
 - **`evals/` in a plugin-root skill.** It is copied into the skill, not excluded. Recommended:
   keep it.
+- **Found in the honour-empty-task-overrides review, not fixed.** `guard: {}` on a task drops the
+  suite's deny patterns silently; a `suite check` warning would need a new change. The run manifest
+  records `setup` only when non-empty and never records `requires` or `guard`.
 - **Out of scope, found in review.** An ordinary skill still copies a nested `x/SKILL.md` into
   its build. `collection check` does not catch a bare-name clash across plugins, which the build
   rejects.
