@@ -34,6 +34,7 @@ This guide uses these terms with one meaning each.
 | **unit** | One task, on one model, under one condition, in one repeat. The smallest thing that passes or fails. |
 | **run** | One `wikiskill eval` invocation, and the directory that holds its results. |
 | **rubric** | A YAML file of quality dimensions that a judge model scores. It never decides pass or fail. |
+| **graded score** | A number that a `command` verifier's grader prints in its JSON result. The report gives its mean beside the pass rate. It never changes the pass rate. |
 | **meta-role** | A model that works on wikiskill's behalf: the judge, the maintainer or the proposer. |
 | **pattern** | A page in the collection's wiki that records a recurring failure or success, with its evidence. |
 | **proposal** | One suggested edit to one component, written by the proposer. wikiskill never applies it for you. |
@@ -371,7 +372,7 @@ A unit that did not run is never a failure. Its outcome says why:
 | `permission_blocked` | The model tried something the guard denied. | Yes |
 | `tool_call_as_text` | The model wrote a tool call as text instead of making it. | Yes |
 | `api_error` | The model endpoint returned an error. | Yes |
-| `infra_error` | Setup failed, the harness crashed, or the unit timed out. | No |
+| `infra_error` | Setup failed, the harness crashed, the unit timed out, or a verifier could not run. | No |
 | `skipped` | A `requires` tool is missing, the model failed preflight, or the task has no `expect` under INJECTED. | No |
 
 The report's `pass basis` column says whether each rate is based on `verifier` or `route`. The two
@@ -486,6 +487,9 @@ The runner then applies these rules, on OpenCode and on Claude Code:
   the harness's own files in the unit directory: `stream.jsonl`, `run.ndjson`, `run.stderr`,
   `exports/`, `sessions.json`, `setup.log` and the harness's state. The replacement happens when
   the harness exits, and it also applies when the collection sets `redact = false`.
+- A scored verifier (`result: json`) is judged on the result as the grader printed it. The stored
+  result has the value replaced in every string, dict keys included. A result that holds the value
+  where no string can replace it, such as a number, is an infrastructure error, not a stored value.
 
 wikiskill does not clean the working directory. A verifier that writes the secret into it, for
 example `curl ... > ref.json`, leaves it there, under the run directory. Fetch a reference to a path
@@ -639,8 +643,36 @@ every kind accepts `negate: true`, which passes when the check does **not** hold
 |---|---|
 | `run` | The command. It runs through the shell, in the working directory, with the task's `env` and `secrets`. |
 | `expect_exit` | The exit code that counts as a pass. Default 0. |
+| `result` | `json`: stdout is the grader's JSON result. Needed by `pass_when` and `score`. |
+| `pass_when` | Top-level result fields, each with the values that count as a pass. |
+| `score` | A top-level numeric result field. The report gives its mean as a graded score. |
 
 A command has 120 seconds. Use it for anything about state: git, files, JSON.
+
+**A grader that prints a verdict.** Some scorers print a JSON object, such as
+`{"verdict": "marginal", "score": 41}`, and use the exit code for validity only. Give its verifier
+`result: json`:
+
+```yaml
+- kind: command
+  run: python3 score.py output/mask.nii.gz
+  result: json
+  pass_when: { verdict: [acceptable, indistinguishable] }
+  score: score
+```
+
+1. wikiskill reads stdout as one JSON object. If that fails, it reads the last non-empty line, so
+   the grader can log first. It never reads stderr.
+2. The verifier passes when the exit code equals `expect_exit` **and** every `pass_when` field holds
+   one of its values. A failing verifier's detail names each field and the value it held.
+3. The whole object is stored with the unit in `results.jsonl`.
+4. These make the unit an `infra_error`: output with no JSON object, `NaN` or `Infinity` in it,
+   JSON nested too deeply to read, or a result over 64 KiB. A broken grader never counts against
+   the model.
+
+`pass_when` compares for equality, on top-level fields only. Give a grader with nested output a
+top-level verdict field. Quote a value such as `"yes"` or `"off"`: bare, YAML reads it as a
+boolean, and `suite check` warns.
 
 **`file_exists`** passes when `path` exists. `path` is relative to the working directory. An
 absolute path, a path that starts with `~`, or a path that contains `..` is refused when the
@@ -1015,6 +1047,13 @@ has a rubric. [data.md](data.md#evaluation-runs-evals) lists every field.
   `9/12 (75%, 47-91%)`. The interval is a Wilson interval, which stays honest for small counts and
   for 0% or 100%.
 - **Per task, model and condition:** each task's result, its `route@1`, and its `pass basis`.
+- **Scores:** only when a verifier declares `score`. Each graded score's mean per task, model and
+  condition, with `n` and a 95% t-interval of the mean. The interval is not clipped to the
+  scorer's scale. One unit shows `(one unit)`, and identical scores show `(all equal)`. Units with
+  no numeric score are counted in `no score`.
+  `wikiskill findings tables` exports these values to `findings.csv`. The leaderboard and the
+  version board do not show them. The score columns are in every study's `findings.csv`, so a
+  study made before them fails `findings tables --check` until you run `findings tables` again.
 - **Not run:** every `infra_error` and `skipped` unit, with its reason.
 
 Read the conditions against each other:
@@ -1296,6 +1335,7 @@ equally. Its rules:
 - A version that regresses **any** model is never named best overall.
 - A version that fails a **critical check** even once is never named best at all.
 - OFF does not load the component, so one OFF run per model serves every version.
+- It ranks on pass rates only. Graded scores stay in each run's report (section 4.5).
 
 A critical-check file is a YAML list. Each entry names a task (or `*` for every task) and a verifier
 by its 0-based index:

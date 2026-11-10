@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 import subprocess
 from collections.abc import Iterable
@@ -12,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import redact
+from ..redact import hide_values_in, withheld_forms
 from ..suite import Task
 from .base import RunnerError, Unit
 
@@ -100,52 +100,6 @@ def without_names(env: dict[str, str], names: Iterable[str]) -> dict[str, str]:
     return {key: value for key, value in env.items() if key not in drop}
 
 
-#: What a withheld value is replaced with in a raw file, as `redact.redact` marks it in events.
-MARKER = "[REDACTED:env_value]"
-
-
-def _forms(values: Iterable[str]) -> list[str]:
-    """Each value as text holds it and as a JSON string holds it, longest first. A harness's raw
-    stream is JSON, where a value with a quote or a backslash is written escaped."""
-    forms: set[str] = set()
-    for value in values:
-        if value:
-            forms.update(
-                {value, json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1]}
-            )
-    return sorted(forms, key=len, reverse=True)
-
-
-def hide(text: str, values: Iterable[str]) -> str:
-    """``text`` with every copy of each of ``values`` replaced by `MARKER`, and nothing else
-    changed: no pattern redaction, so a raw file stays what the harness wrote, less the secrets."""
-    return _hide_forms(text, _forms(values))
-
-
-def _hide_forms(text: str, forms: list[str]) -> str:
-    for form in forms:
-        text = text.replace(form, MARKER)
-    return text
-
-
-def hide_value(obj: Any, values: tuple[str, ...]) -> Any:
-    """`hide` applied to every string inside ``obj``, keeping its structure."""
-    forms = _forms(values)
-    if not forms:
-        return obj
-
-    def walk(item: Any) -> Any:
-        if isinstance(item, str):
-            return _hide_forms(item, forms)
-        if isinstance(item, list):
-            return [walk(entry) for entry in item]
-        if isinstance(item, dict):
-            return {key: walk(entry) for key, entry in item.items()}
-        return item
-
-    return walk(obj)
-
-
 def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("work",)) -> None:
     """Replace each of ``values`` in every file under ``root`` but the top-level ``skip``
     directories: the raw stream, stderr, exports, setup log and the harness's own state.
@@ -157,7 +111,7 @@ def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("
     so its layout survives. Applied whether or not the collection redacts, as declared secrets
     always are.
     """
-    forms = _forms(values)
+    forms = withheld_forms(values)
     if not forms or not root.is_dir():
         return
     skipped = frozenset(skip)
@@ -182,7 +136,7 @@ def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("
                     data = data.replace(form, b"*" * len(form))
                 path.write_bytes(data)
                 continue
-            path.write_text(_hide_forms(text, forms), encoding="utf-8")
+            path.write_text(hide_values_in(text, forms), encoding="utf-8")
 
 
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:

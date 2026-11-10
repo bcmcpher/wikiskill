@@ -330,7 +330,7 @@ def run_suite(
         proposal=proposal,
     )
     # A preflight probe's words and an isolation proof come from harness processes too.
-    where.write_manifest(common.hide_value(manifest, host_values(suite.secrets)))
+    where.write_manifest(redact.hide_value(manifest, host_values(suite.secrets)))
     for warning in run.warnings:
         report(f"warning: {warning}")
     return run
@@ -397,13 +397,13 @@ def _scrub_unit(trajectory: Trajectory, layout: RunLayout) -> None:
     if not values:
         return
     common.hide_in_files(layout.root / "units" / trajectory.unit.slug, values)
-    trajectory.reason = common.hide_value(trajectory.reason, values)
-    trajectory.error = common.hide_value(trajectory.error, values)
+    trajectory.reason = redact.hide_value(trajectory.reason, values)
+    trajectory.error = redact.hide_value(trajectory.error, values)
 
 
 def _result(trajectory: Trajectory) -> dict[str, Any]:
     """The unit's `results.jsonl` line, with no secret value anywhere in it."""
-    return common.hide_value(trajectory.as_result(), trajectory.unit.task.withheld_values())
+    return redact.hide_value(trajectory.as_result(), trajectory.unit.task.withheld_values())
 
 
 def _attempt(result: dict[str, Any], aside: Path | None, layout: RunLayout) -> dict[str, Any]:
@@ -796,7 +796,7 @@ def fill_run(
         }
     )
     layout.write_manifest(
-        common.hide_value(
+        redact.hide_value(
             {
                 **manifest,
                 "fills": fills,

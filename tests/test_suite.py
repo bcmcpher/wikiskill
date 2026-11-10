@@ -240,6 +240,83 @@ def test_env_expands_home_and_host_variables(monkeypatch):
     assert dict(task.env)["PATH"] == "~/venv/bin:$PATH", "the task keeps what the suite said"
 
 
+# --------------------------------------------------------------------------- structured results
+
+GRADED = """
+suite: toy
+tasks:
+  - id: graded
+    prompt: Produce the brain mask for this scan.
+    split: val
+    verifiers:
+      - %s
+"""
+
+
+def test_a_grader_with_a_verdict_is_accepted(tmp_path):
+    verifier = (
+        "{ kind: command, run: python3 grade.py, result: json, "
+        "pass_when: { verdict: [acceptable, indistinguishable] }, score: score }"
+    )
+    path = write(tmp_path, GRADED % verifier)
+
+    assert main(["suite", "check", str(path)]) == 0
+    loaded = suite_mod.load(path).tasks[0].verifiers[0]
+    assert loaded.result == "json"
+    assert loaded.pass_when == (("verdict", ("acceptable", "indistinguishable")),)
+    assert loaded.score == "score"
+
+
+@pytest.mark.parametrize(
+    "verifier, expected",
+    [
+        ("{ kind: command, run: x, pass_when: { verdict: [ok] } }", "`pass_when` needs `result"),
+        ("{ kind: command, run: x, score: score }", "`score` needs `result: json`"),
+        ("{ kind: regex, pattern: x, result: json }", "`result` applies only to a command"),
+        (
+            "{ kind: file_exists, path: a, result: json, score: s }",
+            "`result`, `score` apply only to a command",
+        ),
+    ],
+)
+def test_result_fields_out_of_place_are_refused(tmp_path, capsys, verifier, expected):
+    path = write(tmp_path, GRADED % verifier)
+
+    assert main(["suite", "check", str(path)]) == 1
+    assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "verifier",
+    [
+        "{ kind: command, run: x, result: json, pass_when: {} }",
+        "{ kind: command, run: x, result: json, pass_when: { verdict: [] } }",
+        "{ kind: command, run: x, result: json, pass_when: { verdict: [[nested]] } }",
+        "{ kind: command, run: x, result: yaml }",
+    ],
+)
+def test_the_schema_gives_result_fields_their_shape(tmp_path, verifier):
+    with pytest.raises(SuiteError):
+        suite_mod.load(write(tmp_path, GRADED % verifier))
+
+
+def test_a_bare_yes_in_pass_when_is_a_warning_not_an_error(tmp_path, capsys):
+    bare = "{ kind: command, run: x, result: json, pass_when: { usable: [yes, maybe] } }"
+    path = write(tmp_path, GRADED % bare)
+
+    loaded = suite_mod.load(path)
+    assert loaded.tasks[0].verifiers[0].pass_when == (("usable", (True, "maybe")),)
+    (warning,) = loaded.warnings
+    assert "`usable` accepts the boolean true" in warning
+    assert "quote the value" in warning
+    assert main(["suite", "check", str(path)]) == 0
+
+    quoted = write(tmp_path, GRADED % bare.replace("[yes,", '["yes",'))
+    assert suite_mod.load(quoted).warnings == ()
+
+
+# --------------------------------------------------------------------------- secrets
+
 SECRETS = """
 suite: graded
 defaults: { secrets: [FAKE_HF_TOKEN] }

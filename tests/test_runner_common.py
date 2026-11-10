@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from wikiskill import names
+from wikiskill import names, redact
 from wikiskill.runner import base as runner_base
 from wikiskill.runner import common
 from wikiskill.suite import Route, Task
@@ -237,10 +237,10 @@ def test_hide_takes_a_value_out_as_written_and_as_json_escapes_it():
     secret = 'fake"grader\\value-0123'
     raw = f'plain {secret} and json {{"t": {json.dumps(secret)}}} sk-ant-' + "k" * 20
 
-    clean = common.hide(raw, [secret])
+    clean = redact.hide(raw, [secret])
 
     assert "grader" not in clean
-    assert clean.count(common.MARKER) == 2
+    assert clean.count(redact.MARKER) == 2
     assert clean.endswith("sk-ant-" + "k" * 20), "no pattern redaction: only the named values"
 
 
@@ -256,10 +256,10 @@ def test_hide_in_files_scrubs_text_and_binary_and_spares_the_workdir(tmp_path):
 
     common.hide_in_files(tmp_path, [secret])
 
-    assert (tmp_path / "cache" / "work" / "log").read_text() == common.MARKER, (
+    assert (tmp_path / "cache" / "work" / "log").read_text() == redact.MARKER, (
         "only top-level work/"
     )
 
-    assert (tmp_path / "run.stderr").read_text() == f"saw {common.MARKER}\n"
+    assert (tmp_path / "run.stderr").read_text() == f"saw {redact.MARKER}\n"
     assert (tmp_path / "state" / "db").read_bytes() == b"\xff\x00" + b"*" * len(secret) + b"\x00"
     assert (tmp_path / "work" / "answer.txt").read_text() == secret, "the task's output is its own"

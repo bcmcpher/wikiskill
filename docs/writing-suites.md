@@ -138,6 +138,43 @@ A `regex` matches one of three targets:
 
 `negate: true` flips any verifier: it passes when the check does not hold.
 
+**A grader that prints a result.** Some scorers print a JSON verdict and a score, and use the exit
+code for validity only. Declare `result: json` on its `command` verifier, and wikiskill reads the
+verdict itself:
+
+```yaml
+verifiers:
+  - kind: command
+    run: python3 score.py output/mask.nii.gz
+    result: json
+    pass_when: { verdict: [acceptable, indistinguishable] }
+    score: score
+```
+
+- **`result: json`**: stdout is one JSON object. If the whole of stdout does not parse, its last
+  non-empty line is read, so a scorer can log before it prints. stderr is never read.
+- **`pass_when`**: top-level fields and the values each may hold. The verifier passes when the
+  exit code equals `expect_exit` and every field holds one of its values. A missing field fails,
+  and the detail names it.
+- **`score`**: a top-level numeric field. The report gives its mean per task, model and condition,
+  with a 95% t-interval, beside the pass rate. It never changes the pass rate.
+
+The whole object is kept with the unit in `results.jsonl`. These are `infra_error`s: the grader is
+broken, and the model is not blamed.
+- Output with no JSON object.
+- `NaN`, `Infinity` or `-Infinity` anywhere in the result. JSON does not allow them.
+- JSON nested too deeply to read.
+- A result over 64 KiB, measured as `results.jsonl` stores it.
+
+A scorer that prints large arrays needs a summary mode, or a `jq` filter in `run`. `pass_when`
+compares values for equality only, and reads top-level fields only. All three fields need
+`result: json`, and only a `command` verifier takes them.
+
+**Quote words that YAML reads as booleans.** YAML reads a bare `yes`, `no`, `on`, `off`, `true` or
+`false` as a boolean. `pass_when: { usable: [yes] }` accepts `true`, and fails a grader that prints
+`"yes"`. Quote the value: `["yes"]`. `suite check` warns about each boolean in
+`pass_when`, and does not fail the suite.
+
 **Prefer state over words.** A `command` that checks the repository cannot be fooled by phrasing. A
 regex over the reply can, in both directions.
 

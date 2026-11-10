@@ -187,11 +187,11 @@ def _report_preflight(backend, models: list[str], layout, loaded) -> int:
                 print(f"    {key}: {checked.details[key]}")
         for problem in checked.problems:
             print(f"  - {problem}")
-    from ..runner import common
+    from .. import redact
     from ..suite import host_values
 
     layout.write_manifest(
-        common.hide_value(
+        redact.hide_value(
             {
                 "run_id": layout.run_id,
                 "preflight_only": True,

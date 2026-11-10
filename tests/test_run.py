@@ -9,6 +9,7 @@ returns what the test told it to.
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from pathlib import Path
@@ -18,6 +19,7 @@ import pytest
 from conftest import write_manifest
 from wikiskill import collection as collection_mod
 from wikiskill import rawlog
+from wikiskill import report as report_mod
 from wikiskill import suite as suite_mod
 from wikiskill.runner import run as run_mod
 from wikiskill.runner.base import OFF, Backend, PreflightResult, RunLayout, Trajectory
@@ -154,6 +156,92 @@ def test_a_task_without_verifiers_gets_no_verdict(xdg, tmp_path, layout):
 
     assert result["passed"] is None
     assert result["verifiers"] == []
+
+
+# --------------------------------------------------------------------------- scored verifiers
+
+GRADER = Path(__file__).parent / "fixtures" / "grader.py"
+
+GRADED = f"""
+suite: toy
+defaults: {{ repeats: 3 }}
+tasks:
+  - id: graded
+    prompt: Make the brain mask for this scan.
+    split: val
+    verifiers:
+      - kind: command
+        run: {sys.executable} {GRADER} $(cat VERDICT) $(cat SCORE) --log 2
+        result: json
+        pass_when: {{ verdict: [acceptable, indistinguishable] }}
+        score: score
+  - id: broken
+    prompt: Make the skull mask for this scan.
+    split: val
+    repeats: 1
+    verifiers:
+      - {{ kind: command, run: {sys.executable} {GRADER} x 0 --crash, result: json }}
+"""
+
+
+class GradedBackend(FakeBackend):
+    """Leaves a verdict and score in the workdir for the grader to print, one per repeat."""
+
+    VERDICTS = (("acceptable", "60"), ("marginal", "70"), ("acceptable", "80"))
+
+    def execute(self, unit) -> Trajectory:
+        trajectory = super().execute(unit)
+        verdict, score = self.VERDICTS[unit.repeat]
+        (trajectory.workdir / "VERDICT").write_text(verdict, encoding="utf-8")
+        (trajectory.workdir / "SCORE").write_text(score, encoding="utf-8")
+        return trajectory
+
+
+def test_a_scored_verifier_end_to_end(xdg, tmp_path, layout):
+    path = tmp_path / "graded.yaml"
+    path.write_text(GRADED, encoding="utf-8")
+    run = go(suite_mod.load(path), GradedBackend(layout), layout)
+
+    on_disk = {(r["task_id"], r["repeat"]): r for r in layout.read_results()}
+    first = on_disk[("graded", 0)]
+    assert first["passed"] is True
+    assert first["verifiers"][0]["result"] == {"verdict": "acceptable", "score": 60}
+    assert first["verifiers"][0]["score_field"] == "score"
+    marginal = on_disk[("graded", 1)]
+    assert marginal["passed"] is False
+    assert '`verdict` is "marginal"' in marginal["verifiers"][0]["detail"]
+    broken = on_disk[("broken", 0)]
+    assert broken["outcome"] == "infra_error"
+    assert str(GRADER) in broken["reason"] and "no JSON object" in broken["reason"]
+
+    built = report_mod.write(layout, run.results, run_mod.load_manifest(layout))
+    rows = {row["task_id"]: row for row in built["rows"]}
+    assert rows["graded"]["pass_rate"] == pytest.approx(2 / 3)
+    (entry,) = rows["graded"]["scores"]
+    assert (entry["mean"], entry["n"], entry["missing"]) == (70, 3, 0)
+    assert rows["broken"]["pass_rate"] is None, "an infra_error is out of the denominator"
+    assert rows["broken"]["scores"] == []
+    text = layout.report_json.with_name("report.md").read_text(encoding="utf-8")
+    assert "## Scores" in text
+    assert "| graded | fake/model | off | `score` | 70.0 (" in text
+
+
+def test_a_result_results_jsonl_cannot_hold_demotes_only_its_unit(xdg, tmp_path, layout):
+    out = tmp_path / "out.json"
+    out.write_text('{"verdict": "ok", "s": "\\ud800"}\n', encoding="utf-8")
+    path = tmp_path / "surrogate.yaml"
+    path.write_text(
+        "suite: toy\ndefaults: { repeats: 1 }\ntasks:\n"
+        "  - id: control\n    prompt: Rename the variable n to count.\n    split: val\n"
+        f"    verifiers:\n      - {{ kind: command, run: cat {out}, result: json }}\n",
+        encoding="utf-8",
+    )
+    run = go(suite_mod.load(path), FakeBackend(layout), layout)
+
+    (result,) = layout.read_results()
+    assert result["outcome"] == "infra_error"
+    assert "unpaired surrogate" in result["reason"]
+    assert layout.read_results() == run.results
 
 
 # --------------------------------------------------------------------------- workers
@@ -502,6 +590,39 @@ def test_run_json_names_the_secrets_and_no_file_holds_a_value(
     assert result["passed"] is True
     assert result["verifiers"][0]["output"] == "token is [REDACTED:env_value]"
     assert run_mod.load_manifest(layout)["secrets"] == {"echoes": ["FAKE_GRADER_TOKEN"]}
+    assert files_holding(layout.root, FAKE_SECRET) == []
+    assert files_holding(xdg["data"], FAKE_SECRET) == [], "nor the raw event log"
+
+
+SCORED_SECRET_SUITE = """
+suite: graded
+defaults: { repeats: 1, secrets: [FAKE_GRADER_TOKEN] }
+tasks:
+  - id: echoes
+    prompt: Rename the variable n to count.
+    split: val
+    verifiers:
+      - kind: command
+        run: 'printf "{\\"verdict\\": \\"ok\\", \\"echo\\": \\"%s\\", \\"score\\": 7}" "$FAKE_GRADER_TOKEN"'
+        result: json
+        pass_when: { verdict: [ok] }
+        score: score
+"""
+
+
+def test_a_scored_result_that_echoes_a_secret_is_judged_whole_and_stored_scrubbed(
+    xdg, tmp_path, layout, monkeypatch
+):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    path = tmp_path / "scored.yaml"
+    path.write_text(SCORED_SECRET_SUITE, encoding="utf-8")
+
+    run = go(suite_mod.load(path), FakeBackend(layout), layout)
+
+    (result,) = run.results
+    record = result["verifiers"][0]
+    assert result["passed"] is True
+    assert record["result"] == {"verdict": "ok", "echo": "[REDACTED:env_value]", "score": 7}
     assert files_holding(layout.root, FAKE_SECRET) == []
     assert files_holding(xdg["data"], FAKE_SECRET) == [], "nor the raw event log"
 

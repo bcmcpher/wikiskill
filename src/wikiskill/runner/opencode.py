@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .. import RAW_SCHEMA_VERSION, build, calls, names, paths, rawlog
+from .. import RAW_SCHEMA_VERSION, build, calls, names, paths, rawlog, redact
 from ..collection import Collection
 from ..frontmatter import FrontmatterError
 from ..frontmatter import read as read_frontmatter
@@ -217,8 +217,8 @@ class OpenCodeBackend(Backend):
         return PreflightResult(
             model=result.model,
             ok=result.ok,
-            problems=tuple(common.hide_value(list(result.problems), values)),
-            details=common.hide_value(result.details, values),
+            problems=tuple(redact.hide_value(list(result.problems), values)),
+            details=redact.hide_value(result.details, values),
         )
 
     def _probe_root(self, model: str) -> Path:

@@ -186,7 +186,9 @@ It never contains an API key.
   recorded lack it;
 - `verifiers` and `passed` (`null` when a task has no verifiers), `rubric`, `expected`. Each
   opinion in `rubric.opinions` names the judge `model` that gave it, and `rubric.scales` gives each
-  dimension's levels from worst to best; runs before judge panels carry neither.
+  dimension's levels from worst to best; runs before judge panels carry neither. A `command`
+  verifier with `result: json` adds `result`, the JSON object its stdout gave, whole and at most
+  64 KiB, and `score_field` when it declared `score`. Runs before scored verifiers carry neither.
 
 - `transient: true` on an `infra_error` the harness caused and a rerun may not repeat: it crashed
   or could not start, or its session could not be read back. Never on a timeout;
