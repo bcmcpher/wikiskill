@@ -173,7 +173,7 @@ def register(sub) -> None:
     ev.set_defaults(func=cmd_eval)
 
 
-def _report_preflight(backend, models: list[str], layout) -> int:
+def _report_preflight(backend, models: list[str], layout, loaded) -> int:
     """Check every model and say what it would cost the run, without running anything.
 
     Worth its own mode because the answer is what decides whether a suite is worth starting at all,
@@ -187,12 +187,18 @@ def _report_preflight(backend, models: list[str], layout) -> int:
                 print(f"    {key}: {checked.details[key]}")
         for problem in checked.problems:
             print(f"  - {problem}")
+    from .. import redact
+    from ..suite import host_values
+
     layout.write_manifest(
-        {
-            "run_id": layout.run_id,
-            "preflight_only": True,
-            "preflight": {model: checked.as_dict() for model, checked in checks.items()},
-        }
+        redact.hide_value(
+            {
+                "run_id": layout.run_id,
+                "preflight_only": True,
+                "preflight": {model: checked.as_dict() for model, checked in checks.items()},
+            },
+            host_values(loaded.secrets),
+        )
     )
     return OK if all(checked.ok for checked in checks.values()) else 1
 
@@ -281,6 +287,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     tasks, problem = _eval_tasks(args, loaded)
     # A judge panel that cannot grade the run is refused before a run directory exists.
     problem = problem or _judge_refusal(coll, loaded, models, tasks)
+    # So is a run whose declared secrets the host cannot supply.
+    problem = problem or run_mod.secret_refusal(tasks if tasks is not None else loaded.tasks)
+    problem = problem or _credential_conflict(args, loaded)
     if problem:
         return misuse(problem)
 
@@ -299,7 +308,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if args.base_url
         else None
     )
-    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root, withheld=loaded.secrets)
 
     print(
         f"run {run_id}  suite {loaded.name}  {args.harness}  {len(models)} model(s)  "
@@ -308,7 +317,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"  results  {layout.root}")
 
     if args.preflight_only:
-        return _report_preflight(backend, models, layout)
+        return _report_preflight(backend, models, layout, loaded)
     try:
         run = run_mod.run_suite(
             loaded,
@@ -384,6 +393,9 @@ def _cmd_fill(args: argparse.Namespace) -> int:
     if isinstance(target, str):
         return misuse(target)
     coll, layout, manifest, loaded = target
+    problem = _credential_conflict(args, loaded)
+    if problem:
+        return misuse(problem)
     if manifest.get("proposal"):
         coll = gate_mod.candidate_collection(coll, manifest["proposal"], layout.root)
     endpoint = (
@@ -394,7 +406,7 @@ def _cmd_fill(args: argparse.Namespace) -> int:
         if args.base_url
         else None
     )
-    backend = _eval_backend(args, coll, endpoint, layout, loaded.root)
+    backend = _eval_backend(args, coll, endpoint, layout, loaded.root, withheld=loaded.secrets)
     problem = run_mod.fill_refusal(manifest, loaded, backend, coll)
     if problem:
         return misuse(f"cannot fill {args.fill}: {problem}")
@@ -501,8 +513,43 @@ def _judge_refusal(coll: Collection | None, loaded, models: list[str], tasks) ->
     return None
 
 
-def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, layout, root):
-    """The backend for `--harness`, configured from the command line."""
+def _credential_conflict(args: argparse.Namespace, loaded) -> str | None:
+    """Why a declared secret is also a credential the session runs on, or None.
+
+    The endpoint's key reaches a Claude Code session as `ANTHROPIC_AUTH_TOKEN`, and without
+    `--base-url` a Claude Code session authenticates with `ANTHROPIC_API_KEY`. Either way the one
+    variable cannot be both the session's credential and the grader's alone. The first is refused
+    on every harness, so one suite means the same thing on both.
+    """
+    if args.api_key_env and args.api_key_env in loaded.secrets:
+        return (
+            f"--api-key-env {args.api_key_env} names a declared secret: the session would get its "
+            "value as the endpoint's key. Give the endpoint a variable of its own"
+        )
+    if (
+        args.harness == "claude-code"
+        and not args.base_url
+        and "ANTHROPIC_API_KEY" in loaded.secrets
+    ):
+        return (
+            "the suite declares ANTHROPIC_API_KEY a secret, but without --base-url the Claude Code "
+            "session needs it to reach the model. Pass --base-url, or give the grader another "
+            "variable"
+        )
+    return None
+
+
+def _eval_backend(
+    args: argparse.Namespace,
+    coll: Collection | None,
+    endpoint,
+    layout,
+    root,
+    *,
+    withheld: tuple[str, ...] = (),
+):
+    """The backend for `--harness`, configured from the command line. ``withheld`` is every
+    secret the suite declares, kept from the preflight probe and the version check."""
     limit = coll.output_limit_bytes if coll else 16 * 1024
     # A run without a collection redacts: that is the safe side.
     scrub = coll.redact if coll else True
@@ -520,6 +567,7 @@ def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, l
             output_limit_bytes=limit,
             redact=scrub,
             foreground_agents=args.foreground_agents,
+            withheld=withheld,
         )
     from ..runner import opencode as opencode_backend
 
@@ -536,6 +584,7 @@ def _eval_backend(args: argparse.Namespace, coll: Collection | None, endpoint, l
         max_output_tokens=args.max_output_tokens,
         thinking=args.thinking,
         seed_cache=not args.no_seed_cache,
+        withheld=withheld,
     )
 
 

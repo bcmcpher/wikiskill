@@ -28,11 +28,13 @@ This guide uses these terms with one meaning each.
 | **suite** | A YAML file of tasks that evaluates a collection. |
 | **task** | One prompt, its starting state, and the checks that decide its result. |
 | **verifier** | A deterministic check that runs after a task: a shell command, a file test or a regular expression. |
+| **secret** | A host environment variable that a suite names in `secrets`. Only the command verifiers of the task that names it get it. |
 | **route** | The component a correct run activates first. A task declares it with `expect`. |
 | **condition** | How the collection is offered to the model: OFF, ROUTED or INJECTED. |
 | **unit** | One task, on one model, under one condition, in one repeat. The smallest thing that passes or fails. |
 | **run** | One `wikiskill eval` invocation, and the directory that holds its results. |
 | **rubric** | A YAML file of quality dimensions that a judge model scores. It never decides pass or fail. |
+| **graded score** | A number that a `command` verifier's grader prints in its JSON result. The report gives its mean beside the pass rate. It never changes the pass rate. |
 | **meta-role** | A model that works on wikiskill's behalf: the judge, the maintainer or the proposer. |
 | **pattern** | A page in the collection's wiki that records a recurring failure or success, with its evidence. |
 | **proposal** | One suggested edit to one component, written by the proposer. wikiskill never applies it for you. |
@@ -175,6 +177,30 @@ plugins/                                my-skills/
     └── skills/ ...
 ```
 
+In the claude-plugin layout, a plugin's skills can be in one of three locations. wikiskill selects
+the location for each plugin separately, so one source can mix them:
+
+| Location | Skill name | When wikiskill uses it |
+|---|---|---|
+| `<plugin>/skills/<name>/SKILL.md` | `<plugin>/<name>` | The plugin has a `skills/` directory. wikiskill then looks nowhere else for its skills. |
+| `<plugin>/<name>/SKILL.md` | `<plugin>/<name>` | The plugin has no `skills/` directory. |
+| `<plugin>/SKILL.md` | `<plugin>/<plugin>` | The plugin has no `skills/` directory. The plugin directory is the skill. |
+
+wikiskill also reads the singular forms `skill/`, `agent/` and `command/`. A hidden directory, such
+as `.github/`, is never a plugin.
+
+A plugin without `skills/` can use both of the last two locations. In those locations, wikiskill
+ignores hidden directories, `agents/`, `commands/`, and any directory without a `SKILL.md`. Agents
+and commands are always in `agents/` and `commands/`.
+
+A plugin that is a skill builds without the rest of its plugin. The build leaves out the plugin's
+other skills and its plugin-level components: `agents/`, `commands/`, `hooks/`, `.claude-plugin/`,
+`.mcp.json`, `.lsp.json`, `output-styles/`, `workflows/`, `themes/`, `monitors/`, `bin/` and
+`settings.json`. It also leaves out hidden or installed files such as `.git/` and `node_modules/`,
+and any directory with a `SKILL.md` below it, such as `examples/inner/SKILL.md`. Do not name a child skill after its
+plugin: `<plugin>/<plugin>/SKILL.md` beside `<plugin>/SKILL.md` gives two skills one name, and
+`collection check` fails.
+
 Each component's **main file** is the file the harness loads: `SKILL.md` for a skill, and the
 Markdown file for an agent or a command. Its YAML frontmatter holds the `name` and the
 `description`. The description is what the model reads when it decides which skill to use, so it
@@ -188,6 +214,9 @@ wikiskill collection init my-skills --source ~/src/my-plugins/plugins
 
 `init` detects the layout, lists every component it finds, and writes the manifest to
 `~/.config/wikiskill/collections/my-skills.toml`. It writes nothing into the source directory.
+`init` detects the claude-plugin layout when a plugin has a `.claude-plugin/` directory, a
+`SKILL.md`, a child directory with a `SKILL.md`, or a components directory in the plural or
+singular form. Otherwise, add `--layout claude-plugin`.
 
 ### 2.3 The manifest's structure
 
@@ -262,14 +291,15 @@ through `opencode run`, for a model that OpenCode serves itself.
 wikiskill collection check my-skills
 ```
 
-`check` reads every component the way an evaluation will. It must end with `ok`. It reports three
+`check` reads every component the way an evaluation will. It must end with `ok`. It reports four
 kinds of problem:
 
 | Mark | Message | What to do |
 |---|---|---|
 | `~` | `frontmatter read leniently` | A line Claude Code accepts but YAML does not, such as an unquoted `argument-hint: [path]`. Quote the value. |
 | `!` | `unreadable frontmatter` | The evaluation would stop on this component. Fix the YAML. |
-| `~` | `plugin paths that resolve to nothing` | A `${CLAUDE_PLUGIN_ROOT}` or `${CLAUDE_SKILL_DIR}` path points to a missing file. It is broken in Claude Code too. |
+| `~` | `plugin paths that resolve to nothing` | A `${CLAUDE_PLUGIN_ROOT}` or `${CLAUDE_SKILL_DIR}` path points to a missing file. It is broken in Claude Code too. In a plugin that is a skill, a `${CLAUDE_SKILL_DIR}` path to a file the build leaves out is reported as `is not built with the skill`. |
+| `!` | `components sharing a name` | Two components have one name, for example a plugin that is a skill and holds a child of the same name. Rename one. |
 
 The two plugin variables mean:
 
@@ -342,7 +372,7 @@ A unit that did not run is never a failure. Its outcome says why:
 | `permission_blocked` | The model tried something the guard denied. | Yes |
 | `tool_call_as_text` | The model wrote a tool call as text instead of making it. | Yes |
 | `api_error` | The model endpoint returned an error. | Yes |
-| `infra_error` | Setup failed, the harness crashed, or the unit timed out. | No |
+| `infra_error` | Setup failed, the harness crashed, the unit timed out, or a verifier could not run. | No |
 | `skipped` | A `requires` tool is missing, the model failed preflight, or the task has no `expect` under INJECTED. | No |
 
 The report's `pass basis` column says whether each rate is based on `verifier` or `route`. The two
@@ -390,13 +420,15 @@ the authority. [`templates/suite.yaml`](templates/suite.yaml) is a template to c
 | `tasks` | yes | list | One or more tasks. |
 
 **`defaults`** may set `repeats` (1–100, default 3), `timeout_s` (default 900), `max_steps` (default
-40), `requires`, `guard`, `env` and `setup`. How a task's own value combines with the default:
+40), `requires`, `guard`, `env`, `secrets` and `setup`. How a task's own value combines with the
+default:
 
 | Field | Task value and default |
 |---|---|
 | `repeats`, `timeout_s`, `max_steps` | The task's value replaces the default. |
 | `setup` | The task's list **replaces** the default list. It does not add to it. |
 | `env` | Merged. The task's value wins for a name set in both. |
+| `secrets` | Joined. The task gets every name from both lists. Every session withholds every secret in the suite. |
 | `requires`, `guard` | The task's value replaces the default. |
 
 An empty value does not clear a default. `setup: []`, `requires: []` and `guard: {}` count as
@@ -416,6 +448,7 @@ its own, such as `[git init -q]`.
 | `fixtures` | no | path | A directory copied into the working directory first, relative to the suite file. |
 | `setup` | no | list of shell commands | Run in the working directory after fixtures, before the session. |
 | `env` | no | mapping | Environment variables for the harness process and the verifiers. |
+| `secrets` | no | list of names | Host variables that only command verifiers get (below). |
 | `guard` | no | `{deny: [patterns]}` | Commands the session may not run. |
 | `requires` | no | list | Commands the task needs. If one is missing, the unit is `skipped`. |
 | `repeats`, `timeout_s`, `max_steps` | no | integer | Override the defaults. |
@@ -431,6 +464,56 @@ its own, such as `[git init -q]`.
 | `command` | The command that should run. |
 
 Names compare by their last segment, without case. `release/changelog` and `Changelog` match.
+
+**`secrets`, variables for the grader only.** A verifier sometimes needs a credential that the model
+must not have, such as a token that fetches a hidden reference answer. Name it in `secrets`:
+
+```yaml
+defaults:
+  secrets: [GRADER_TOKEN]
+```
+
+The runner then applies these rules, on OpenCode and on Claude Code:
+
+- No session gets the variable, on any task of the suite. OpenCode's export step, `setup`, the
+  `requires` check, the preflight probe and the harness's `--version` check do not get it either.
+- A `command` verifier of the task that names the secret gets it, with its value from your shell.
+  The verifiers of other tasks do not.
+- `wikiskill eval` refuses to start if the variable is not set, if its value is under 8 characters,
+  or if its value starts or ends with whitespace. Strip a value read from a file before you export
+  it.
+- `run.json` records the name. wikiskill does not write the value. `[REDACTED:env_value]` replaces
+  it in verifier output, logged events, everything shown to a rubric judge, `results.jsonl`, and
+  the harness's own files in the unit directory: `stream.jsonl`, `run.ndjson`, `run.stderr`,
+  `exports/`, `sessions.json`, `setup.log` and the harness's state. The replacement happens when
+  the harness exits, and it also applies when the collection sets `redact = false`.
+- A scored verifier (`result: json`) is judged on the result as the grader printed it. The stored
+  result has the value replaced in every string, dict keys included. A result that holds the value
+  where no string can replace it, such as a number, is an infrastructure error, not a stored value.
+
+wikiskill does not clean the working directory. A verifier that writes the secret into it, for
+example `curl ... > ref.json`, leaves it there, under the run directory. Fetch a reference to a path
+outside the working directory, and remove it when the verifier ends.
+
+The suite check refuses a secret in these cases:
+
+- The name is one the runner sets to isolate a unit or reach its model: anything starting with
+  `XDG_`, `OPENCODE_`, `WIKISKILL_`, `CLAUDE_CODE_` or `ANTHROPIC_`, and `CLAUDE_CONFIG_DIR`,
+  `CLAUDECODE`, `DISABLE_AUTOUPDATER`, `HOME` and `PATH`.
+- A task's `env` sets the name, or expands it in a value (`$NAME` or `${NAME}`). This applies to
+  every task, not only the task that declares the secret.
+
+`ANTHROPIC_API_KEY` is the one exception. `eval` refuses it as a secret under Claude Code without
+`--base-url`, because the session then needs the key. `eval` also refuses an `--api-key-env` that
+names a secret. A suite without `secrets` runs as before.
+
+`secrets` keeps the value out of the session's environment and out of the records. It does not keep
+the value out of reach of the agent. The session runs as your user, so it can read any file your
+user can read. It can also read the environment of wikiskill itself and of the shell that started
+it, in `/proc/<pid>/environ`. wikiskill cannot remove the value from there. To keep a credential
+from the agent, run the session in a sandbox: as a separate user, or in its own PID namespace.
+Without a sandbox, treat `secrets` as a guard against an accidental leak, not against an agent that
+looks for the credential.
 
 ### 3.4 Four kinds of task
 
@@ -494,7 +577,7 @@ The fixture's `CHANGELOG.md` already lists the 1.0.0 release:
 A verifier that reads this file must look only at what the model adds. Section 3.8 shows how.
 
 **Setup** builds state that depends on commands, such as git history. Setup runs with your own
-environment plus the task's `env`, so it can see your `~/.gitconfig`. Pass the git identity on the
+environment plus the task's `env`, without its `secrets`, so it can see your `~/.gitconfig`. Pass the git identity on the
 command line anyway, so that setup also works on a machine with no git identity:
 
 ```yaml
@@ -558,10 +641,38 @@ every kind accepts `negate: true`, which passes when the check does **not** hold
 
 | Field | Meaning |
 |---|---|
-| `run` | The command. It runs through the shell, in the working directory, with the task's `env`. |
+| `run` | The command. It runs through the shell, in the working directory, with the task's `env` and `secrets`. |
 | `expect_exit` | The exit code that counts as a pass. Default 0. |
+| `result` | `json`: stdout is the grader's JSON result. Needed by `pass_when` and `score`. |
+| `pass_when` | Top-level result fields, each with the values that count as a pass. |
+| `score` | A top-level numeric result field. The report gives its mean as a graded score. |
 
 A command has 120 seconds. Use it for anything about state: git, files, JSON.
+
+**A grader that prints a verdict.** Some scorers print a JSON object, such as
+`{"verdict": "marginal", "score": 41}`, and use the exit code for validity only. Give its verifier
+`result: json`:
+
+```yaml
+- kind: command
+  run: python3 score.py output/mask.nii.gz
+  result: json
+  pass_when: { verdict: [acceptable, indistinguishable] }
+  score: score
+```
+
+1. wikiskill reads stdout as one JSON object. If that fails, it reads the last non-empty line, so
+   the grader can log first. It never reads stderr.
+2. The verifier passes when the exit code equals `expect_exit` **and** every `pass_when` field holds
+   one of its values. A failing verifier's detail names each field and the value it held.
+3. The whole object is stored with the unit in `results.jsonl`.
+4. These make the unit an `infra_error`: output with no JSON object, `NaN` or `Infinity` in it,
+   JSON nested too deeply to read, or a result over 64 KiB. A broken grader never counts against
+   the model.
+
+`pass_when` compares for equality, on top-level fields only. Give a grader with nested output a
+top-level verdict field. Quote a value such as `"yes"` or `"off"`: bare, YAML reads it as a
+boolean, and `suite check` warns.
 
 **`file_exists`** passes when `path` exists. `path` is relative to the working directory. An
 absolute path, a path that starts with `~`, or a path that contains `..` is refused when the
@@ -936,6 +1047,13 @@ has a rubric. [data.md](data.md#evaluation-runs-evals) lists every field.
   `9/12 (75%, 47-91%)`. The interval is a Wilson interval, which stays honest for small counts and
   for 0% or 100%.
 - **Per task, model and condition:** each task's result, its `route@1`, and its `pass basis`.
+- **Scores:** only when a verifier declares `score`. Each graded score's mean per task, model and
+  condition, with `n` and a 95% t-interval of the mean. The interval is not clipped to the
+  scorer's scale. One unit shows `(one unit)`, and identical scores show `(all equal)`. Units with
+  no numeric score are counted in `no score`.
+  `wikiskill findings tables` exports these values to `findings.csv`. The leaderboard and the
+  version board do not show them. The score columns are in every study's `findings.csv`, so a
+  study made before them fails `findings tables --check` until you run `findings tables` again.
 - **Not run:** every `infra_error` and `skipped` unit, with its reason.
 
 Read the conditions against each other:
@@ -1217,6 +1335,7 @@ equally. Its rules:
 - A version that regresses **any** model is never named best overall.
 - A version that fails a **critical check** even once is never named best at all.
 - OFF does not load the component, so one OFF run per model serves every version.
+- It ranks on pass rates only. Graded scores stay in each run's report (section 4.5).
 
 A critical-check file is a YAML list. Each entry names a task (or `*` for every task) and a verifier
 by its 0-based index:

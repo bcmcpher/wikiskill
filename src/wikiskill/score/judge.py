@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import calls, names, roles
+from .. import calls, names, redact, roles
 from ..calls import qualified
 from ..errors import WikiskillError
 from ..rubric import Dimension, Rubric
@@ -142,8 +142,18 @@ def describe(rubric: Rubric) -> str:
     return "\n".join(lines).strip()
 
 
-def artifacts(workdir: Path | None) -> str:
-    """What the run left on disk, truncated so a big tree cannot crowd out the rubric."""
+def _hidden(text: str, hide: Sequence[str]) -> str:
+    """``text`` with each of ``hide``, a task's secret values, redacted. Called before any cut, so a
+    cut cannot leave half a secret behind."""
+    return redact.redact(text, sorted(hide, key=len, reverse=True))[0] if hide else text
+
+
+def artifacts(workdir: Path | None, hide: Sequence[str] = ()) -> str:
+    """What the run left on disk, truncated so a big tree cannot crowd out the rubric.
+
+    A command verifier may have written a secret into the workdir, so ``hide`` is redacted from
+    every file shown. The files themselves are left alone: a workdir can hold gigabytes.
+    """
     if workdir is None or not workdir.is_dir():
         return "(the run left no working directory)"
     files = sorted(
@@ -158,7 +168,7 @@ def artifacts(workdir: Path | None) -> str:
     for path in files[:MAX_FILES]:
         name = path.relative_to(workdir)
         try:
-            body = path.read_text(encoding="utf-8", errors="replace")
+            body = _hidden(path.read_text(encoding="utf-8", errors="replace"), hide)
         except OSError as exc:
             chunks.append(f"### {name}\n(unreadable: {exc})")
             continue
@@ -246,6 +256,7 @@ def prompt_for(
     final_text: str,
     workdir: Path | None,
     handoffs: Sequence[Delegation] | None = None,
+    hide: Sequence[str] = (),
 ) -> list[dict[str, str]]:
     """The messages sent to the judge. Nothing here names the route the task expected.
 
@@ -258,11 +269,11 @@ def prompt_for(
         "expected, and you must not guess at one: grade what is here. Reply with JSON only, as "
         '{"scores": [{"dimension": "<id>", "level": "<level>", "reason": "<one sentence>"}]}.'
     )
-    answer = (final_text or "(the run produced no final answer)")[:MAX_ANSWER_CHARS]
+    answer = _hidden(final_text or "(the run produced no final answer)", hide)[:MAX_ANSWER_CHARS]
     user = (
         f"{describe(rubric)}\n\n"
         f"# The final answer\n\n{answer}\n\n"
-        f"# The files the work left behind\n\n{artifacts(workdir)}\n\n"
+        f"# The files the work left behind\n\n{artifacts(workdir, hide)}\n\n"
         + (
             f"# The delegations the work made, in order\n\n{describe_delegations(handoffs)}\n\n"
             if "delegations" in rubric.shows
@@ -336,9 +347,12 @@ def ask_once(
     workdir: Path | None,
     timeout_s: int = DEFAULT_TIMEOUT_S,
     handoffs: Sequence[Delegation] | None = None,
+    hide: Sequence[str] = (),
 ) -> Opinion:
     """One judge's opinion. A judge that cannot answer is recorded, not raised over."""
-    messages = prompt_for(rubric, final_text=final_text, workdir=workdir, handoffs=handoffs)
+    messages = prompt_for(
+        rubric, final_text=final_text, workdir=workdir, handoffs=handoffs, hide=hide
+    )
     try:
         status, body = roles.chat(endpoint, model, messages, timeout=timeout_s)
     except OSError as exc:
@@ -423,10 +437,12 @@ def judge_task(
     models_under_test: Sequence[str] = (),
     timeout_s: int = DEFAULT_TIMEOUT_S,
     handoffs: Sequence[Delegation] | None = None,
+    hide: Sequence[str] = (),
 ) -> Judgement:
     """Consult the panel the rubric asks for, and settle each dimension.
 
     ``model`` is the one judge model, or a panel of several; each opinion records its model.
+    ``hide`` holds the task's secret values, which no judge is shown.
     """
     panel = [model] if isinstance(model, str) else list(model)
     for member in panel:
@@ -448,6 +464,7 @@ def judge_task(
                 workdir=workdir,
                 timeout_s=timeout_s,
                 handoffs=handoffs,
+                hide=hide,
             )
         )
     if all(opinion.error for opinion in judgement.opinions):

@@ -5,12 +5,14 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .. import redact
+from ..redact import hide_values_in, withheld_forms
+from ..suite import Task
 from .base import RunnerError, Unit
 
 #: One setup command's budget. Setup builds a starting state; it is not where work happens.
@@ -51,8 +53,16 @@ class Scrubber:
     limit: int
 
     @classmethod
-    def of(cls, enabled: bool, env: dict[str, str], limit: int) -> Scrubber:
-        return cls(enabled, tuple(redact.env_secrets(env)) if enabled else (), limit)
+    def of(
+        cls, enabled: bool, env: dict[str, str], limit: int, declared: Iterable[str] = ()
+    ) -> Scrubber:
+        """``declared`` are the task's secret values. The harness's env no longer holds them, so
+        they are passed in, and they are redacted even where the collection turned redaction off:
+        a suite that names a secret has asked for it to be kept out of the record."""
+        values = set(redact.env_secrets(env)) if enabled else set()
+        values.update(value for value in declared if value)
+        secrets = tuple(sorted(values, key=len, reverse=True))
+        return cls(enabled or bool(secrets), secrets, limit)
 
     def text(self, raw: str) -> tuple[str, bool, list[dict[str, Any]]]:
         """``(text, truncated, redactions)`` for a free-text field that has a size bound."""
@@ -72,6 +82,63 @@ def merged(*found: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return redact.merge(entry for entries in found for entry in entries)
 
 
+def without_secrets(env: dict[str, str], task: Task) -> dict[str, str]:
+    """``env`` without every secret the suite declares: what the unit's harness and setup may see.
+
+    Applied last, to the environment as built, at every place a unit's environment is built. Only a
+    command verifier gets secrets, its own task's, and it adds them back from the host itself.
+    """
+    return without_names(env, task.withheld)
+
+
+def without_names(env: dict[str, str], names: Iterable[str]) -> dict[str, str]:
+    """``env`` without ``names``. For a process tied to no one unit, such as a preflight probe,
+    ``names`` is every secret the suite declares."""
+    drop = frozenset(names)
+    if not drop:
+        return env
+    return {key: value for key, value in env.items() if key not in drop}
+
+
+def hide_in_files(root: Path, values: Sequence[str], *, skip: Iterable[str] = ("work",)) -> None:
+    """Replace each of ``values`` in every file under ``root`` but the top-level ``skip``
+    directories: the raw stream, stderr, exports, setup log and the harness's own state.
+
+    Called once the unit's harness has exited, so a stream is parsed from what the harness wrote
+    and only the copy on disk loses the value. The workdir is skipped, and not walked: it is the
+    task's output, and a verifier or judge reads it as the session left it. A file that is not
+    UTF-8, such as a harness database, has each copy overwritten in place with as many `*` bytes,
+    so its layout survives. Applied whether or not the collection redacts, as declared secrets
+    always are.
+    """
+    forms = withheld_forms(values)
+    if not forms or not root.is_dir():
+        return
+    skipped = frozenset(skip)
+    encoded = [form.encode("utf-8") for form in forms]
+    for directory, subdirs, files in os.walk(root):
+        if directory == str(root):
+            subdirs[:] = [name for name in subdirs if name not in skipped]
+        for name in files:
+            path = Path(directory) / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                data = path.read_bytes()
+            except OSError:
+                continue
+            if not any(form in data for form in encoded):
+                continue
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                for form in encoded:
+                    data = data.replace(form, b"*" * len(form))
+                path.write_bytes(data)
+                continue
+            path.write_text(hide_values_in(text, forms), encoding="utf-8")
+
+
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:
     """Run a task's setup commands in its workdir, logging each to `setup.log`.
 
@@ -80,7 +147,7 @@ def run_setup(unit: Unit, workdir: Path, root: Path) -> None:
     """
     if not unit.task.setup:
         return
-    env = {**os.environ, **unit.task.resolved_env()}
+    env = without_secrets({**os.environ, **unit.task.resolved_env()}, unit.task)
     with (root / "setup.log").open("w", encoding="utf-8") as log:
         for command in unit.task.setup:
             log.write(f"$ {command}\n")

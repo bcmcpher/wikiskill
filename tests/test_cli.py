@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import shutil
 
 import pytest
 
-from conftest import RAW_FIXTURES, write_manifest
+from conftest import FLAT_PLUGINS, RAW_FIXTURES, write_manifest
 from wikiskill import collection as collection_mod
 from wikiskill import paths
 from wikiskill.cli import main
@@ -62,6 +63,39 @@ def test_check_marks_watched_components(xdg, plugin_source, capsys):
     assert "* govern/preregister" in out
     assert "  analyze/run-comparison" in out
     assert out.rstrip().endswith("ok")
+
+
+def test_check_lists_flat_plugin_skills(xdg, capsys):
+    write_manifest(
+        xdg,
+        "flat",
+        f'name = "flat"\nsources = [{{ path = "{FLAT_PLUGINS}", layout = "claude-plugin" }}]\n'
+        '[watch]\nskills = ["loose-kit/first"]\n',
+    )
+    assert main(["collection", "check", "flat"]) == 0
+    out = capsys.readouterr().out
+    assert "* loose-kit/first" in out
+    for name in (
+        "loose-kit/second",
+        "solo-kit/solo-kit",
+        "hybrid-kit/hybrid-kit",
+        "nested-kit/alpha",
+    ):
+        assert f"  {name}  " in out
+    assert "nested-kit/beta" not in out
+
+
+def test_check_narrowed_to_a_flat_plugin_lists_only_its_skill(xdg, capsys):
+    write_manifest(
+        xdg,
+        "flat",
+        f'name = "flat"\nsources = [{{ path = "{FLAT_PLUGINS}", layout = "claude-plugin", '
+        'plugins = ["solo-kit"] }]\n[watch]\nskills = ["solo-kit/solo-kit"]\n',
+    )
+    assert main(["collection", "check", "flat"]) == 0
+    out = capsys.readouterr().out
+    assert "skills (1):" in out
+    assert "* solo-kit/solo-kit" in out
 
 
 def test_check_exits_non_zero_on_an_unresolved_entry(xdg, plugin_source, capsys):
@@ -540,3 +574,66 @@ def test_eval_hands_the_collections_redaction_switch_to_the_backend(
     backend = eval_cli._eval_backend(args, coll, None, layout, tmp_path)
     assert backend.redact is redact
     assert eval_cli._eval_backend(args, None, None, layout, tmp_path).redact is True
+
+
+def test_init_detects_a_source_of_flat_plugins_only(xdg, tmp_path):
+    for skill in ("solo/SKILL.md", "loose/one/SKILL.md"):
+        (tmp_path / "plugins" / skill).parent.mkdir(parents=True)
+        (tmp_path / "plugins" / skill).write_text("---\nname: s\ndescription: d\n---\n")
+    assert main(["collection", "init", "flat", "--source", str(tmp_path / "plugins")]) == 0
+    coll = collection_mod.load("flat")
+    assert coll.sources[0].layout == "claude-plugin"
+    assert {c.name for c in coll.discover()} == {"solo/solo", "loose/one"}
+
+
+def test_init_detects_a_source_of_singular_directory_plugins_only(xdg, tmp_path):
+    (tmp_path / "plugins" / "sing" / "skill" / "foo").mkdir(parents=True)
+    (tmp_path / "plugins" / "sing" / "skill" / "foo" / "SKILL.md").write_text(
+        "---\nname: foo\ndescription: d\n---\n"
+    )
+    (tmp_path / "plugins" / "other" / "agent").mkdir(parents=True)
+    (tmp_path / "plugins" / "other" / "agent" / "doer.md").write_text(
+        "---\nname: doer\ndescription: d\n---\n"
+    )
+    assert main(["collection", "init", "sing", "--source", str(tmp_path / "plugins")]) == 0
+    coll = collection_mod.load("sing")
+    assert coll.sources[0].layout == "claude-plugin"
+    assert {c.name for c in coll.discover()} == {"sing/foo", "other/doer"}
+
+
+def test_check_fails_on_two_components_with_one_name(xdg, tmp_path, capsys):
+    for skill in ("dup/SKILL.md", "dup/dup/SKILL.md"):
+        (tmp_path / "plugins" / skill).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "plugins" / skill).write_text("---\nname: dup\ndescription: d\n---\n")
+    source = tmp_path / "plugins"
+    write_manifest(
+        xdg,
+        "dup",
+        f'name = "dup"\nsources = [{{ path = "{source}", layout = "claude-plugin" }}]\n'
+        '[watch]\nskills = ["dup/dup"]\n',
+    )
+    assert main(["collection", "check", "dup"]) == 1
+    captured = capsys.readouterr()
+    assert "components sharing a name:" in captured.out
+    assert "! skill:dup/dup (" in captured.out
+    assert "1 component names are discovered more than once" in captured.err
+
+
+def test_check_reports_a_plugin_skill_citing_what_its_build_leaves_behind(xdg, tmp_path, capsys):
+    root = tmp_path / "plugins"
+    shutil.copytree(FLAT_PLUGINS, root)
+    main_file = root / "hybrid-kit" / "SKILL.md"
+    main_file.write_text(
+        main_file.read_text() + "Then run ${CLAUDE_SKILL_DIR}/commands/kit-run.md.\n"
+    )
+    write_manifest(
+        xdg,
+        "flat",
+        f'name = "flat"\nsources = [{{ path = "{root}", layout = "claude-plugin" }}]\n'
+        '[watch]\nskills = ["hybrid-kit/hybrid-kit"]\n',
+    )
+    assert main(["collection", "check", "flat"]) == 0
+    out = capsys.readouterr().out
+    assert "${CLAUDE_SKILL_DIR}/commands/kit-run.md is not built with the skill" in out
+    # The file it cites beside it is built, so is not reported.
+    assert "notes.md" not in out

@@ -1,3 +1,38 @@
+# Resume note — 2026-11-10: skills-comm pilot merged
+
+## Done
+
+The three skills-comm pilot changes are archived and merged into `main` through
+`proposals/skills-comm-pilot`: `support-flat-plugin-layout`, `add-verifier-secrets` and
+`add-scored-verifier`. Their worktrees and `change/*` branches are removed. Nothing is pushed.
+
+## Next
+
+1. On the batch machine: rerun `findings tables` for the three `docs/pilots/*` studies (new score
+   columns), and check verifier secrets live on both harnesses.
+2. The remaining open changes, in this order:
+   1. `honour-empty-task-overrides`. Decision: may runs before and after pool? Recommended: yes.
+   2. `warn-unsent-followups`. Must be archived before `add-scripted-followups`.
+   3. `add-run-archive`. Reuse the secret scrub (`runner.common.hide_in_files`, `redact.hide`).
+   4. `add-scripted-followups`. Only after the DSH study runs are closed.
+   5. `enforce-task-splits`. Blocked on the DSH split decision below.
+
+## Open decisions and follow-ups
+
+- **Scrub cost.** For suites with secrets, the unit scrub reads every file of each unit, including
+  the seeded OpenCode `node_modules`. Skipping `node_modules` is a cheap follow-up.
+- **Three scrubbers.** `redact.hide_value` (all JSON forms, dict keys), `redact.redact_value`
+  (raw form, patterns; used for the rubric judge) and the pattern pass on verifier output differ
+  in coverage. Unify on `hide_value` plus one pattern pass.
+- **Known limits, not fixed.** Two declared secrets used as keys of one dict collapse into one
+  redacted key. A secret that is a substring of `[REDACTED:env_value]` breaks the leak check.
+  `Task.suite_secrets` duplicates `Suite.secrets`.
+- **`evals/` in a plugin-root skill.** It is copied into the skill, not excluded. Recommended:
+  keep it.
+- **Out of scope, found in review.** An ordinary skill still copies a nested `x/SKILL.md` into
+  its build. `collection check` does not catch a bare-name clash across plugins, which the build
+  rejects.
+
 # Resume note — 2026-10-12
 
 ## Done

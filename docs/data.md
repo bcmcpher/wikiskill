@@ -186,7 +186,9 @@ It never contains an API key.
   recorded lack it;
 - `verifiers` and `passed` (`null` when a task has no verifiers), `rubric`, `expected`. Each
   opinion in `rubric.opinions` names the judge `model` that gave it, and `rubric.scales` gives each
-  dimension's levels from worst to best; runs before judge panels carry neither.
+  dimension's levels from worst to best; runs before judge panels carry neither. A `command`
+  verifier with `result: json` adds `result`, the JSON object its stdout gave, whole and at most
+  64 KiB, and `score_field` when it declared `score`. Runs before scored verifiers carry neither.
 
 - `transient: true` on an `infra_error` the harness caused and a rerun may not repeat: it crashed
   or could not start, or its session could not be read back. Never on a timeout;
@@ -304,9 +306,10 @@ A saved sample is refused as stale once the component's patterns have changed.
 ## Things to be aware of
 
 - **Unit transcripts under `evals/` are not redacted.** Their events in `raw/` are, but the
-  harness's own records (`exports/`, `stream.jsonl`, `run.ndjson`) are kept as written. An eval
-  runs in a sandbox with its own config, but a secret that a task's fixtures or setup put into the
-  workdir can appear there.
+  harness's own records (`exports/`, `stream.jsonl`, `run.ndjson`) are kept as written, with one
+  exception: the value of a variable the suite declares in `secrets` is replaced in them when the
+  harness exits. An eval runs with its own config, but a secret that a task's fixtures
+  or setup put into the workdir can appear there.
 - **Logs written before eval and note redaction existed are not rewritten.** Eval events and notes
   from those versions may hold secrets in the clear; delete the old `raw/` day directories if that
   matters.

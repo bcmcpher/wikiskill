@@ -6,7 +6,10 @@ what actually happened on disk, so a mocked one would test nothing.
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -87,6 +90,60 @@ def test_command_sees_the_tasks_own_environment(workdir):
     _, passed = verify.verify_task(task, workdir=workdir)
 
     assert passed
+
+
+def test_command_sees_each_secret_with_its_host_value(workdir, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(
+            Verifier(
+                kind="command", run='test "$FAKE_GRADER_TOKEN" = fake-grader-value-0123456789'
+            ),
+        ),
+    )
+    _, passed = verify.verify_task(task, workdir=workdir)
+
+    assert passed
+
+
+def test_a_secret_a_command_prints_is_redacted_before_the_tail_is_cut(workdir, monkeypatch):
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    # The secret then 1990 characters: a tail of 2000 would start inside it.
+    script = "import os; print(os.environ['FAKE_GRADER_TOKEN'] + 'x' * 1990)"
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(Verifier(kind="command", run=f'{sys.executable} -c "{script}"'),),
+    )
+    (result,), _ = verify.verify_task(task, workdir=workdir)
+
+    assert secret[-10:] not in result.output
+    assert result.output.endswith("x" * 1990)
+
+
+def test_every_copy_of_a_printed_secret_is_redacted(workdir, monkeypatch):
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(
+            Verifier(kind="command", run='for i in $(seq 150); do echo "$FAKE_GRADER_TOKEN"; done'),
+        ),
+    )
+    (result,), _ = verify.verify_task(task, workdir=workdir)
+
+    assert secret not in result.output
+    assert result.output.count("[REDACTED:env_value]") > 70, "the kept tail is all markers"
 
 
 def test_a_timing_out_command_is_infrastructure_not_a_failure(workdir):
@@ -175,6 +232,164 @@ def test_negate_keeps_the_observation_in_the_detail(workdir):
 
     assert result.passed
     assert result.detail == "negated: nope.md does not exist"
+
+
+# --------------------------------------------------------------------------- structured results
+
+GRADER = Path(__file__).parent / "fixtures" / "grader.py"
+ACCEPTED = (("verdict", ("acceptable", "indistinguishable")),)
+
+
+def graded(arguments: str, **fields) -> Verifier:
+    """A command verifier that runs the synthetic grader and reads its JSON result."""
+    return Verifier(
+        kind="command",
+        run=f"{sys.executable} {GRADER} {arguments}",
+        result="json",
+        pass_when=fields.pop("pass_when", ACCEPTED),
+        score="score",
+        **fields,
+    )
+
+
+def test_an_acceptable_verdict_passes_and_keeps_the_result(workdir):
+    result = run(graded("acceptable 71.5"), workdir)
+
+    assert result.passed
+    assert result.result == {"verdict": "acceptable", "score": 71.5}
+    record = result.as_dict()
+    assert record["result"] == {"verdict": "acceptable", "score": 71.5}
+    assert record["score_field"] == "score"
+
+
+def test_a_valid_but_marginal_verdict_fails_and_names_it(workdir):
+    result = run(graded("marginal 41"), workdir)
+
+    assert not result.passed
+    assert '`verdict` is "marginal"' in result.detail
+    assert result.result == {"verdict": "marginal", "score": 41}
+
+
+def test_an_invalid_submission_exiting_nonzero_fails_with_its_result_kept(workdir):
+    # The verdict is listed as acceptable here, so only the exit code can fail it.
+    verifier = graded("invalid 0 --exit 1", pass_when=(("verdict", ("invalid",)),))
+    result = run(verifier, workdir)
+
+    assert not result.passed
+    assert result.exit_code == 1
+    assert result.result == {"verdict": "invalid", "score": 0}
+
+
+def test_log_lines_before_the_result_are_skipped(workdir):
+    result = run(graded("acceptable 80 --log 2"), workdir)
+
+    assert result.passed
+    assert result.result == {"verdict": "acceptable", "score": 80}
+    assert "grading step 1" in result.output, "the output tail still keeps the log"
+
+
+def test_a_crashing_scorer_is_infrastructure_naming_the_verifier(workdir):
+    verifier = graded("acceptable 1 --crash")
+
+    with pytest.raises(verify.VerifierError, match="printed no JSON object") as caught:
+        run(verifier, workdir)
+    assert str(GRADER) in str(caught.value)
+
+
+def test_a_json_value_that_is_not_an_object_is_infrastructure(workdir):
+    with pytest.raises(verify.VerifierError, match="no JSON object"):
+        run(Verifier(kind="command", run="echo '[1, 2]'", result="json"), workdir)
+
+
+def test_an_oversized_result_is_infrastructure(workdir):
+    with pytest.raises(verify.VerifierError, match="over the 65536-byte cap"):
+        run(graded(f"acceptable 1 --pad {verify.RESULT_CAP}"), workdir)
+
+
+def printing(workdir, text: str) -> Verifier:
+    """A `result: json` verifier whose command prints ``text`` exactly, written as UTF-8."""
+    (workdir / "out.txt").write_text(text, encoding="utf-8")
+    return Verifier(kind="command", run="cat out.txt", result="json")
+
+
+def test_the_cap_counts_bytes_as_results_jsonl_stores_them(workdir):
+    # 25,000 `é` are 50 KB in UTF-8 and 150 KB ASCII-escaped; results.jsonl stores the first.
+    result = run(printing(workdir, '{"note": "' + "é" * 25_000 + '"}'), workdir)
+    assert result.result == {"note": "é" * 25_000}
+
+
+def test_spaces_in_the_grader_output_do_not_count_against_the_cap(workdir):
+    padded = "{" + ", ".join(f'"k{i}":{" " * 20}{i}' for i in range(3000)) + "}"
+    assert len(padded) > verify.RESULT_CAP
+    assert run(printing(workdir, padded), workdir).result is not None
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_a_non_finite_constant_is_infrastructure(workdir, constant):
+    with pytest.raises(verify.VerifierError, match=f"printed {constant}"):
+        run(printing(workdir, f'{{"verdict": "ok", "score": {constant}}}'), workdir)
+
+
+def test_a_non_finite_constant_in_a_log_line_before_the_result_is_skipped(workdir):
+    result = run(printing(workdir, '{"debug": NaN}\n{"verdict": "ok"}\n'), workdir)
+    assert result.result == {"verdict": "ok"}
+
+
+def test_a_non_finite_constant_in_a_last_line_result_is_infrastructure(workdir):
+    with pytest.raises(verify.VerifierError, match="printed Infinity"):
+        run(printing(workdir, 'grading\n{"verdict": "ok", "score": Infinity}\n'), workdir)
+
+
+def test_an_unpaired_surrogate_escape_is_infrastructure(workdir):
+    # Valid JSON text, but the string it reads as cannot be written to results.jsonl as UTF-8.
+    with pytest.raises(verify.VerifierError, match="unpaired surrogate"):
+        run(printing(workdir, '{"verdict": "ok", "s": "\\ud800"}'), workdir)
+
+
+def test_json_nested_too_deeply_is_infrastructure(workdir):
+    deep = '{"a": ' * 100_000 + "1" + "}" * 100_000
+    with pytest.raises(verify.VerifierError, match="nested too deeply"):
+        run(printing(workdir, deep), workdir)
+
+
+def test_stderr_is_never_parsed(workdir):
+    verifier = Verifier(kind="command", run='echo \'{"verdict": "ok"}\' >&2', result="json")
+
+    with pytest.raises(verify.VerifierError):
+        run(verifier, workdir)
+
+
+def test_a_missing_field_is_named(workdir):
+    verifier = graded("acceptable 1", pass_when=(("grade", ("A",)),))
+    result = run(verifier, workdir)
+
+    assert not result.passed
+    assert "`grade` is missing" in result.detail
+
+
+def test_a_boolean_is_not_a_number(workdir):
+    verifier = Verifier(
+        kind="command", run="echo '{\"ok\": true}'", result="json", pass_when=(("ok", (1,)),)
+    )
+
+    assert not run(verifier, workdir).passed
+    assert run(dataclasses.replace(verifier, pass_when=(("ok", (True,)),)), workdir).passed
+
+
+@pytest.mark.parametrize("arguments", ["acceptable 71.5", "marginal 41", "invalid 0 --exit 1"])
+def test_negate_flips_a_structured_verdict(workdir, arguments):
+    plain = run(graded(arguments), workdir)
+    negated = run(graded(arguments, negate=True), workdir)
+
+    assert negated.passed is not plain.passed
+    assert negated.result == plain.result
+
+
+def test_a_plain_command_records_no_result(workdir):
+    record = run(Verifier(kind="command", run="echo '{\"a\": 1}'"), workdir).as_dict()
+
+    assert "result" not in record
+    assert "score_field" not in record
 
 
 # --------------------------------------------------------------------------- whole task
@@ -271,3 +486,97 @@ def test_a_good_verifier_still_loads(tmp_path):
     verifier = loaded.tasks[0].verifiers[0]
     assert verifier.target == "file"
     assert verifier.path == "CHANGELOG.md"
+
+
+def test_a_secret_ending_in_whitespace_is_redacted_before_the_output_is_trimmed(workdir):
+    # A trailing space: a `\r` never reaches the output as it is, because text mode turns it into
+    # `\n`, which is why such a value is refused before a run starts.
+    secret = "fake-grader-value-0123 "
+    verifier = Verifier(kind="command", run="printf 'fake-grader-value-0123 '")
+
+    result = verify.run_verifier(verifier, workdir=workdir, hide=(secret,))
+
+    assert "fake-grader" not in result.output
+    assert result.output == "[REDACTED:env_value]"
+
+
+def test_a_verifier_does_not_inherit_another_tasks_secret(workdir, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        suite_secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(Verifier(kind="command", run='test -z "${FAKE_GRADER_TOKEN+set}"'),),
+    )
+    _, passed = verify.verify_task(task, workdir=workdir)
+
+    assert passed, "only the task that declares a secret has its verifiers given it"
+
+
+# --------------------------------------------------------------------------- secrets in a result
+
+
+def scored(run: str, **fields) -> Verifier:
+    return Verifier(kind="command", run=run, result="json", **fields)
+
+
+def test_a_secret_a_grader_prints_as_a_key_is_stored_scrubbed(workdir, tmp_path):
+    secret = "fake-grader-value-0123456789"
+    out = tmp_path / "result.json"
+    out.write_text(json.dumps({"verdict": "ok", "per_key": {secret: 1}}))
+
+    result = verify.run_verifier(
+        scored(f"cat {out}", pass_when=(("verdict", ("ok",)),)), workdir=workdir, hide=(secret,)
+    )
+
+    assert result.passed
+    assert result.result == {"verdict": "ok", "per_key": {"[REDACTED:env_value]": 1}}
+
+
+def test_a_secret_a_grader_prints_as_a_number_is_refused_not_stored(workdir, tmp_path):
+    secret = "12345678901"
+    out = tmp_path / "result.json"
+    out.write_text(json.dumps({"verdict": "ok", "account": int(secret)}))
+
+    with pytest.raises(verify.VerifierError, match="cannot be redacted") as caught:
+        verify.run_verifier(scored(f"cat {out}"), workdir=workdir, hide=(secret,))
+    assert secret not in str(caught.value)
+
+
+def test_a_secret_quoted_in_a_miss_is_scrubbed_from_the_detail(workdir, tmp_path):
+    secret = "fake-grader-value-0123456789"
+    out = tmp_path / "result.json"
+    out.write_text(json.dumps({"verdict": secret}))
+
+    result = verify.run_verifier(
+        scored(f"cat {out}", pass_when=(("verdict", ("ok",)),)), workdir=workdir, hide=(secret,)
+    )
+
+    assert not result.passed
+    assert secret not in result.detail and "[REDACTED:env_value]" in result.detail
+
+
+def test_an_escaped_secret_at_the_tail_cut_leaves_no_part_behind(workdir, tmp_path):
+    # A grader writes a secret holding a quote escaped, as JSON does. Placed so the tail cut would
+    # fall inside it, were only the raw form redacted before the cut.
+    secret = 'fake"grader-value-0123'
+    escaped = 'fake\\"grader-value-0123'
+    out = tmp_path / "out.txt"
+    out.write_text(escaped[:4] + escaped[4:] + "x" * (verify.OUTPUT_TAIL - len(escaped) + 4))
+
+    result = verify.run_verifier(
+        Verifier(kind="command", run=f"cat {out}"), workdir=workdir, hide=(secret,)
+    )
+
+    assert "grader-value" not in result.output
+
+
+def test_a_suite_with_secrets_keeps_pattern_redaction_of_verifier_output(workdir):
+    # Not a credential: shaped like one so the built-in patterns match it.
+    shaped = "sk-ant-" + "a" * 40
+    verifier = Verifier(kind="command", run=f"echo {shaped}")
+
+    result = verify.run_verifier(verifier, workdir=workdir, hide=("fake-grader-value-0123",))
+
+    assert shaped not in result.output

@@ -15,7 +15,7 @@ import pytest
 
 from conftest import FIXTURES, write_manifest
 from wikiskill import collection as collection_mod
-from wikiskill import rawlog
+from wikiskill import rawlog, redact
 from wikiskill.frontmatter import read as read_frontmatter
 from wikiskill.runner import base as runner_base
 from wikiskill.runner import opencode as backend_mod
@@ -265,6 +265,18 @@ def test_a_harvested_seed_reaches_the_next_unit(seeded):
     assert (root / "cache" / "opencode" / "models.json").is_file()
     assert (root / "config" / "opencode" / "node_modules" / "@opencode-ai" / "plugin").is_dir()
     assert (root / "config" / "opencode" / "package.json").is_file()
+
+
+def test_a_harvested_seed_holds_no_withheld_value(seeded):
+    # The seed outlives the run and seeds every later root, so a value the session read is gone.
+    backend, seed = seeded
+    secret = "fake-grader-value-0123456789"
+    first = backend.layout.unit_dir(unit(condition="off"))
+    fetched(first)
+    (first / "cache" / "opencode" / "models.json").write_text(f'{{"k": "{secret}"}}')
+    backend._harvest_seed(first, (secret,))
+    assert secret not in (seed / "cache" / "opencode" / "models.json").read_text()
+    assert redact.MARKER in (seed / "cache" / "opencode" / "models.json").read_text()
 
 
 def test_a_unit_prepared_twice_keeps_its_seeded_symlinks(seeded):
@@ -912,7 +924,7 @@ def test_a_session_is_exported_to_a_file_not_a_pipe(backend, tmp_path):
     payload.write_text(big, encoding="utf-8")
     exporting(backend, tmp_path, f'cat "{payload}"')
 
-    (session,) = backend.export_sessions("ses_big", tmp_path / "root")
+    (session,) = backend.export_sessions("ses_big", tmp_path / "root", unit().task)
 
     assert len(session["pad"]) == 200_000
     written = (tmp_path / "root" / "exports" / "ses_big.json").read_text(encoding="utf-8")
@@ -962,7 +974,7 @@ def test_a_truncated_export_is_an_error_not_an_empty_session_list(backend, tmp_p
     exporting(backend, tmp_path, 'printf \'{"info": {"id": "ses_x"}, "messages": [\'')
 
     with pytest.raises(backend_mod.RunnerError) as caught:
-        backend.export_sessions("ses_x", tmp_path / "root")
+        backend.export_sessions("ses_x", tmp_path / "root", unit().task)
 
     assert "not readable JSON" in str(caught.value)
 
@@ -971,10 +983,294 @@ def test_a_failed_export_reports_the_harness_own_words(backend, tmp_path):
     exporting(backend, tmp_path, 'echo "no such session" >&2; exit 3')
 
     with pytest.raises(backend_mod.RunnerError) as caught:
-        backend.export_sessions("ses_gone", tmp_path / "root")
+        backend.export_sessions("ses_gone", tmp_path / "root", unit().task)
 
     assert "exited 3" in str(caught.value)
     assert "no such session" in str(caught.value)
+
+
+# --------------------------------------------------------------------------- secrets
+
+#: Not a credential: a fake value only these tests set.
+FAKE_SECRET = "fake-grader-value-0123456789"
+
+
+def secret_unit(*setup):
+    import dataclasses
+
+    base = unit(condition="off")
+    return dataclasses.replace(
+        base,
+        task=dataclasses.replace(base.task, secrets=("FAKE_GRADER_TOKEN",), setup=tuple(setup)),
+    )
+
+
+def recording_opencode(tmp_path):
+    """A stand-in `opencode` that writes what `run` and `export` each saw of the secret."""
+    seen = tmp_path / "seen"
+    seen.mkdir()
+    session = json.dumps({"info": {"id": "ses_s"}, "messages": []})
+    return seen, stub_opencode(
+        tmp_path,
+        f'printf "%s" "${{FAKE_GRADER_TOKEN-unset}}" > "{seen}/$1"\n'
+        'case "$1" in\n'
+        '  run) echo \'{"sessionID": "ses_s"}\' ;;\n'
+        f"  export) echo '{session}' ;;\n"
+        "  *) echo 0.0.0 ;;\n"
+        "esac",
+    )
+
+
+def test_a_declared_secret_is_withheld_from_the_session_env(backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    monkeypatch.setenv("FAKE_OTHER", "kept")
+
+    environment = backend.env_for(secret_unit(), tmp_path / "root")
+
+    assert "FAKE_GRADER_TOKEN" not in environment
+    assert environment["FAKE_OTHER"] == "kept", "only declared names are withheld"
+
+
+def test_a_task_without_secrets_keeps_the_hosts_variables(backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    assert backend.env_for(unit(), tmp_path / "root")["FAKE_GRADER_TOKEN"] == FAKE_SECRET
+
+
+def test_neither_the_session_nor_the_export_nor_setup_sees_a_secret(backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, backend.executable = recording_opencode(tmp_path)
+
+    trajectory = backend.execute(secret_unit('printf "%s" "${FAKE_GRADER_TOKEN-unset}" > s.txt'))
+
+    assert trajectory.session_id == "ses_s", trajectory.reason
+    assert (seen / "run").read_text() == "unset"
+    assert (seen / "export").read_text() == "unset"
+    assert (trajectory.workdir / "s.txt").read_text() == "unset"
+
+
+def test_the_harness_preflight_runs_without_the_suites_secrets(
+    harness_backend, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, harness_backend.executable = recording_opencode(tmp_path)
+    harness_backend.withheld = ("FAKE_GRADER_TOKEN",)
+
+    harness_backend.preflight("opencode/big-pickle")
+
+    assert sorted(path.name for path in seen.iterdir()) == ["--version", "models", "run"]
+    assert all(path.read_text() == "unset" for path in seen.iterdir())
+
+
+def test_eval_preflight_only_withholds_every_secret_the_suite_declares(xdg, tmp_path, monkeypatch):
+    from wikiskill.cli import main
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    monkeypatch.setenv("FAKE_OTHER_TOKEN", FAKE_SECRET + "-other")
+    seen, executable = recording_opencode(tmp_path)
+    suite = tmp_path / "graded.yaml"
+    suite.write_text(
+        "suite: graded\n"
+        "defaults: { secrets: [FAKE_GRADER_TOKEN] }\n"
+        "tasks:\n"
+        "  - { id: a, prompt: Summarise the notes., split: val, verifiers: [{kind: command, "
+        'run: "true"}] }\n'
+        "  - { id: b, prompt: Tidy the notes., split: val, secrets: [FAKE_OTHER_TOKEN], "
+        'verifiers: [{kind: command, run: "true"}] }\n',
+        encoding="utf-8",
+    )
+    # A stub that also records the second secret, so the union over tasks is what is checked.
+    script = Path(executable)
+    script.write_text(
+        script.read_text().replace(
+            "#!/bin/sh\n", f'#!/bin/sh\nprintf "%s" "${{FAKE_OTHER_TOKEN-unset}}" > "{seen}/o$1"\n'
+        ),
+        encoding="utf-8",
+    )
+
+    main(
+        [
+            "eval",
+            "--suite",
+            str(suite),
+            "--models",
+            "opencode/big-pickle",
+            "--condition",
+            "off",
+            "--opencode",
+            executable,
+            "--preflight-only",
+        ]
+    )
+
+    assert (seen / "run").is_file(), "the probe ran"
+    assert all(path.read_text() == "unset" for path in seen.iterdir())
+
+
+def test_no_file_a_run_writes_holds_a_secret(backend, tmp_path, xdg, monkeypatch):
+    from wikiskill import suite as suite_mod
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, backend.executable = recording_opencode(tmp_path)
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+    suite = suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "echoes",
+                    "prompt": "Summarise the notes.",
+                    "split": "val",
+                    "verifiers": [{"kind": "command", "run": 'echo "got $FAKE_GRADER_TOKEN"'}],
+                }
+            ],
+        }
+    )
+
+    run = run_mod.run_suite(
+        suite,
+        backend,
+        collection=backend.collection,
+        models=["ollama/qwen2.5-coder:1.5b"],
+        conditions=["off"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["verifiers"][0]["output"] == "got [REDACTED:env_value]", result
+    assert (seen / "run").read_text() == "unset"
+    for root in (backend.layout.root, xdg["data"]):
+        leaked = [
+            path
+            for path in root.rglob("*")
+            if path.is_file() and FAKE_SECRET in path.read_text(errors="replace")
+        ]
+        assert leaked == [], root
+
+
+def graded_suite():
+    from wikiskill import suite as suite_mod
+
+    return suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "echoes",
+                    "prompt": "Summarise the notes.",
+                    "split": "val",
+                    "verifiers": [{"kind": "command", "run": "true"}],
+                }
+            ],
+        }
+    )
+
+
+def files_holding(root, value):
+    return [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and value in path.read_text(errors="replace")
+    ]
+
+
+def test_run_suite_withholds_the_suites_secrets_whoever_built_the_backend(
+    harness_backend, tmp_path, xdg, monkeypatch
+):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    seen, harness_backend.executable = recording_opencode(tmp_path)
+    assert harness_backend.withheld == (), "built by a caller that did not pass the secrets"
+
+    run_mod.run_suite(
+        graded_suite(),
+        harness_backend,
+        collection=harness_backend.collection,
+        models=["opencode/big-pickle"],
+        conditions=["off"],
+        layout=harness_backend.layout,
+        run_id=RUN_ID,
+    )
+
+    # `models` is listed only by the preflight: the probe ran, and saw no secret.
+    assert {"--version", "models", "run"} <= {path.name for path in seen.iterdir()}
+    assert all(path.read_text() == "unset" for path in seen.iterdir())
+
+
+def leaky_opencode(tmp_path):
+    """A stand-in `opencode` whose session read the secret from the host, as one running as this
+    user can, and printed it to its stream, its stderr, its export and its own data directory."""
+    session = json.dumps(
+        {
+            "info": {"id": "ses_s"},
+            "messages": [
+                {
+                    "info": {"role": "assistant", "time": {"created": 1}},
+                    "parts": [{"type": "text", "text": f"found {FAKE_SECRET}"}],
+                }
+            ],
+        }
+    )
+    return stub_opencode(
+        tmp_path,
+        'case "$1" in\n'
+        f'  run) echo "{FAKE_SECRET}" > "$XDG_DATA_HOME/leak.txt"\n'
+        f"    echo 'read {FAKE_SECRET}' >&2\n"
+        f'    echo \'{{"sessionID": "ses_s", "text": "{FAKE_SECRET}"}}\' ;;\n'
+        f"  export) echo '{session}' ;;\n"
+        "  *) echo 0.0.0 ;;\n"
+        "esac",
+    )
+
+
+@pytest.mark.parametrize("redact", [True, False])
+def test_a_secret_the_session_printed_is_in_no_file_the_run_keeps(
+    backend, tmp_path, xdg, monkeypatch, redact
+):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    backend.executable = leaky_opencode(tmp_path)
+    backend.redact = redact
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+
+    run = run_mod.run_suite(
+        graded_suite(),
+        backend,
+        collection=backend.collection,
+        models=["ollama/qwen2.5-coder:1.5b"],
+        conditions=["off"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["outcome"] != "infra_error", result
+    (unit_dir,) = (backend.layout.root / "units").iterdir()
+    for name in ("run.ndjson", "run.stderr", "sessions.json", "exports/ses_s.json"):
+        assert "[REDACTED:env_value]" in (unit_dir / name).read_text(), name
+    for root in (backend.layout.root, xdg["data"]):
+        assert files_holding(root, FAKE_SECRET) == [], root
+
+
+def test_a_secret_the_probe_printed_is_in_no_file_or_record(harness_backend, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    harness_backend.executable = leaky_opencode(tmp_path)
+    harness_backend.withheld = ("FAKE_GRADER_TOKEN",)
+
+    result = harness_backend.preflight("opencode/big-pickle")
+
+    assert FAKE_SECRET not in json.dumps(result.as_dict())
+    assert files_holding(harness_backend.layout.root, FAKE_SECRET) == []
+    assert (harness_backend.layout.root / "preflight").is_dir()
 
 
 # --------------------------------------------------------------------------- redaction

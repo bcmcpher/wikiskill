@@ -24,6 +24,7 @@
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
         "env": { "$ref": "#/$defs/env" },
+        "secrets": { "$ref": "#/$defs/secrets" },
         "setup": { "$ref": "#/$defs/setup" }
       }
     },
@@ -54,6 +55,12 @@
       "type": "object",
       "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
       "additionalProperties": { "type": "string" }
+    },
+    "secrets": {
+      "description": "Names of host environment variables that only the declaring task's command verifiers receive. The runner removes every secret the suite declares from every task's session, any export step, setup commands and the `requires` check. A task's list is joined with the suite default's, unlike `requires` and `setup`, which a task replaces. A name any task's `env` sets or expands, or one the runner uses for isolation, is refused. This keeps the value out of the session environment and the records, not out of reach of an agent running as the same user, which can read the user's files and /proc/<pid>/environ.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "uniqueItems": true
     },
     "guard": {
       "description": "Command patterns the guard plugin blocks for this task, on top of the runner's own deny-by-default permissions.",
@@ -110,6 +117,25 @@
           "minLength": 1
         },
         "expect_exit": { "type": "integer", "default": 0 },
+        "result": {
+          "description": "command: `json` reads stdout as one JSON object (or its last non-empty line as one) and keeps it with the unit's verifier record. Output that is not a JSON object is an infrastructure error.",
+          "enum": ["json"]
+        },
+        "pass_when": {
+          "description": "command, with `result: json`: top-level result fields and the values each may hold. The verifier passes when the exit code matches `expect_exit` and every field holds one of its values.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": ["string", "number", "boolean", "null"] }
+          }
+        },
+        "score": {
+          "description": "command, with `result: json`: a top-level numeric result field that reports average per task, model and condition, beside the pass rate.",
+          "type": "string",
+          "minLength": 1
+        },
         "path": {
           "description": "file_exists: a path relative to the workdir. Absolute paths are rejected.",
           "type": "string",
@@ -166,6 +192,7 @@
         "requires": { "$ref": "#/$defs/requires" },
         "guard": { "$ref": "#/$defs/guard" },
         "env": { "$ref": "#/$defs/env" },
+        "secrets": { "$ref": "#/$defs/secrets" },
         "setup": { "$ref": "#/$defs/setup" },
         "followups": {
           "description": "Scripted user turns sent after the first response. Not a simulated user.",

@@ -63,3 +63,71 @@ wikiskill rather than requested as a new field.
 - **WHEN** a data-science-harness fixture is read and it declares no train/validation/test split
 - **THEN** wikiskill places its tasks in a split of its own choosing rather than failing or asking
   the fixture to add one
+
+### Requirement: A suite declares secrets for its verifiers
+
+A suite MUST accept `secrets`, a list of environment variable names, in `defaults` and on a task. A
+task's secrets MUST be the union of its own list and the default list. Loading MUST fail when a name
+is not a valid variable name, when it is a name either runner sets to isolate a unit or route it to
+its model (a name starting with `XDG_`, `OPENCODE_`, `WIKISKILL_`, `CLAUDE_CODE_` or `ANTHROPIC_`,
+or one of `CLAUDE_CONFIG_DIR`, `CLAUDECODE`, `DISABLE_AUTOUPDATER`, `HOME`, `PATH`), or when any
+task's `env` sets it or expands it in a value as `$NAME` or `${NAME}`, whichever task declares it.
+`ANTHROPIC_API_KEY` is the one exception to the reserved names.
+
+#### Scenario: Default and task secrets join
+
+- **WHEN** `defaults.secrets` is `[HF_TOKEN]` and a task sets `secrets: [GRADER_KEY]`
+- **THEN** the loaded task's secrets are `HF_TOKEN` and `GRADER_KEY`
+
+#### Scenario: A secret also set in env
+
+- **WHEN** a task declares `secrets: [HF_TOKEN]` and `env: {HF_TOKEN: "x"}`
+- **THEN** `wikiskill suite check` reports the conflict and exits non-zero
+
+#### Scenario: Reserved name
+
+- **WHEN** a suite declares `secrets: [OPENCODE_CONFIG_CONTENT]`
+- **THEN** `wikiskill suite check` reports a reserved name and exits non-zero
+
+#### Scenario: A secret that names an isolation variable
+
+- **WHEN** a suite declares `secrets: [CLAUDE_CONFIG_DIR]`
+- **THEN** `wikiskill suite check` reports a reserved name and exits non-zero
+
+#### Scenario: A secret expanded in env
+
+- **WHEN** a task declares `secrets: [HF_TOKEN]` and `env: {FOO: "$HF_TOKEN"}`
+- **THEN** `wikiskill suite check` names `FOO` and `HF_TOKEN` and exits non-zero
+
+#### Scenario: Another task expands a secret
+
+- **WHEN** task A declares `secrets: [HF_TOKEN]` and task B, which declares none, sets
+  `env: {FOO: "$HF_TOKEN"}`
+- **THEN** `wikiskill suite check` names B, `FOO` and `HF_TOKEN` and exits non-zero
+
+### Requirement: A command verifier can declare a structured result
+
+A `command` verifier MUST accept:
+- `result: json`, meaning its stdout is a JSON object;
+- `pass_when`, a mapping from a top-level result field to a non-empty list of accepted JSON scalar
+  values;
+- `score`, the name of a top-level numeric result field to aggregate.
+
+Loading MUST fail when `pass_when` or `score` is set without `result: json`, when `pass_when` is
+empty, or when any of the three is set on a verifier of another kind.
+
+#### Scenario: A grader with a verdict
+
+- **WHEN** a task declares a command verifier with `result: json`,
+  `pass_when: {verdict: [acceptable, indistinguishable]}` and `score: score`
+- **THEN** `wikiskill suite check` accepts the suite
+
+#### Scenario: pass_when without a result
+
+- **WHEN** a command verifier sets `pass_when` and no `result`
+- **THEN** `wikiskill suite check` reports the problem and exits non-zero
+
+#### Scenario: Result on a regex verifier
+
+- **WHEN** a `regex` verifier sets `result: json`
+- **THEN** `wikiskill suite check` reports the problem and exits non-zero

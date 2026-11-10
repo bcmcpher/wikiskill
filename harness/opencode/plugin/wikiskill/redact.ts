@@ -80,13 +80,12 @@ export function redact(text: string, envValues: string[] = []): RedactResult {
   let out = text
 
   for (const value of envValues) {
-    let seen = 0
-    while (out.includes(value)) {
-      out = out.replace(value, "[REDACTED:env_value]")
-      seen += 1
-      if (seen > 100) break
-    }
-    if (seen) counts.set("env_value", (counts.get("env_value") ?? 0) + seen)
+    // Every copy goes; only the count reported is capped, as `redact.py` does.
+    const parts = out.split(value)
+    const seen = parts.length - 1
+    if (!seen) continue
+    out = parts.join("[REDACTED:env_value]")
+    counts.set("env_value", (counts.get("env_value") ?? 0) + Math.min(seen, 101))
   }
 
   for (const { kind, re, group } of PATTERNS) {

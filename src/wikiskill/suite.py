@@ -11,6 +11,7 @@ Nothing here executes a task or touches a collection's source tree.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -33,6 +34,18 @@ DEFAULT_MAX_STEPS = 40
 
 #: Environment the runner sets to isolate a unit. A suite may not override it.
 RESERVED_ENV_PREFIXES = ("XDG_", "OPENCODE_", "WIKISKILL_")
+
+#: What a secret may not name, on either harness: every variable a runner sets or relies on to
+#: isolate a unit or route it to its model. Secrets are removed last, so withholding one of these
+#: would undo the isolation, and a Claude Code session would run against the real `~/.claude`.
+RESERVED_SECRET_PREFIXES = (*RESERVED_ENV_PREFIXES, "CLAUDE_CODE_", "ANTHROPIC_")
+RESERVED_SECRET_NAMES = frozenset(
+    {"CLAUDE_CONFIG_DIR", "CLAUDECODE", "DISABLE_AUTOUPDATER", "HOME", "PATH"}
+)
+#: The deliberate exception. With `--base-url` a Claude Code unit authenticates with the endpoint's
+#: own token, so a suite may keep a hosted Anthropic key for its grader. `eval` refuses it as a
+#: secret when there is no `--base-url`, because then the session needs it.
+SECRET_EXCEPTIONS = frozenset({"ANTHROPIC_API_KEY"})
 
 SPLITS = ("train", "val", "test")
 VERIFIER_KINDS = ("command", "file_exists", "regex")
@@ -90,6 +103,12 @@ class Verifier:
     pattern: str | None = None
     target: str = "final_text"
     negate: bool = False
+    #: command: `json` when stdout is a structured result rather than something to ignore.
+    result: str | None = None
+    #: command, with a result: ``(field, accepted values)`` pairs, in the order the suite gave them.
+    pass_when: tuple[tuple[str, tuple[Any, ...]], ...] = ()
+    #: command, with a result: the numeric field a report averages.
+    score: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Verifier:
@@ -101,6 +120,11 @@ class Verifier:
             pattern=raw.get("pattern"),
             target=raw.get("target", "final_text"),
             negate=bool(raw.get("negate", False)),
+            result=raw.get("result"),
+            pass_when=tuple(
+                (name, tuple(values)) for name, values in (raw.get("pass_when") or {}).items()
+            ),
+            score=raw.get("score"),
         )
 
 
@@ -153,6 +177,11 @@ class Task:
     #: Environment set in the unit's harness process, its setup and its command verifiers, as sorted
     #: ``(name, value)`` pairs, unexpanded. Use `resolved_env` for the values a process sees.
     env: tuple[tuple[str, str], ...] = ()
+    #: Host variables only command verifiers receive: the suite default's joined with the task's.
+    secrets: tuple[str, ...] = ()
+    #: Every secret the suite declares, on any task, set at load. Withheld from this task's session
+    #: too, because a secret another task declares is still on the host this session runs on.
+    suite_secrets: tuple[str, ...] = ()
     #: Shell commands that build the workdir's starting state before the session.
     setup: tuple[str, ...] = ()
     followups: tuple[str, ...] = ()
@@ -167,6 +196,23 @@ class Task:
         value of a variable it pulled in.
         """
         return {name: os.path.expandvars(os.path.expanduser(value)) for name, value in self.env}
+
+    def secret_env(self) -> dict[str, str]:
+        """Each declared secret that is set on the host, with its value. Read when needed, never
+        stored, so the value reaches a verifier and a redaction list and nothing else."""
+        return {name: os.environ[name] for name in self.secrets if name in os.environ}
+
+    @property
+    def withheld(self) -> tuple[str, ...]:
+        """What this task's harness, setup and `requires` check may not see: its own secrets and
+        every other secret the suite declares."""
+        return tuple(dict.fromkeys([*self.secrets, *self.suite_secrets]))
+
+    def withheld_values(self) -> tuple[str, ...]:
+        """The host value of each withheld name that is set, longest first: what no record of
+        this task may show. A verifier gets only `secret_env`, but a session could still read
+        another task's value from the host, so every one is redacted."""
+        return host_values(self.withheld)
 
     @property
     def judged(self) -> bool:
@@ -198,6 +244,23 @@ class Suite:
 
     def split(self, name: str) -> list[Task]:
         return [t for t in self.tasks if t.split == name]
+
+    @property
+    def secrets(self) -> tuple[str, ...]:
+        """Every secret any task declares: what a process tied to no one task must not see."""
+        return declared_secrets(self.tasks)
+
+
+def host_values(names: Iterable[str]) -> tuple[str, ...]:
+    """The host value of each of ``names`` that is set, each once, longest first, so a value that
+    contains another is redacted whole."""
+    values = {os.environ[name] for name in names if os.environ.get(name)}
+    return tuple(sorted(values, key=len, reverse=True))
+
+
+def declared_secrets(tasks: Iterable[Task]) -> tuple[str, ...]:
+    """Every secret these tasks declare, each once, in the order first declared."""
+    return tuple(dict.fromkeys(name for task in tasks for name in task.secrets))
 
 
 # --------------------------------------------------------------------------- leak check
@@ -304,6 +367,103 @@ def verifier_problems(task: Task) -> list[str]:
             trouble = _path_problem(verifier.path)
             if trouble:
                 problems.append(f"{where}: path {verifier.path!r} {trouble}")
+        problems += [f"{where}: {problem}" for problem in _result_problems(verifier)]
+    return problems
+
+
+def verifier_warnings(task: Task) -> list[str]:
+    """What looks wrong in a task's verifiers but may be meant.
+
+    YAML reads a bare `yes`, `no`, `on` or `off` as a boolean, so `pass_when: {usable: [yes]}`
+    accepts `true` and never the string `"yes"` a grader prints. A grader may print a real boolean,
+    so this is a warning for a reader to judge, not a refusal.
+    """
+    warnings = []
+    for index, verifier in enumerate(task.verifiers):
+        for name, accepted in verifier.pass_when:
+            flags = [json.dumps(value) for value in accepted if isinstance(value, bool)]
+            if flags:
+                warnings.append(
+                    f"verifier {index}: `pass_when` field `{name}` accepts the boolean "
+                    f"{', '.join(flags)}. YAML reads a bare yes, no, on or off as a boolean; "
+                    "quote the value if the grader prints a string"
+                )
+    return warnings
+
+
+def _result_problems(verifier: Verifier) -> list[str]:
+    """`result`, `pass_when` and `score` only mean something on a command that prints a result.
+
+    The schema gives each field its shape; which kind may carry them, and that the other two need
+    `result: json`, is said here so the complaint names the field rather than a failed `oneOf`.
+    """
+    declared = [
+        name
+        for name, value in (
+            ("result", verifier.result),
+            ("pass_when", verifier.pass_when),
+            ("score", verifier.score),
+        )
+        if value
+    ]
+    if not declared:
+        return []
+    named = ", ".join(f"`{name}`" for name in declared)
+    one = len(declared) == 1
+    if verifier.kind != "command":
+        return [f"{named} {'applies' if one else 'apply'} only to a command verifier"]
+    if verifier.result is None:
+        need = "needs" if one else "need"
+        return [f"{named} {need} `result: json`, or there is no result to read from"]
+    return []
+
+
+def _reserved_secret(name: str) -> bool:
+    if name in SECRET_EXCEPTIONS:
+        return False
+    return name in RESERVED_SECRET_NAMES or name.startswith(RESERVED_SECRET_PREFIXES)
+
+
+def _refers_to(value: str, name: str) -> bool:
+    """Whether ``value`` expands ``$name`` or ``${name}``, as `Task.resolved_env` would."""
+    return re.search(rf"\$(?:{name}(?![A-Za-z0-9_])|\{{{name}\}})", value) is not None
+
+
+def env_problems(task: Task) -> list[str]:
+    """What is wrong with a task's `env` and `secrets`: a name the runner owns, or a secret the
+    task's own `env` would hand to the session anyway, by name or by expanding it. Any secret the
+    suite declares counts, not only the task's own, since every one is withheld from every
+    session."""
+    problems: list[str] = []
+    reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
+    if reserved:
+        problems.append(f"sets {', '.join(reserved)}, which the runner owns to isolate the run")
+    reserved = sorted(name for name in task.secrets if _reserved_secret(name))
+    if reserved:
+        problems.append(
+            f"declares {', '.join(reserved)} as a secret, a reserved name the runner owns to "
+            "isolate the run or route it to its model"
+        )
+    setting = {name for name, _ in task.env}
+    clashing = sorted(set(task.secrets) & setting)
+    if clashing:
+        problems.append(
+            f"declares {', '.join(clashing)} as a secret and also sets it in `env`, which would "
+            "give it to the session"
+        )
+    others = sorted((set(task.withheld) - set(task.secrets)) & setting)
+    if others:
+        problems.append(
+            f"sets {', '.join(others)} in `env`, which another task declares as a secret: every "
+            "session runs without it"
+        )
+    for name, value in task.env:
+        for secret in task.withheld:
+            if _refers_to(value, secret):
+                problems.append(
+                    f"sets `env` {name} from the secret {secret}, which would give its value to "
+                    "the session"
+                )
     return problems
 
 
@@ -323,6 +483,11 @@ def _as_task(raw: dict[str, Any], defaults: dict[str, Any]) -> Task:
         requires=tuple(raw.get("requires") or defaults.get("requires") or ()),
         guard_deny=tuple(guard.get("deny", ())),
         env=tuple(sorted({**(defaults.get("env") or {}), **(raw.get("env") or {})}.items())),
+        # Joined rather than replaced: withholding more is never harmful, so a task adding its own
+        # secret cannot release one the suite declared for every task.
+        secrets=tuple(
+            dict.fromkeys([*(defaults.get("secrets") or ()), *(raw.get("secrets") or ())])
+        ),
         setup=tuple(raw.get("setup") or defaults.get("setup") or ()),
         followups=tuple(raw.get("followups", ())),
         repeats=int(raw.get("repeats", defaults.get("repeats", DEFAULT_REPEATS))),
@@ -364,6 +529,11 @@ def parse(
 
     defaults = document.get("defaults") or {}
     tasks = [_as_task(raw, defaults) for raw in document["tasks"]]
+    # Every task's session runs on the same host, so a secret one task declares is withheld from
+    # all of them; only its own task's verifiers receive it.
+    everyone = declared_secrets(tasks)
+    if everyone:
+        tasks = [dataclasses.replace(task, suite_secrets=everyone) for task in tasks]
 
     warnings: list[str] = []
     seen: dict[str, int] = {}
@@ -378,14 +548,10 @@ def parse(
                 f"tasks/{index}: task {task.id!r} declares no expected outcome: it needs an "
                 "`expect` route, a verifier, or a rubric"
             )
-        for problem in verifier_problems(task):
+        for problem in verifier_problems(task) + env_problems(task):
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
-        reserved = sorted(name for name, _ in task.env if name.startswith(RESERVED_ENV_PREFIXES))
-        if reserved:
-            problems.append(
-                f"tasks/{index}: task {task.id!r} sets {', '.join(reserved)}, which the runner "
-                "owns to isolate the run"
-            )
+        for warning in verifier_warnings(task):
+            warnings.append(f"tasks/{index}: task {task.id!r} {warning}")
         certain, suspected = prompt_leaks(task)
         for term in certain:
             problems.append(

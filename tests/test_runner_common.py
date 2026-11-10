@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import pytest
 
-from wikiskill import names
+from wikiskill import names, redact
 from wikiskill.runner import base as runner_base
 from wikiskill.runner import common
 from wikiskill.suite import Route, Task
@@ -66,6 +67,27 @@ def test_setup_runs_in_the_workdir_with_the_tasks_env_and_logs_each_command(tmp_
     )
     assert (workdir / "state.txt").read_text() == "ready"
     assert "$ printf" in (tmp_path / "setup.log").read_text()
+
+
+def test_setup_does_not_get_a_declared_secret(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    secret = unit('printf "[%s]" "$FAKE_GRADER_TOKEN" > state.txt')
+    secret = dataclasses.replace(
+        secret, task=dataclasses.replace(secret.task, secrets=("FAKE_GRADER_TOKEN",))
+    )
+
+    common.run_setup(secret, tmp_path, tmp_path)
+
+    assert (tmp_path / "state.txt").read_text() == "[]"
+
+
+def test_without_secrets_drops_only_the_declared_names():
+    task = Task(id="t", prompt="p", split="val", secrets=("FAKE_GRADER_TOKEN",))
+    env = {"FAKE_GRADER_TOKEN": "x" * 20, "PATH": "/usr/bin"}
+
+    assert common.without_secrets(env, task) == {"PATH": "/usr/bin"}
+    plain = Task(id="t", prompt="p", split="val")
+    assert common.without_secrets(env, plain) is env, "a task without secrets is left as it was"
 
 
 def test_no_setup_writes_no_log(tmp_path):
@@ -171,6 +193,27 @@ def test_a_disabled_scrubber_only_bounds():
     assert scrub.value({"k": KEY}) == ({"k": KEY}, [])
 
 
+def test_a_declared_secret_is_redacted_even_with_redaction_off():
+    secret = "fake-grader-value-0123456789"
+    scrub = common.Scrubber.of(False, {}, 1024, [secret])
+
+    text, _, found = scrub.text(f"saw {secret}")
+
+    assert text == "saw [REDACTED:env_value]"
+    assert found == [{"kind": "env_value", "count": 1}]
+
+
+def test_a_scrubbed_event_loses_every_copy_of_a_secret():
+    secret = "fake-grader-value-0123456789"
+    scrub = common.Scrubber.of(True, {}, 1 << 20, [secret])
+
+    text, _, found = scrub.text(f"{secret}\n" * 150)
+    clean, _ = scrub.value({"command": f"{secret} " * 150})
+
+    assert secret not in text and secret not in clean["command"]
+    assert found == [{"kind": "env_value", "count": 101}], "only the reported count is capped"
+
+
 def test_scrubber_redacts_every_string_in_a_nested_input():
     scrub = common.Scrubber.of(True, {}, 1024)
     clean, found = scrub.value({"command": f"echo {KEY}", "env": [{"v": KEY}], "n": 3})
@@ -181,3 +224,42 @@ def test_scrubber_redacts_every_string_in_a_nested_input():
         "n": 3,
     }
     assert common.merged(found) == [{"kind": "api_key", "count": 2}]
+
+
+def test_a_task_without_secrets_withholds_the_suites():
+    task = Task(id="t", prompt="p", split="val", suite_secrets=("FAKE_GRADER_TOKEN",))
+    env = {"FAKE_GRADER_TOKEN": "x" * 20, "PATH": "/usr/bin"}
+
+    assert common.without_secrets(env, task) == {"PATH": "/usr/bin"}
+
+
+def test_hide_takes_a_value_out_as_written_and_as_json_escapes_it():
+    secret = 'fake"grader\\value-0123'
+    raw = f'plain {secret} and json {{"t": {json.dumps(secret)}}} sk-ant-' + "k" * 20
+
+    clean = redact.hide(raw, [secret])
+
+    assert "grader" not in clean
+    assert clean.count(redact.MARKER) == 2
+    assert clean.endswith("sk-ant-" + "k" * 20), "no pattern redaction: only the named values"
+
+
+def test_hide_in_files_scrubs_text_and_binary_and_spares_the_workdir(tmp_path):
+    secret = "fake-grader-value-0123456789"
+    (tmp_path / "work").mkdir()
+    (tmp_path / "work" / "answer.txt").write_text(secret)
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state" / "db").write_bytes(b"\xff\x00" + secret.encode() + b"\x00")
+    (tmp_path / "run.stderr").write_text(f"saw {secret}\n")
+    (tmp_path / "cache" / "work").mkdir(parents=True)
+    (tmp_path / "cache" / "work" / "log").write_text(secret)
+
+    common.hide_in_files(tmp_path, [secret])
+
+    assert (tmp_path / "cache" / "work" / "log").read_text() == redact.MARKER, (
+        "only top-level work/"
+    )
+
+    assert (tmp_path / "run.stderr").read_text() == f"saw {redact.MARKER}\n"
+    assert (tmp_path / "state" / "db").read_bytes() == b"\xff\x00" + b"*" * len(secret) + b"\x00"
+    assert (tmp_path / "work" / "answer.txt").read_text() == secret, "the task's output is its own"
