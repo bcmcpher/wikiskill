@@ -1,57 +1,37 @@
-# Resume note — 2026-10-22: skills-comm pilot features
+# Resume note — 2026-11-10: skills-comm pilot merged
 
-Generic features to run the `../skills-comm` benchmark through wikiskill. No skills-comm
-importer or integration code until their output plans settle.
+## Done
 
-## State
-
-Proposals are on `proposals/skills-comm-pilot`. Each change is implemented on its own branch
-and worktree under `.claude/worktrees/`. Nothing is archived or merged.
-
-| Change | Branch head | State |
-|---|---|---|
-| `support-flat-plugin-layout` | `f4baf1f` | Two review rounds, all fixed. Ready to archive. |
-| `add-verifier-secrets` | `f6a997c` | Two review rounds fixed. The last fix (+808/−120) is not reviewed. |
-| `add-scored-verifier` | `f9e8904` | Follow-up fixes written but not committed (see below). |
-
-`refs/review/change/<name>` marks the last reviewed commit of each branch.
+The three skills-comm pilot changes are archived and merged into `main` through
+`proposals/skills-comm-pilot`: `support-flat-plugin-layout`, `add-verifier-secrets` and
+`add-scored-verifier`. Their worktrees and `change/*` branches are removed. Nothing is pushed.
 
 ## Next
 
-1. **Commit the scored-verifier fixes.** Worktree `agent-a8b56ecce85ab28b8` has the fixes in
-   `interval.py`, `score/verify.py` and three test files. A shared-stash collision also left four
-   files conflicted there (`build.py`, `cli/collection.py`, `test_build.py`, `test_cli.py`).
-   The scored branch does not change those files, so restore them:
+1. On the batch machine: rerun `findings tables` for the three `docs/pilots/*` studies (new score
+   columns), and check verifier secrets live on both harnesses.
+2. The remaining open changes, in this order:
+   1. `honour-empty-task-overrides`. Decision: may runs before and after pool? Recommended: yes.
+   2. `warn-unsent-followups`. Must be archived before `add-scripted-followups`.
+   3. `add-run-archive`. Reuse the secret scrub (`runner.common.hide_in_files`, `redact.hide`).
+   4. `add-scripted-followups`. Only after the DSH study runs are closed.
+   5. `enforce-task-splits`. Blocked on the DSH split decision below.
 
-   ```bash
-   git -C .claude/worktrees/agent-a8b56ecce85ab28b8 checkout HEAD -- \
-     src/wikiskill/build.py src/wikiskill/cli/collection.py tests/test_build.py tests/test_cli.py
-   ```
+## Open decisions and follow-ups
 
-   Then run `bin/check` and commit
-   `verify: fix the follow-up review findings on structured results`. A backup of the fixes is in
-   `.claude/scored-fix-wip.patch` (untracked). Then drop `stash@{0}`; it holds only a copy of
-   the same fixes.
-2. **Review the secrets fix.** Run `/code-review` on
-   `refs/review/change/add-verifier-secrets..change/add-verifier-secrets`. It adds a pass that
-   overwrites secret values in every file of a unit directory except `work/`.
-3. **Close out** each change on its branch: `openspec archive <name> --yes`, commit, then merge
-   with `--no-ff` into `proposals/skills-comm-pilot`, in this order: flat layout, secrets,
-   scored. Secrets and scored conflict in `verify.py`, `suite.py`, the suite schema, both docs
-   and tests; resolve on the scored branch. Ask before merging into `main`.
-4. Remove the worktrees and branches after the merge.
-5. After merging into `main`: rerun `findings tables` for the three `docs/pilots/*` studies
-   (new score columns), and check secrets live on the batch machine on both harnesses.
-
-## Open decisions
-
-- **`evals/` in a plugin-root skill.** It is copied into the skill, not excluded. Claude Code uses
-  `evals/` at plugin level, but skill-creator puts it inside a skill. Recommended: keep it.
-- **Scrub cost.** For suites with secrets, the scrub reads every file of each unit, including the
-  OpenCode seed `node_modules`. Skipping `node_modules` is a cheap follow-up.
+- **Scrub cost.** For suites with secrets, the unit scrub reads every file of each unit, including
+  the seeded OpenCode `node_modules`. Skipping `node_modules` is a cheap follow-up.
+- **Three scrubbers.** `redact.hide_value` (all JSON forms, dict keys), `redact.redact_value`
+  (raw form, patterns; used for the rubric judge) and the pattern pass on verifier output differ
+  in coverage. Unify on `hide_value` plus one pattern pass.
+- **Known limits, not fixed.** Two declared secrets used as keys of one dict collapse into one
+  redacted key. A secret that is a substring of `[REDACTED:env_value]` breaks the leak check.
+  `Task.suite_secrets` duplicates `Suite.secrets`.
+- **`evals/` in a plugin-root skill.** It is copied into the skill, not excluded. Recommended:
+  keep it.
 - **Out of scope, found in review.** An ordinary skill still copies a nested `x/SKILL.md` into
   its build. `collection check` does not catch a bare-name clash across plugins, which the build
-  rejects. Both predate these changes.
+  rejects.
 
 # Resume note — 2026-10-12
 
