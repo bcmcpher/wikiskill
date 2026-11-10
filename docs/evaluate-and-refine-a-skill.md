@@ -433,7 +433,8 @@ default:
 
 An empty value clears a default. `setup: []` runs no setup commands, `requires: []` requires
 nothing, and `guard: {}` denies no patterns. Only a key the task leaves out takes the default.
-`env` is the exception: `env: {}` adds nothing and removes nothing.
+`env` and `secrets` are the exceptions: they combine with the default, so `env: {}` and
+`secrets: []` add nothing and remove nothing.
 
 Until November 2026, wikiskill counted an empty value as unset and gave the task the default. The
 suite hash did not change with the rule, so runs of a suite with an empty value can pool across it.
