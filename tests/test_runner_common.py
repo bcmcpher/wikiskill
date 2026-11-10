@@ -251,8 +251,14 @@ def test_hide_in_files_scrubs_text_and_binary_and_spares_the_workdir(tmp_path):
     (tmp_path / "state").mkdir()
     (tmp_path / "state" / "db").write_bytes(b"\xff\x00" + secret.encode() + b"\x00")
     (tmp_path / "run.stderr").write_text(f"saw {secret}\n")
+    (tmp_path / "cache" / "work").mkdir(parents=True)
+    (tmp_path / "cache" / "work" / "log").write_text(secret)
 
     common.hide_in_files(tmp_path, [secret])
+
+    assert (tmp_path / "cache" / "work" / "log").read_text() == common.MARKER, (
+        "only top-level work/"
+    )
 
     assert (tmp_path / "run.stderr").read_text() == f"saw {common.MARKER}\n"
     assert (tmp_path / "state" / "db").read_bytes() == b"\xff\x00" + b"*" * len(secret) + b"\x00"

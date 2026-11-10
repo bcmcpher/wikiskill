@@ -18,6 +18,7 @@ from wikiskill import collection as collection_mod
 from wikiskill import rawlog
 from wikiskill.frontmatter import read as read_frontmatter
 from wikiskill.runner import base as runner_base
+from wikiskill.runner import common
 from wikiskill.runner import opencode as backend_mod
 from wikiskill.runner.preflight import Endpoint
 
@@ -265,6 +266,18 @@ def test_a_harvested_seed_reaches_the_next_unit(seeded):
     assert (root / "cache" / "opencode" / "models.json").is_file()
     assert (root / "config" / "opencode" / "node_modules" / "@opencode-ai" / "plugin").is_dir()
     assert (root / "config" / "opencode" / "package.json").is_file()
+
+
+def test_a_harvested_seed_holds_no_withheld_value(seeded):
+    # The seed outlives the run and seeds every later root, so a value the session read is gone.
+    backend, seed = seeded
+    secret = "fake-grader-value-0123456789"
+    first = backend.layout.unit_dir(unit(condition="off"))
+    fetched(first)
+    (first / "cache" / "opencode" / "models.json").write_text(f'{{"k": "{secret}"}}')
+    backend._harvest_seed(first, (secret,))
+    assert secret not in (seed / "cache" / "opencode" / "models.json").read_text()
+    assert common.MARKER in (seed / "cache" / "opencode" / "models.json").read_text()
 
 
 def test_a_unit_prepared_twice_keeps_its_seeded_symlinks(seeded):

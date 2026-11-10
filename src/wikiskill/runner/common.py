@@ -119,22 +119,31 @@ def _forms(values: Iterable[str]) -> list[str]:
 def hide(text: str, values: Iterable[str]) -> str:
     """``text`` with every copy of each of ``values`` replaced by `MARKER`, and nothing else
     changed: no pattern redaction, so a raw file stays what the harness wrote, less the secrets."""
-    for form in _forms(values):
+    return _hide_forms(text, _forms(values))
+
+
+def _hide_forms(text: str, forms: list[str]) -> str:
+    for form in forms:
         text = text.replace(form, MARKER)
     return text
 
 
 def hide_value(obj: Any, values: tuple[str, ...]) -> Any:
     """`hide` applied to every string inside ``obj``, keeping its structure."""
-    if not values:
+    forms = _forms(values)
+    if not forms:
         return obj
-    if isinstance(obj, str):
-        return hide(obj, values)
-    if isinstance(obj, list):
-        return [hide_value(item, values) for item in obj]
-    if isinstance(obj, dict):
-        return {key: hide_value(item, values) for key, item in obj.items()}
-    return obj
+
+    def walk(item: Any) -> Any:
+        if isinstance(item, str):
+            return _hide_forms(item, forms)
+        if isinstance(item, list):
+            return [walk(entry) for entry in item]
+        if isinstance(item, dict):
+            return {key: walk(entry) for key, entry in item.items()}
+        return item
+
+    return walk(obj)
 
 
 def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("work",)) -> None:
@@ -142,33 +151,38 @@ def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("
     directories: the raw stream, stderr, exports, setup log and the harness's own state.
 
     Called once the unit's harness has exited, so a stream is parsed from what the harness wrote
-    and only the copy on disk loses the value. The workdir is skipped: it is the task's output,
-    and a verifier or judge reads it as the session left it. A file that is not UTF-8, such as a
-    harness database, has each copy overwritten in place with as many `*` bytes, so its layout
-    survives. Applied whether or not the collection redacts, as declared secrets always are.
+    and only the copy on disk loses the value. The workdir is skipped, and not walked: it is the
+    task's output, and a verifier or judge reads it as the session left it. A file that is not
+    UTF-8, such as a harness database, has each copy overwritten in place with as many `*` bytes,
+    so its layout survives. Applied whether or not the collection redacts, as declared secrets
+    always are.
     """
     forms = _forms(values)
     if not forms or not root.is_dir():
         return
-    skipped = {root / name for name in skip}
+    skipped = frozenset(skip)
     encoded = [form.encode("utf-8") for form in forms]
-    for path in root.rglob("*"):
-        if not path.is_file() or path.is_symlink() or any(p in skipped for p in path.parents):
-            continue
-        try:
-            data = path.read_bytes()
-        except OSError:
-            continue
-        if not any(form in data for form in encoded):
-            continue
-        try:
-            text = data.decode("utf-8")
-        except UnicodeDecodeError:
-            for form in encoded:
-                data = data.replace(form, b"*" * len(form))
-            path.write_bytes(data)
-            continue
-        path.write_text(hide(text, forms), encoding="utf-8")
+    for directory, subdirs, files in os.walk(root):
+        if directory == str(root):
+            subdirs[:] = [name for name in subdirs if name not in skipped]
+        for name in files:
+            path = Path(directory) / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                data = path.read_bytes()
+            except OSError:
+                continue
+            if not any(form in data for form in encoded):
+                continue
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                for form in encoded:
+                    data = data.replace(form, b"*" * len(form))
+                path.write_bytes(data)
+                continue
+            path.write_text(_hide_forms(text, forms), encoding="utf-8")
 
 
 def run_setup(unit: Unit, workdir: Path, root: Path) -> None:

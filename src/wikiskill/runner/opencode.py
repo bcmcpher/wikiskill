@@ -261,7 +261,7 @@ class OpenCodeBackend(Backend):
         problems: list[str] = []
         stream, made_file = self._probe(model, root, env)
         if made_file:
-            self._harvest_seed(root)
+            self._harvest_seed(root, host_values(self.withheld))
         details["probe_tools"] = _stream_tool_calls(stream)
         details["probe_wrote_file"] = made_file
         verdict = probe_verdict(stream, produced_file=made_file, model=model)
@@ -442,12 +442,16 @@ class OpenCodeBackend(Backend):
             elif source.is_file():
                 shutil.copy2(source, target)
 
-    def _harvest_seed(self, root: Path) -> None:
+    def _harvest_seed(self, root: Path, withheld: tuple[str, ...] = ()) -> None:
         """Keep what OpenCode fetched into this root as the seed, unless one already exists.
 
         Written beside the seed and renamed into place, so a unit running alongside never reads a
         half-written seed; when two race, the first rename wins and the other is discarded. A seed
         that cannot be written costs only the download it would have saved, never the unit.
+
+        The session that filled the root may have read a ``withheld`` value from this process, and
+        the seed outlives the run and is copied into every later root, so the staged copy is
+        scrubbed of those values before it is renamed into place.
         """
         seed = self._seed_dir()
         if seed is None or seed.exists():
@@ -465,6 +469,7 @@ class OpenCodeBackend(Backend):
                     shutil.copytree(source, target, symlinks=True)
                 else:
                     shutil.copy2(source, target)
+            common.hide_in_files(staging, withheld, skip=())
             os.replace(staging, seed)
         except OSError as exc:
             if not seed.exists():
@@ -754,7 +759,7 @@ class OpenCodeBackend(Backend):
         duration_ms = int((time.time() - started) * 1000)
         if exit_code == 0:
             # Only after a clean exit: a killed process can leave a half-installed node_modules.
-            self._harvest_seed(root)
+            self._harvest_seed(root, unit.task.withheld_values())
         (root / "run.ndjson").write_text(stdout, encoding="utf-8")
         if stderr:
             (root / "run.stderr").write_text(stderr, encoding="utf-8")
