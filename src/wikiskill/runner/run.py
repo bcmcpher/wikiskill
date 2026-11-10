@@ -22,13 +22,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import __version__, paths, rawlog, sources
+from .. import __version__, paths, rawlog, redact, sources
 from ..collection import Collection, Role
 from ..rubric import Rubric, RubricError
 from ..rubric import load as load_rubric
 from ..score import judge as judge_mod
 from ..score import verify
-from ..suite import Suite, Task
+from ..suite import Suite, Task, declared_secrets, host_values
+from . import common
 from .base import (
     INFRA_OUTCOMES,
     INJECTED,
@@ -150,10 +151,62 @@ def missing_capabilities(task: Task) -> list[str]:
 
     A capability is the name of a program the task needs on `PATH` — the task's own `PATH` when its
     `env` sets one. Anything more elaborate belongs to the task's own verifiers, not to a gate that
-    decides whether it runs at all.
+    decides whether it runs at all. The lookup sees the environment the session would, secrets gone.
     """
-    path = task.resolved_env().get("PATH")
+    env = common.without_secrets({**os.environ, **task.resolved_env()}, task)
+    path = env.get("PATH", os.defpath)
     return [name for name in task.requires if shutil.which(name, path=path) is None]
+
+
+def secret_refusal(tasks: list[Task] | tuple[Task, ...]) -> str | None:
+    """Why the host cannot supply these tasks' secrets, or None when it can.
+
+    A missing secret is the whole run's configuration, not one unit's bad luck, so it is refused
+    once before anything runs rather than failing every unit. A value under
+    `redact.MIN_ENV_VALUE` characters is refused too: redacting it would mangle unrelated text.
+    """
+    declared = declared_secrets(tasks)
+    unset = [name for name in declared if not os.environ.get(name)]
+    # Every value any record is scrubbed of: a task that is not running still has its secret
+    # withheld and redacted from those that are, so its value has to be redactable too.
+    present = [
+        name
+        for name in dict.fromkeys(n for task in tasks for n in task.withheld)
+        if os.environ.get(name)
+    ]
+    short = [name for name in present if len(os.environ[name]) < redact.MIN_ENV_VALUE]
+    padded = [name for name in present if os.environ[name] != os.environ[name].strip()]
+    problems = []
+    if unset:
+        problems.append(f"declared secret(s) not set on this host: {', '.join(unset)}")
+    if short:
+        problems.append(
+            f"declared secret(s) shorter than {redact.MIN_ENV_VALUE} characters, too short to "
+            f"redact safely: {', '.join(short)}"
+        )
+    if padded:
+        problems.append(
+            "declared secret(s) whose value starts or ends with whitespace, such as a trailing "
+            "newline or carriage return from the file it was read from; output trimmed of it "
+            f"would not match the value, so it could not be redacted: {', '.join(padded)}. "
+            "Strip the value before exporting it"
+        )
+    return "; ".join(problems) or None
+
+
+def _require_secrets(suite: Suite, tasks: list[Task] | tuple[Task, ...], backend: Backend) -> None:
+    """Refuse a run the host cannot supply secrets for, and make sure the backend withholds every
+    secret the suite declares from what it starts for no one unit, whoever built it."""
+    refused = secret_refusal(tasks)
+    if refused:
+        raise ValueError(refused)
+    withhold(suite, backend)
+
+
+def withhold(suite: Suite, backend: Backend) -> None:
+    """Add every secret the suite declares to the backend's withheld names. Called before the
+    backend starts anything, a `--version` check included, whoever built it."""
+    backend.withheld = tuple(dict.fromkeys([*backend.withheld, *suite.secrets]))
 
 
 def run_suite(
@@ -186,6 +239,8 @@ def run_suite(
     `retries` is how many times a unit is run again when the harness lost it
     (`Trajectory.transient`); no other outcome is ever rerun.
     """
+    # Before a run directory, or a unit's, exists: a secret the host lacks fails every unit alike.
+    _require_secrets(suite, tasks if tasks is not None else suite.tasks, backend)
     run_id = run_id or new_run_id()
     collection_name = collection.name if collection else suite.name
     # A judge panel that cannot grade the run refuses it before a run directory exists.
@@ -241,7 +296,7 @@ def run_suite(
         # One lock for the whole hand-off: `results.jsonl` and the raw log are both append-only
         # files, and a half-written line is worse than a slow one.
         with keeping:
-            result = trajectory.as_result()
+            result = _result(trajectory)
             run.results.append(result)
             where.append_result(result)
             run.events_written += _write_events(backend, trajectory, raw_root)
@@ -266,16 +321,16 @@ def run_suite(
             ):
                 record(trajectory)
 
-    where.write_manifest(
-        _manifest(
-            run,
-            backend=backend,
-            collection=collection,
-            proofs=proofs,
-            duration_s=round(time.time() - started, 1),
-            proposal=proposal,
-        )
+    manifest = _manifest(
+        run,
+        backend=backend,
+        collection=collection,
+        proofs=proofs,
+        duration_s=round(time.time() - started, 1),
+        proposal=proposal,
     )
+    # A preflight probe's words and an isolation proof come from harness processes too.
+    where.write_manifest(common.hide_value(manifest, host_values(suite.secrets)))
     for warning in run.warnings:
         report(f"warning: {warning}")
     return run
@@ -322,6 +377,7 @@ def _execute(unit: Unit, backend: Backend, run: RunResult, report) -> Trajectory
     earlier: list[dict[str, Any]] = []
     while True:
         trajectory = backend.execute(unit)
+        _scrub_unit(trajectory, run.layout)
         lost = trajectory.outcome == "infra_error" and trajectory.transient
         if not lost or len(earlier) >= run.retries:
             break
@@ -331,6 +387,23 @@ def _execute(unit: Unit, backend: Backend, run: RunResult, report) -> Trajectory
     trajectory.attempts = len(earlier) + 1
     trajectory.retried = earlier
     return trajectory
+
+
+def _scrub_unit(trajectory: Trajectory, layout: RunLayout) -> None:
+    """Take every secret value out of what the unit's harness left: its files on disk, and the
+    reason built from its stderr. The session cannot see a secret in its environment, but it runs
+    as this user and can read one from this process's, so anything it printed is not trusted."""
+    values = trajectory.unit.task.withheld_values()
+    if not values:
+        return
+    common.hide_in_files(layout.root / "units" / trajectory.unit.slug, values)
+    trajectory.reason = common.hide_value(trajectory.reason, values)
+    trajectory.error = common.hide_value(trajectory.error, values)
+
+
+def _result(trajectory: Trajectory) -> dict[str, Any]:
+    """The unit's `results.jsonl` line, with no secret value anywhere in it."""
+    return common.hide_value(trajectory.as_result(), trajectory.unit.task.withheld_values())
 
 
 def _attempt(result: dict[str, Any], aside: Path | None, layout: RunLayout) -> dict[str, Any]:
@@ -415,6 +488,8 @@ def _judge(
             report(f"  rubric {rubric.id}: delegations unknown, not judged")
             return
         handoffs = judge_mod.delegations(events)
+    # A verifier ran first and may have left a secret in the workdir the judge is shown.
+    hide = trajectory.unit.task.withheld_values()
     try:
         judgement = judge_mod.judge_task(
             rubric,
@@ -424,13 +499,15 @@ def _judge(
             final_text=trajectory.final_text,
             workdir=trajectory.workdir,
             models_under_test=panel.models_under_test,
+            hide=hide,
         )
     except judge_mod.JudgeError as exc:
         trajectory.rubric = {"rubric": rubric.id, "error": str(exc)}
         report(f"  rubric {rubric.id}: {exc}")
         return
 
-    trajectory.rubric = judgement.as_dict()
+    stored = judgement.as_dict()
+    trajectory.rubric = redact.redact_value(stored, hide)[0] if hide else stored
     scored = len(judgement.consensus)
     report(f"  rubric {rubric.id}: {scored}/{len(rubric.dimensions)} dimensions scored")
 
@@ -492,6 +569,8 @@ def _manifest(
         # As run: `eval --repeats` changes these without changing the suite file or its hash.
         "repeats": {task.id: task.repeats for task in run.suite.tasks},
         "env": {task.id: dict(task.env) for task in run.suite.tasks if task.env},
+        # Names only. A value is read from the host when a verifier needs it and never written.
+        "secrets": {task.id: list(task.secrets) for task in run.suite.tasks if task.secrets},
         "setup": {task.id: list(task.setup) for task in run.suite.tasks if task.setup},
         "components": run.components,
         # A candidate run evaluates a proposal from a copy of its source; a baseline names none.
@@ -563,6 +642,8 @@ def fill_refusal(
     A filled unit has to be the unit the run would have produced: the same suite file, harness,
     component text and model options. Anything else would make one run of two experiments.
     """
+    # `_changed_since` asks the harness its version, so the secrets go first.
+    withhold(suite, backend)
     return unfillable(manifest) or _changed_since(manifest, suite, backend, collection)
 
 
@@ -669,6 +750,7 @@ def fill_run(
         for i in todo
     ]
     needed = list(dict.fromkeys(unit.task for unit in units))
+    _require_secrets(suite, needed, backend)
     panel, no_judge = panel_for(collection, suite, run.models, needed)
     if no_judge:
         report(f"no rubric judge: {no_judge}")
@@ -691,7 +773,7 @@ def fill_run(
             *trajectory.retried,
         ]
         trajectory.attempts = int(prior.get("attempts") or 1) + trajectory.attempts
-        results[i] = trajectory.as_result()
+        results[i] = _result(trajectory)
         superseded.append({**prior, "superseded_at": at})
         run.events_written += _write_events(backend, trajectory, raw_root)
         trajectory.events = None
@@ -714,13 +796,16 @@ def fill_run(
         }
     )
     layout.write_manifest(
-        {
-            **manifest,
-            "fills": fills,
-            "outcomes": run.counts(),
-            "events_written": int(manifest.get("events_written") or 0) + run.events_written,
-            "warnings": [*(manifest.get("warnings") or []), *run.warnings],
-        }
+        common.hide_value(
+            {
+                **manifest,
+                "fills": fills,
+                "outcomes": run.counts(),
+                "events_written": int(manifest.get("events_written") or 0) + run.events_written,
+                "warnings": [*(manifest.get("warnings") or []), *run.warnings],
+            },
+            host_values(suite.secrets),
+        )
     )
     return run, [unit.slug for unit in units]
 

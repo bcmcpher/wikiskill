@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .. import redact
 from ..errors import WikiskillError
 from ..suite import Task, Verifier
 
@@ -83,9 +84,13 @@ def resolve_in(workdir: Path, raw: str) -> Path:
     return resolved
 
 
-def _env() -> dict[str, str]:
+def _env(withhold: tuple[str, ...] = ()) -> dict[str, str]:
+    """The host's environment, less the runner's own variables and ``withhold``."""
+    drop = frozenset(withhold)
     return {
-        key: value for key, value in os.environ.items() if not key.startswith(_DROPPED_ENV_PREFIXES)
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(_DROPPED_ENV_PREFIXES) and key not in drop
     }
 
 
@@ -93,7 +98,13 @@ def _env() -> dict[str, str]:
 
 
 def _command(
-    verifier: Verifier, workdir: Path, timeout_s: int, env: dict[str, str] | None = None
+    verifier: Verifier,
+    workdir: Path,
+    timeout_s: int,
+    env: dict[str, str] | None = None,
+    *,
+    hide: tuple[str, ...] = (),
+    withhold: tuple[str, ...] = (),
 ) -> VerifierResult:
     if not verifier.run:
         raise VerifierError("a command verifier needs `run`")
@@ -106,7 +117,7 @@ def _command(
             text=True,
             errors="replace",
             timeout=timeout_s,
-            env={**_env(), **(env or {})},
+            env={**_env(withhold), **(env or {})},
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
@@ -114,7 +125,13 @@ def _command(
     except OSError as exc:
         raise VerifierError(f"`{verifier.run}` could not be started: {exc}") from exc
 
-    output = (done.stdout + done.stderr).strip()
+    output = done.stdout + done.stderr
+    if hide:
+        # Before the tail is cut, so a cut cannot leave half a secret behind, and before the strip,
+        # so a value ending in whitespace is still whole. A scorer that echoes its configuration
+        # must not write the secret into `results.jsonl`.
+        output, _ = redact.redact(output, sorted(hide, key=len, reverse=True))
+    output = output.strip()
     return VerifierResult(
         kind=verifier.kind,
         passed=done.returncode == verifier.expect_exit,
@@ -183,13 +200,17 @@ def run_verifier(
     transcript: str = "",
     timeout_s: int = VERIFIER_TIMEOUT_S,
     env: dict[str, str] | None = None,
+    hide: tuple[str, ...] = (),
+    withhold: tuple[str, ...] = (),
 ) -> VerifierResult:
     """Carry out one verifier and return its verdict, with `negate` applied last.
 
-    `env` is the task's own environment, laid over the host's for a command verifier.
+    `env` is the task's own environment, laid over the host's for a command verifier. `hide` holds
+    secret values that a command's kept output must not show. ``withhold`` names host variables a
+    command does not inherit: the secrets other tasks of the suite declare.
     """
     if verifier.kind == "command":
-        result = _command(verifier, workdir, timeout_s, env)
+        result = _command(verifier, workdir, timeout_s, env, hide=hide, withhold=withhold)
     elif verifier.kind == "file_exists":
         result = _file_exists(verifier, workdir)
     elif verifier.kind == "regex":
@@ -228,6 +249,12 @@ def verify_task(
     if workdir is None or not workdir.is_dir():
         raise VerifierError(f"no working directory to verify in: {workdir}")
 
+    # The one process of a unit that gets the task's secrets, each with its host value. Named
+    # explicitly rather than left to inheritance, so the grant does not hang on what `_env` keeps.
+    # Another task's secrets are not inherited: a verifier gets its own task's and no more.
+    secrets = task.secret_env()
+    env = {**task.resolved_env(), **secrets}
+    others = tuple(name for name in task.withheld if name not in task.secrets)
     results = [
         run_verifier(
             verifier,
@@ -235,7 +262,9 @@ def verify_task(
             final_text=final_text,
             transcript=transcript,
             timeout_s=timeout_s,
-            env=task.resolved_env(),
+            env=env,
+            hide=task.withheld_values(),
+            withhold=others,
         )
         for verifier in task.verifiers
     ]

@@ -107,10 +107,11 @@ def redact(text: str, env_values: Iterable[str] = ()) -> tuple[str, list[dict[st
     counts: Counter[str] = Counter()
     out = text
     for value in env_values:
-        seen = min(out.count(value), 101)
+        seen = out.count(value)
         if seen:
-            out = out.replace(value, "[REDACTED:env_value]", seen)
-            counts["env_value"] += seen
+            # Every copy goes; only the count reported is capped, as it always was.
+            out = out.replace(value, "[REDACTED:env_value]")
+            counts["env_value"] += min(seen, 101)
 
     for kind, pattern, group in PATTERNS:
 

@@ -341,6 +341,9 @@ class Backend(ABC):
     harness: str = ""
     #: The directory a task's `fixtures` path is relative to: the suite file's own.
     suite_root: Path
+    #: Every secret the suite declares. Withheld from what the backend starts for no one unit:
+    #: the preflight probe and the version check.
+    withheld: tuple[str, ...] = ()
 
     @abstractmethod
     def version(self) -> str:

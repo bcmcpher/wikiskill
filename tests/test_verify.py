@@ -89,6 +89,60 @@ def test_command_sees_the_tasks_own_environment(workdir):
     assert passed
 
 
+def test_command_sees_each_secret_with_its_host_value(workdir, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(
+            Verifier(
+                kind="command", run='test "$FAKE_GRADER_TOKEN" = fake-grader-value-0123456789'
+            ),
+        ),
+    )
+    _, passed = verify.verify_task(task, workdir=workdir)
+
+    assert passed
+
+
+def test_a_secret_a_command_prints_is_redacted_before_the_tail_is_cut(workdir, monkeypatch):
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    # The secret then 1990 characters: a tail of 2000 would start inside it.
+    script = "import os; print(os.environ['FAKE_GRADER_TOKEN'] + 'x' * 1990)"
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(Verifier(kind="command", run=f'{sys.executable} -c "{script}"'),),
+    )
+    (result,), _ = verify.verify_task(task, workdir=workdir)
+
+    assert secret[-10:] not in result.output
+    assert result.output.endswith("x" * 1990)
+
+
+def test_every_copy_of_a_printed_secret_is_redacted(workdir, monkeypatch):
+    secret = "fake-grader-value-0123456789"
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", secret)
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(
+            Verifier(kind="command", run='for i in $(seq 150); do echo "$FAKE_GRADER_TOKEN"; done'),
+        ),
+    )
+    (result,), _ = verify.verify_task(task, workdir=workdir)
+
+    assert secret not in result.output
+    assert result.output.count("[REDACTED:env_value]") > 70, "the kept tail is all markers"
+
+
 def test_a_timing_out_command_is_infrastructure_not_a_failure(workdir):
     verifier = Verifier(kind="command", run=f'{sys.executable} -c "import time; time.sleep(5)"')
 
@@ -271,3 +325,29 @@ def test_a_good_verifier_still_loads(tmp_path):
     verifier = loaded.tasks[0].verifiers[0]
     assert verifier.target == "file"
     assert verifier.path == "CHANGELOG.md"
+
+
+def test_a_secret_ending_in_whitespace_is_redacted_before_the_output_is_trimmed(workdir):
+    # A trailing space: a `\r` never reaches the output as it is, because text mode turns it into
+    # `\n`, which is why such a value is refused before a run starts.
+    secret = "fake-grader-value-0123 "
+    verifier = Verifier(kind="command", run="printf 'fake-grader-value-0123 '")
+
+    result = verify.run_verifier(verifier, workdir=workdir, hide=(secret,))
+
+    assert "fake-grader" not in result.output
+    assert result.output == "[REDACTED:env_value]"
+
+
+def test_a_verifier_does_not_inherit_another_tasks_secret(workdir, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", "fake-grader-value-0123456789")
+    task = Task(
+        id="t",
+        prompt="p",
+        split="val",
+        suite_secrets=("FAKE_GRADER_TOKEN",),
+        verifiers=(Verifier(kind="command", run='test -z "${FAKE_GRADER_TOKEN+set}"'),),
+    )
+    _, passed = verify.verify_task(task, workdir=workdir)
+
+    assert passed, "only the task that declares a secret has its verifiers given it"

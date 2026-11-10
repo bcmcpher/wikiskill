@@ -21,6 +21,13 @@ describe("secret patterns", () => {
     expect(result.redactions.some((r) => r.kind === kind)).toBe(true)
   })
 
+  test("every copy of an environment value goes, past the reported cap", () => {
+    const value = "fake-grader-value-0123456789"
+    const result = redact(`${value} `.repeat(150), [value])
+    expect(result.text).not.toContain(value)
+    expect(result.redactions).toEqual([{ kind: "env_value", count: 101 }])
+  })
+
   test("a private key block is removed whole", () => {
     const input =
       "-----BEGIN OPENSSH PRIVATE KEY-----\nbase64here\n-----END OPENSSH PRIVATE KEY-----"
