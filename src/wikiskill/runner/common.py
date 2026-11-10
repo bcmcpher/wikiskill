@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -100,7 +100,7 @@ def without_names(env: dict[str, str], names: Iterable[str]) -> dict[str, str]:
     return {key: value for key, value in env.items() if key not in drop}
 
 
-def hide_in_files(root: Path, values: Iterable[str], *, skip: Iterable[str] = ("work",)) -> None:
+def hide_in_files(root: Path, values: Sequence[str], *, skip: Iterable[str] = ("work",)) -> None:
     """Replace each of ``values`` in every file under ``root`` but the top-level ``skip``
     directories: the raw stream, stderr, exports, setup log and the harness's own state.
 

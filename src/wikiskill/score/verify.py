@@ -142,8 +142,12 @@ def _command(
 
     # Scrubbed before the tail is cut, in every form JSON may write it, so a cut cannot leave part
     # of a secret behind; and before the strip, so a value ending in whitespace is still whole. A
-    # scorer that echoes its configuration must not write the secret into `results.jsonl`.
-    output = redact.hide(done.stdout + done.stderr, hide).strip()
+    # scorer that echoes its configuration must not write the secret into `results.jsonl`, and
+    # in a suite that declares one, nothing secret-shaped it prints is kept either.
+    output = redact.hide(done.stdout + done.stderr, hide)
+    if hide:
+        output, _ = redact.redact(output)
+    output = output.strip()
     exited = done.returncode == verifier.expect_exit
     detail = f"`{verifier.run}` exited {done.returncode}, expected {verifier.expect_exit}"
     if verifier.result != "json":

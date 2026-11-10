@@ -570,3 +570,13 @@ def test_an_escaped_secret_at_the_tail_cut_leaves_no_part_behind(workdir, tmp_pa
     )
 
     assert "grader-value" not in result.output
+
+
+def test_a_suite_with_secrets_keeps_pattern_redaction_of_verifier_output(workdir):
+    # Not a credential: shaped like one so the built-in patterns match it.
+    shaped = "sk-ant-" + "a" * 40
+    verifier = Verifier(kind="command", run=f"echo {shaped}")
+
+    result = verify.run_verifier(verifier, workdir=workdir, hide=("fake-grader-value-0123",))
+
+    assert shaped not in result.output

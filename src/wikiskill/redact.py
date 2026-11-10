@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -199,7 +199,7 @@ def bound(text: str, limit_bytes: int) -> Bounded:
 MARKER = "[REDACTED:env_value]"
 
 
-def withheld_forms(values: Iterable[str]) -> list[str]:
+def withheld_forms(values: Sequence[str]) -> list[str]:
     """Each value as text holds it and as a JSON string holds it, longest first. A harness's raw
     stream is JSON, where a value with a quote or a backslash is written escaped."""
     forms: set[str] = set()
@@ -218,13 +218,13 @@ def hide_values_in(text: str, forms: list[str]) -> str:
     return text
 
 
-def hide(text: str, values: Iterable[str]) -> str:
+def hide(text: str, values: Sequence[str]) -> str:
     """``text`` with every copy of each of ``values`` replaced by `MARKER`, and nothing else
     changed: no pattern redaction, so a raw file stays what the harness wrote, less the secrets."""
     return hide_values_in(text, withheld_forms(values))
 
 
-def hide_value(obj: Any, values: Iterable[str]) -> Any:
+def hide_value(obj: Any, values: Sequence[str]) -> Any:
     """`hide` applied to every string inside ``obj``, dict keys included, keeping its structure.
 
     A value that is not a string, such as a number, is left as it is: a caller storing data a
@@ -245,7 +245,7 @@ def hide_value(obj: Any, values: Iterable[str]) -> Any:
     return walk(obj)
 
 
-def holds_withheld(obj: Any, values: Iterable[str]) -> bool:
+def holds_withheld(obj: Any, values: Sequence[str]) -> bool:
     """Whether any of ``values`` is still somewhere in ``obj`` as JSON writes it."""
     forms = withheld_forms(values)
     if not forms:
