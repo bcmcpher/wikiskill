@@ -27,6 +27,13 @@ def test_a_secret_is_replaced_and_counted(text, kind):
     assert any(r["kind"] == kind for r in redactions)
 
 
+def test_every_copy_of_an_environment_value_goes_past_the_reported_cap():
+    value = "fake-grader-value-0123456789"
+    clean, redactions = redact(f"{value} " * 150, [value])
+    assert value not in clean
+    assert redactions == [{"kind": "env_value", "count": 101}]
+
+
 def test_a_private_key_block_is_removed_whole():
     text = "-----BEGIN OPENSSH PRIVATE KEY-----\nbase64here\n-----END OPENSSH PRIVATE KEY-----"
     assert redact(text)[0] == "[REDACTED:private_key]"

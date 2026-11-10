@@ -10,12 +10,16 @@ the grader only".
 
 - A suite may declare `secrets`: names of host environment variables that only command verifiers
   receive. Declared in `defaults`, on a task, or both; the two lists are joined.
-- Both runners remove declared secrets from every harness process of the unit: the session, and
-  OpenCode's export step. Setup commands and the `requires` check do not get them either.
-- A run whose declared secret is not set on the host refuses to start and names the variable.
-- `run.json` records the secret names, never their values. Values are redacted from stored
-  verifier output and from logged events.
-- A task `env` entry may not name a declared secret.
+- Both runners remove every secret the suite declares from every harness process of every unit:
+  the session, and OpenCode's export step. Setup commands and the `requires` check do not get them
+  either. A verifier gets only its own task's secrets.
+- A run whose declared secret is not set on the host, too short, or padded with whitespace refuses
+  to start and names the variable.
+- `run.json` records the secret names, never their values. Values are redacted from records and
+  from the harness's raw files in the unit directory.
+- No task `env` entry may name or expand a declared secret.
+- The docs state that this is not a sandbox: a session running as the same user can still read the
+  value from the host.
 
 ## Capabilities
 

@@ -107,6 +107,7 @@ class ClaudeCodeBackend(Backend):
         output_limit_bytes: int = 16 * 1024,
         redact: bool = True,
         foreground_agents: bool = False,
+        withheld: tuple[str, ...] = (),
     ) -> None:
         self.collection = collection
         self.endpoint = endpoint
@@ -120,6 +121,7 @@ class ClaudeCodeBackend(Backend):
         #: Subagents run in the background when the model asks for it, as they would for a user.
         #: Forcing them into the foreground is a different harness behaviour, so it is recorded.
         self.foreground_agents = foreground_agents
+        self.withheld = withheld
         self._version: str | None = None
         #: condition → its isolation proof, completed with what the first unit was offered.
         self._proofs: dict[str, dict[str, Any]] = {}
@@ -138,6 +140,7 @@ class ClaudeCodeBackend(Backend):
                     capture_output=True,
                     text=True,
                     timeout=30,
+                    env=common.without_names(dict(os.environ), self.withheld),
                     check=False,
                 )
             except (OSError, subprocess.SubprocessError) as exc:
@@ -276,7 +279,8 @@ class ClaudeCodeBackend(Backend):
             env["CLAUDE_CODE_SUBAGENT_MODEL"] = model_id
         elif os.environ.get("ANTHROPIC_API_KEY"):
             env["ANTHROPIC_API_KEY"] = os.environ["ANTHROPIC_API_KEY"]
-        return env
+        # Last, so not even a credential passed through above survives a suite naming it a secret.
+        return common.without_secrets(env, unit.task)
 
     def command_for(self, unit: Unit, root: Path) -> list[str]:
         command = [
@@ -440,7 +444,7 @@ class ClaudeCodeBackend(Backend):
         try:
             return self.env_for(unit, self.layout.unit_dir(unit))
         except (RunnerError, OSError):
-            return {**os.environ, **unit.task.resolved_env()}
+            return common.without_secrets({**os.environ, **unit.task.resolved_env()}, unit.task)
 
     def in_collection(self, kind: str, name: str) -> bool:
         """During an evaluation every component of the collection counts, watched or not."""
@@ -463,7 +467,10 @@ class _Normaliser:
         self.unit = trajectory.unit
         self.provider, self.model = common.split_model(self.unit.model)
         self.scrub = common.Scrubber.of(
-            backend.redact, backend.unit_env(self.unit), backend.output_limit_bytes
+            backend.redact,
+            backend.unit_env(self.unit),
+            backend.output_limit_bytes,
+            self.unit.task.withheld_values(),
         )
         stream = (trajectory.sessions[0] if trajectory.sessions else {}).get("stream") or []
         self.stream: list[dict[str, Any]] = stream

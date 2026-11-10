@@ -459,6 +459,246 @@ def test_execute_runs_claude_in_the_unit_and_reads_the_stream(tmp_path, capture)
     assert (root / "stream.jsonl").is_file()
 
 
+#: Not a credential: a fake value only these tests set.
+FAKE_SECRET = "fake-grader-value-0123456789"
+
+
+def secret_unit():
+    import dataclasses
+
+    from wikiskill.suite import Verifier
+
+    base = unit()
+    check = Verifier(kind="command", run=f'test "$FAKE_GRADER_TOKEN" = {FAKE_SECRET}')
+    task = dataclasses.replace(base.task, secrets=("FAKE_GRADER_TOKEN",), verifiers=(check,))
+    return dataclasses.replace(base, task=task)
+
+
+def test_a_declared_secret_is_withheld_from_the_session_env(backend, monkeypatch):
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    root = backend.layout.root
+
+    assert "FAKE_GRADER_TOKEN" not in backend.env_for(secret_unit(), root)
+    assert backend.env_for(unit(), root)["FAKE_GRADER_TOKEN"] == FAKE_SECRET, (
+        "a task without secrets keeps what it always had"
+    )
+
+
+def test_the_session_lacks_the_secret_and_the_verifier_has_it(tmp_path, capture, monkeypatch):
+    from wikiskill.score import verify
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    executable = fake_claude(tmp_path, isolated_capture(tmp_path))
+    backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))
+    graded = secret_unit()
+
+    trajectory = backend.execute(graded)
+
+    assert trajectory.outcome == "completed", trajectory.error
+    seen = (tmp_path / "env.txt").read_text(encoding="utf-8")
+    assert "FAKE_GRADER_TOKEN" not in seen
+    assert FAKE_SECRET not in seen
+    _, passed = verify.verify_task(graded.task, workdir=trajectory.workdir)
+    assert passed, "the command verifier sees the host value"
+
+
+def test_preflight_starts_no_harness_process_that_sees_a_secret(tmp_path, capture, monkeypatch):
+    """Claude Code's preflight is HTTP from this process, or a key check; the only harness process
+    started for no one unit is `claude --version`, and it runs without the suite's secrets."""
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    script = tmp_path / "claude"
+    script.write_text(
+        f'#!/bin/sh\nprintf "%s" "${{FAKE_GRADER_TOKEN-unset}}" >> {tmp_path}/seen.txt\n'
+        'echo "2.1.289 (Claude Code)"\n',
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    backend = make_backend(tmp_path, capture, None, str(script), withheld=("FAKE_GRADER_TOKEN",))
+
+    assert backend.preflight("anthropic/claude-haiku-4-5").ok
+    assert backend.version() == "2.1.289"
+    assert (tmp_path / "seen.txt").read_text() == "unset", "one process, and it saw no secret"
+
+
+def test_no_file_a_run_writes_holds_a_secret(tmp_path, xdg, capture, monkeypatch):
+    from wikiskill import suite as suite_mod
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    executable = fake_claude(tmp_path, isolated_capture(tmp_path))
+    backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+    suite = suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "count",
+                    "prompt": "How many words does notes.txt have?",
+                    "split": "val",
+                    "expect": {"skill": "capture/word-count"},
+                    "verifiers": [{"kind": "command", "run": 'echo "got $FAKE_GRADER_TOKEN"'}],
+                }
+            ],
+        }
+    )
+
+    run = run_mod.run_suite(
+        suite,
+        backend,
+        collection=capture,
+        models=["ollama/qwen3:30b-a3b"],
+        conditions=["routed"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["outcome"] == "completed", result
+    assert result["verifiers"][0]["output"] == "got [REDACTED:env_value]"
+    assert FAKE_SECRET not in (tmp_path / "env.txt").read_text(encoding="utf-8")
+    for root in (backend.layout.root, xdg["data"]):
+        leaked = [
+            path
+            for path in root.rglob("*")
+            if path.is_file() and FAKE_SECRET in path.read_text(errors="replace")
+        ]
+        assert leaked == [], root
+
+
+def leaky_claude(tmp_path, recorded):
+    """A `claude` whose session read the secret from the host, as one running as this user can,
+    and printed it to its stream, its stderr and its own config directory."""
+    script = fake_claude(tmp_path, recorded)
+    script.write_text(
+        script.read_text(encoding="utf-8")
+        + f'echo \'{{"type": "system", "subtype": "note", "text": "{FAKE_SECRET}"}}\'\n'
+        + f"echo 'read {FAKE_SECRET}' >&2\n"
+        + f'echo "{FAKE_SECRET}" > "$CLAUDE_CONFIG_DIR/leak.txt"\n',
+        encoding="utf-8",
+    )
+    return script
+
+
+def graded_suite(verifier="true"):
+    from wikiskill import suite as suite_mod
+
+    return suite_mod.parse(
+        {
+            "suite": "graded",
+            "defaults": {"repeats": 1, "secrets": ["FAKE_GRADER_TOKEN"]},
+            "tasks": [
+                {
+                    "id": "count",
+                    "prompt": "How many words does notes.txt have?",
+                    "split": "val",
+                    "expect": {"skill": "capture/word-count"},
+                    "verifiers": [{"kind": "command", "run": verifier}],
+                }
+            ],
+        }
+    )
+
+
+def files_holding(root, value):
+    return [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and value in path.read_text(errors="replace")
+    ]
+
+
+@pytest.mark.parametrize("redact", [True, False])
+def test_a_secret_the_session_printed_is_in_no_file_the_run_keeps(
+    tmp_path, xdg, capture, monkeypatch, redact
+):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    executable = leaky_claude(tmp_path, isolated_capture(tmp_path))
+    backend = make_backend(
+        tmp_path, capture, Endpoint("http://localhost:11434"), str(executable), redact=redact
+    )
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+
+    run = run_mod.run_suite(
+        graded_suite(),
+        backend,
+        collection=capture,
+        models=["ollama/qwen3:30b-a3b"],
+        conditions=["routed"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["outcome"] == "completed", result
+    (unit_dir,) = (backend.layout.root / "units").iterdir()
+    assert "[REDACTED:env_value]" in (unit_dir / "stream.jsonl").read_text()
+    assert (unit_dir / "run.stderr").read_text() == "read [REDACTED:env_value]\n"
+    for root in (backend.layout.root, xdg["data"]):
+        assert files_holding(root, FAKE_SECRET) == [], root
+
+
+def test_a_lost_session_reason_does_not_quote_a_secret(tmp_path, xdg, capture, monkeypatch):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    script = tmp_path / "claude"
+    script.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "--version" ]; then echo "2.1.289 (Claude Code)"; exit 0; fi\n'
+        f"echo 'auth failed for {FAKE_SECRET}' >&2\nexit 1\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(script))
+    monkeypatch.setattr(
+        backend, "preflight", lambda model: runner_base.PreflightResult(model=model, ok=True)
+    )
+
+    run = run_mod.run_suite(
+        graded_suite(),
+        backend,
+        collection=capture,
+        models=["ollama/qwen3:30b-a3b"],
+        conditions=["routed"],
+        layout=backend.layout,
+        run_id=RUN_ID,
+    )
+
+    (result,) = run.results
+    assert result["outcome"] == "infra_error"
+    assert result["reason"].endswith("auth failed for [REDACTED:env_value]"), result["reason"]
+    assert files_holding(backend.layout.root, FAKE_SECRET) == [], "nor an earlier attempt's"
+
+
+def test_a_fill_check_asks_the_version_without_the_suites_secrets(tmp_path, capture, monkeypatch):
+    from wikiskill.runner import run as run_mod
+
+    monkeypatch.setenv("FAKE_GRADER_TOKEN", FAKE_SECRET)
+    script = tmp_path / "claude"
+    script.write_text(
+        f'#!/bin/sh\nprintf "%s" "${{FAKE_GRADER_TOKEN-unset}}" >> {tmp_path}/seen.txt\n'
+        'echo "2.1.289 (Claude Code)"\n',
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    backend = make_backend(tmp_path, capture, None, str(script))
+    assert backend.withheld == (), "built by a caller that did not pass the secrets"
+    manifest = {"run_id": RUN_ID, "suite_path": "graded.yaml", "harness": "claude-code"}
+
+    run_mod.fill_refusal(manifest, graded_suite(), backend, None)
+
+    assert (tmp_path / "seen.txt").read_text() == "unset"
+
+
 def test_an_unisolated_session_is_infrastructure_not_a_result(tmp_path, capture):
     executable = fake_claude(tmp_path, SUBAGENT)
     backend = make_backend(tmp_path, capture, Endpoint("http://localhost:11434"), str(executable))
