@@ -144,7 +144,7 @@ synthetic fixtures and the bundled pilot results. Live verification stays outsta
 
 | Order | Change | Capabilities | Hard dependencies | Why here |
 |---|---|---|---|---|
-| 1 | `warn-unsent-followups` | task-suite, eval-runner | — | Small. Routes suite warnings into `run.json`, which 2 relies on. |
+| 1 | ~~`warn-unsent-followups`~~ **done 2026-11-12** | task-suite, eval-runner | — | Small. Routes suite warnings into `run.json`, which 2 relies on. |
 | 2 | `warn-empty-guard` | task-suite, eval-runner | 1 (soft) | Warns when a task `guard` drops suite deny patterns. Records each task's effective overrides. |
 | 3 | `unify-secret-scrub` | eval-runner | — | One scrubber for every eval site. Fixes a leak to the rubric judge. |
 | 4 | `add-run-archive` | run-archive (new) | 3 | Its pack-time secret scan reuses the scrubber from 3. |
