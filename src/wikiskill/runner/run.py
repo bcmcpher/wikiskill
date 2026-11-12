@@ -263,9 +263,6 @@ def run_suite(
         conditions=conditions,
         workers=max(1, workers),
         retries=max(0, retries),
-        # Recorded with the run, so a reader of `run.json` sees what the suite check said: a
-        # follow-up warning, say, means the tasks ran on their first prompt only.
-        warnings=list(suite.warnings),
     )
 
     if no_judge:
@@ -334,8 +331,7 @@ def run_suite(
     )
     # A preflight probe's words and an isolation proof come from harness processes too.
     where.write_manifest(redact.hide_value(manifest, host_values(suite.secrets)))
-    # The suite's own warnings were printed when it loaded; print only the run's.
-    for warning in run.warnings[len(suite.warnings) :]:
+    for warning in run.warnings:
         report(f"warning: {warning}")
     return run
 
@@ -588,7 +584,10 @@ def _manifest(
         "duration_s": duration_s,
         "outcomes": run.counts(),
         "events_written": run.events_written,
-        "warnings": run.warnings,
+        # The suite check's warnings first, so a reader of the run sees them: a follow-up warning,
+        # say, means a task ran on its first prompt only. The caller printed them when it loaded
+        # the suite; `run.warnings` holds only the run's own.
+        "warnings": [*run.suite.warnings, *run.warnings],
     }
 
 

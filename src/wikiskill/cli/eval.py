@@ -414,6 +414,8 @@ def _cmd_fill(args: argparse.Namespace) -> int:
     todo = run_mod.unfilled(layout.read_results())
     print(f"fill {args.fill}  suite {loaded.name}  {args.harness}  {len(todo)} unit(s) to run")
     print(f"  results  {layout.root}")
+    for warning in loaded.warnings:
+        print(f"  ? {warning}")
     if not todo:
         print("  every unit has a score; nothing to fill")
         return OK
