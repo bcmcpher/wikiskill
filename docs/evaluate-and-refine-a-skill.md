@@ -457,7 +457,7 @@ No suite in this repository wrote one.
 | `guard` | no | `{deny: [patterns]}` | Commands the session may not run. |
 | `requires` | no | list | Commands the task needs. If one is missing, the unit is `skipped`. |
 | `repeats`, `timeout_s`, `max_steps` | no | integer | Override the defaults. |
-| `followups` | no | list of strings | Scripted user turns. The schema accepts them; the runner does not send them yet. |
+| `followups` | no | list of strings | Scripted user turns. The schema accepts them; the runner does not send them yet. `suite check` and `eval` warn about each task that declares them, and `run.json` records the warning. |
 
 **`expect`, the route:**
 

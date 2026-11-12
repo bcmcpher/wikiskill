@@ -17,6 +17,6 @@
 
 ## 3. Documentation
 
-- [ ] 3.1 `docs/data.md`: say that `run.json` `warnings` also holds the suite's warnings; update the
+- [x] 3.1 `docs/data.md`: say that `run.json` `warnings` also holds the suite's warnings; update the
   `followups` row in `docs/evaluate-and-refine-a-skill.md` to mention the warning; verify `bin/check`
   passes
