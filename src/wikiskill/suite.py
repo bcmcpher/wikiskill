@@ -557,6 +557,14 @@ def parse(
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
         for warning in verifier_warnings(task):
             warnings.append(f"tasks/{index}: task {task.id!r} {warning}")
+        if task.followups:
+            # Accepted by the schema, but no backend sends them yet: the task runs on its first
+            # prompt only, and a reader of its results must not think the turns happened.
+            warnings.append(
+                f"tasks/{index}: task {task.id!r} declares {len(task.followups)} follow-up "
+                "turn(s), which are not sent: no evaluation backend sends them yet, so the task "
+                "runs on its first prompt only"
+            )
         certain, suspected = prompt_leaks(task)
         for term in certain:
             problems.append(

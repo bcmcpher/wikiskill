@@ -1,10 +1,10 @@
 ## 1. Suite check
 
-- [ ] 1.1 In the suite loader, add a warning for each task that declares `followups`, naming the task
+- [x] 1.1 In the suite loader, add a warning for each task that declares `followups`, naming the task
   and saying its turns are not sent; verify with a test that `suite check` prints it and exits zero
-- [ ] 1.2 Verify with a test that a suite with no `followups` gets no such warning, and that adding
+- [x] 1.2 Verify with a test that a suite with no `followups` gets no such warning, and that adding
   the warning leaves the suite hash unchanged
-- [ ] 1.3 Reword the `followups` description in `schemas/task-suite.schema.json` to say the field is
+- [x] 1.3 Reword the `followups` description in `schemas/task-suite.schema.json` to say the field is
   accepted but not yet sent; verify `pytest` still passes the schema tests
 
 ## 2. Run record

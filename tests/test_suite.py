@@ -375,6 +375,44 @@ def test_a_bare_yes_in_pass_when_is_a_warning_not_an_error(tmp_path, capsys):
     assert suite_mod.load(quoted).warnings == ()
 
 
+# --------------------------------------------------------------------------- follow-up turns
+
+FOLLOWUPS = GOOD.replace(
+    "    requires: [git]\n",
+    '    requires: [git]\n    followups: ["Use the v2 tag instead.", "Now push it."]\n',
+)
+
+
+def test_followups_are_a_warning_that_they_are_not_sent(tmp_path, capsys):
+    path = write(tmp_path, FOLLOWUPS)
+
+    loaded = suite_mod.load(path)
+    assert loaded.tasks[0].followups == ("Use the v2 tag instead.", "Now push it.")
+    (warning,) = loaded.warnings
+    assert "'release'" in warning
+    assert "2 follow-up turn(s), which are not sent" in warning
+    assert main(["suite", "check", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert f"? {warning}" in out
+    assert "ok, 1 to look at" in out
+
+
+def test_a_suite_without_followups_gets_no_followup_warning(tmp_path):
+    assert suite_mod.load(write(tmp_path, GOOD)).warnings == ()
+
+
+def test_the_followup_warning_leaves_the_suite_hash_alone(tmp_path):
+    from wikiskill import rawlog
+
+    # A run's `suite_hash` is the hash of the file's bytes, so a warning, which only the loader
+    # computes, cannot move it: the same file hashes the same before and after it is checked.
+    path = write(tmp_path, FOLLOWUPS)
+    before = rawlog.content_hash(path.read_bytes())
+    assert suite_mod.load(path).warnings
+    assert main(["suite", "check", str(path)]) == 0
+    assert rawlog.content_hash(path.read_bytes()) == before
+
+
 # --------------------------------------------------------------------------- secrets
 
 SECRETS = """
