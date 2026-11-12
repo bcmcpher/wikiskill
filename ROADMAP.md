@@ -135,6 +135,25 @@ after step 1 was archived. It reorders nothing below and blocks nothing.
 Steps 7 and 8 were rebased onto step 3's capabilities before they were built (`add-minimal-loop`
 task 7.1). Step 9 extends step 8's gate the same way.
 
+## Pending changes
+
+These changes harden the built loop. None is a step: each amends live capabilities, and
+`add-run-archive` adds one. Apply them in
+this order, one branch per change. The development GB10 is gone, so each change is verified on
+synthetic fixtures and the bundled pilot results. Live verification stays outstanding.
+
+| Order | Change | Capabilities | Hard dependencies | Why here |
+|---|---|---|---|---|
+| 1 | `warn-unsent-followups` | task-suite, eval-runner | — | Small. Routes suite warnings into `run.json`, which 2 relies on. |
+| 2 | `warn-empty-guard` | task-suite, eval-runner | 1 (soft) | Warns when a task `guard` drops suite deny patterns. Records each task's effective overrides. |
+| 3 | `unify-secret-scrub` | eval-runner | — | One scrubber for every eval site. Fixes a leak to the rubric judge. |
+| 4 | `add-run-archive` | run-archive (new) | 3 | Its pack-time secret scan reuses the scrubber from 3. |
+| 5 | `add-scripted-followups` | eval-runner, eval-scoring, task-suite | 1 | Sends follow-up turns. Removes the warning from 1. |
+| 6 | `enforce-task-splits` | eval-runner, experience-wiki, refinement-gate, task-suite | — | Review reads `train` only. Accepted: the hash-based DSH split. |
+| — | `collection-name-clash-check` | collection-config | — | Independent. Apply at any point. |
+
+Change 2 lands without 1, but its warning then reaches the console only, not `run.json`.
+
 ## Phases and milestones
 
 ### A — Foundation, measurement and a first loop (1–4)

@@ -19,13 +19,14 @@ the committed bundles.
 
 ## Next
 
-1. `warn-unsent-followups` (6 tasks, no open decision). Present it, then start on
-   `change/warn-unsent-followups`. Must be archived before `add-scripted-followups`.
-2. `add-run-archive`. Reuse the secret scrub (`runner.common.hide_in_files`, `redact.hide`). Test
-   on synthetic runs.
-3. `add-scripted-followups`. No longer waits for the DSH study runs. Live multi-turn runs stay
-   unverified.
-4. `enforce-task-splits`. Decided: accept the hash-based DSH split.
+The order of the pending changes is in `ROADMAP.md` § Pending changes. Three changes were proposed
+on 2026-11-12: `warn-empty-guard`, `unify-secret-scrub` and `collection-name-clash-check`. Their
+open decisions are in each `design.md`. `add-run-archive` reuses the scrubber from
+`unify-secret-scrub`. Live multi-turn runs stay unverified.
+
+The pilot tables on `results/dsh-pilot` check as current with that branch's code. With `main`'s
+code, `findings.csv` gains the seven `score_*` columns from `add-scored-verifier`. Merge `main` into
+that branch and regenerate the tables.
 
 ## Open decisions and follow-ups
 
