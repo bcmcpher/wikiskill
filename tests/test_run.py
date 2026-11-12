@@ -364,6 +364,50 @@ def test_the_manifest_records_the_suite_hash(xdg, tmp_path, layout):
     assert run_mod.load_manifest(run.layout)["suite_hash"] == rawlog.content_hash(path.read_bytes())
 
 
+FOLLOWUPS = SUITE + '    followups: ["Now push it."]\n'
+
+
+def test_the_manifest_records_the_suites_followup_warning(xdg, tmp_path, layout):
+    path = tmp_path / "followups.yaml"
+    path.write_text(FOLLOWUPS, encoding="utf-8")
+    loaded = suite_mod.load(path)
+    (warning,) = loaded.warnings
+    lines: list[str] = []
+
+    run = run_mod.run_suite(
+        loaded,
+        FakeBackend(layout, writes="DONE.md"),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+        on_event=lines.append,
+    )
+    manifest = run_mod.load_manifest(run.layout)
+
+    assert "follow-up turn(s), which are not sent" in warning
+    assert manifest["warnings"] == [warning]
+    assert manifest["suite_hash"] == rawlog.content_hash(path.read_bytes())
+    assert f"warning: {warning}" not in lines, "the CLI printed it when the suite loaded"
+
+
+def test_the_followup_warning_changes_no_outcome(xdg, tmp_path):
+    plain_path, followup_path = tmp_path / "plain.yaml", tmp_path / "followups.yaml"
+    plain_path.write_text(SUITE, encoding="utf-8")
+    followup_path.write_text(FOLLOWUPS, encoding="utf-8")
+    runs = []
+    for name, path in (("plain", plain_path), ("followups", followup_path)):
+        where = RunLayout.create("toy", name, base=tmp_path / "evals")
+        runs.append(go(suite_mod.load(path), FakeBackend(where, writes="DONE.md"), where))
+    plain, followups = runs
+
+    assert run_mod.load_manifest(plain.layout)["warnings"] == [], "no suite warning, none recorded"
+    assert [(r["outcome"], r["passed"]) for r in followups.results] == [
+        (r["outcome"], r["passed"]) for r in plain.results
+    ]
+
+
 def test_eval_repeats_overrides_the_suites_and_keeps_its_hash(xdg, tmp_path, monkeypatch):
     from wikiskill.cli import eval as eval_cli
     from wikiskill.cli import main

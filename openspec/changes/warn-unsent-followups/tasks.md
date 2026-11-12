@@ -9,10 +9,10 @@
 
 ## 2. Run record
 
-- [ ] 2.1 Pass the loaded suite's warnings into the run so they are added to `run.warnings` before
+- [x] 2.1 Pass the loaded suite's warnings into the run so they are added to `run.warnings` before
   any unit runs; verify with a test that `run.json` `warnings` holds the follow-up warning for a
   suite that declares `followups`
-- [ ] 2.2 Verify with a test that a suite with no warnings leaves `run.json` `warnings` unchanged,
+- [x] 2.2 Verify with a test that a suite with no warnings leaves `run.json` `warnings` unchanged,
   and that no unit's outcome or `passed` value depends on the warning
 
 ## 3. Documentation
