@@ -195,7 +195,7 @@
         "secrets": { "$ref": "#/$defs/secrets" },
         "setup": { "$ref": "#/$defs/setup" },
         "followups": {
-          "description": "Scripted user turns sent after the first response. Not a simulated user.",
+          "description": "Scripted user turns to send after the first response. Not a simulated user. Accepted but not yet sent: no evaluation backend sends them, so the task runs on its first prompt only, and `suite check` warns.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         },

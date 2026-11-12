@@ -364,6 +364,87 @@ def test_the_manifest_records_the_suite_hash(xdg, tmp_path, layout):
     assert run_mod.load_manifest(run.layout)["suite_hash"] == rawlog.content_hash(path.read_bytes())
 
 
+FOLLOWUPS = SUITE + '    followups: ["Now push it."]\n'
+
+
+def test_the_manifest_records_the_suites_followup_warning(xdg, tmp_path, layout):
+    path = tmp_path / "followups.yaml"
+    path.write_text(FOLLOWUPS, encoding="utf-8")
+    loaded = suite_mod.load(path)
+    (warning,) = loaded.warnings
+    lines: list[str] = []
+
+    run = run_mod.run_suite(
+        loaded,
+        FakeBackend(layout, writes="DONE.md"),
+        collection=None,
+        models=["fake/model"],
+        conditions=[OFF],
+        layout=layout,
+        run_id="01JRUN",
+        on_event=lines.append,
+    )
+    manifest = run_mod.load_manifest(run.layout)
+
+    assert "follow-up turn(s), which are not sent" in warning
+    assert manifest["warnings"] == [warning]
+    assert manifest["suite_hash"] == rawlog.content_hash(path.read_bytes())
+    assert f"warning: {warning}" not in lines, "the CLI printed it when the suite loaded"
+
+
+def test_a_fill_keeps_the_suites_warning_once(xdg, tmp_path, layout):
+    path = tmp_path / "followups.yaml"
+    path.write_text(FOLLOWUPS, encoding="utf-8")
+    loaded = suite_mod.load(path)
+    go(loaded, FakeBackend(layout, ok=False), layout)
+    manifest = run_mod.load_manifest(layout)
+
+    _, filled = run_mod.fill_run(
+        loaded,
+        FakeBackend(layout, writes="DONE.md"),
+        collection=None,
+        layout=layout,
+        manifest=manifest,
+    )
+
+    assert filled, "the skipped unit was run again"
+    assert run_mod.load_manifest(layout)["warnings"] == list(loaded.warnings)
+
+
+def test_eval_fill_prints_the_suites_warnings(xdg, tmp_path, layout, monkeypatch, capsys):
+    from wikiskill.cli import eval as eval_cli
+    from wikiskill.cli import main
+
+    path = tmp_path / "followups.yaml"
+    path.write_text(FOLLOWUPS, encoding="utf-8")
+    loaded = suite_mod.load(path)
+    monkeypatch.setattr(eval_cli, "_fill_target", lambda args: (None, layout, {}, loaded))
+    monkeypatch.setattr(eval_cli, "_eval_backend", lambda *a, **k: FakeBackend(layout))
+    monkeypatch.setattr(run_mod, "fill_refusal", lambda *a: None)
+
+    assert main(["eval", "--fill", "01JRUN", "--collection", "toy"]) == 0
+    out = capsys.readouterr().out
+    (warning,) = loaded.warnings
+    assert f"? {warning}" in out
+    assert "nothing to fill" in out
+
+
+def test_the_followup_warning_changes_no_outcome(xdg, tmp_path):
+    plain_path, followup_path = tmp_path / "plain.yaml", tmp_path / "followups.yaml"
+    plain_path.write_text(SUITE, encoding="utf-8")
+    followup_path.write_text(FOLLOWUPS, encoding="utf-8")
+    runs = []
+    for name, path in (("plain", plain_path), ("followups", followup_path)):
+        where = RunLayout.create("toy", name, base=tmp_path / "evals")
+        runs.append(go(suite_mod.load(path), FakeBackend(where, writes="DONE.md"), where))
+    plain, followups = runs
+
+    assert run_mod.load_manifest(plain.layout)["warnings"] == [], "no suite warning, none recorded"
+    assert [(r["outcome"], r["passed"]) for r in followups.results] == [
+        (r["outcome"], r["passed"]) for r in plain.results
+    ]
+
+
 def test_eval_repeats_overrides_the_suites_and_keeps_its_hash(xdg, tmp_path, monkeypatch):
     from wikiskill.cli import eval as eval_cli
     from wikiskill.cli import main

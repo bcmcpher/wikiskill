@@ -584,7 +584,10 @@ def _manifest(
         "duration_s": duration_s,
         "outcomes": run.counts(),
         "events_written": run.events_written,
-        "warnings": run.warnings,
+        # The suite check's warnings first, so a reader of the run sees them: a follow-up warning,
+        # say, means a task ran on its first prompt only. The caller printed them when it loaded
+        # the suite; `run.warnings` holds only the run's own.
+        "warnings": [*run.suite.warnings, *run.warnings],
     }
 
 

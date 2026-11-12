@@ -166,6 +166,9 @@ evals/<run_id>/
 - `preflight`, `isolation` (proof of what each condition ran under), `options` (output cap, thinking,
   seed cache), `workers`, `retries`, `duration_s`, `outcomes` (a count per outcome),
   `events_written`;
+- `warnings`: the suite's warnings from when it loaded, then the run's own. A follow-up warning,
+  for example, means a task ran on its first prompt only. A warning never changes an outcome.
+  `eval --fill` adds its own warnings after these, not the suite's again;
 - `fills`: only after `eval --fill`, one entry per fill: `at`, the `units` it ran, its `outcomes`
   `before` and `after`, the `harness_version` and `wikiskill_version` it ran under, `retries`,
   `duration_s` and its own `preflight`. `outcomes` and `events_written` count the run as it now
