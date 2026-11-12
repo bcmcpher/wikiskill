@@ -391,6 +391,22 @@ def verifier_warnings(task: Task) -> list[str]:
     return warnings
 
 
+def followup_warnings(task: Task) -> list[str]:
+    """That a task's follow-up turns are not sent.
+
+    The schema accepts them, but no backend sends them yet: the task runs on its first prompt only,
+    and a reader of its results must not think the turns happened.
+    """
+    if not task.followups:
+        return []
+    return [
+        (
+            f"declares {len(task.followups)} follow-up turn(s), which are not sent: no "
+            "evaluation backend sends them yet, so the task runs on its first prompt only"
+        )
+    ]
+
+
 def _result_problems(verifier: Verifier) -> list[str]:
     """`result`, `pass_when` and `score` only mean something on a command that prints a result.
 
@@ -555,16 +571,8 @@ def parse(
             )
         for problem in verifier_problems(task) + env_problems(task):
             problems.append(f"tasks/{index}: task {task.id!r} {problem}")
-        for warning in verifier_warnings(task):
+        for warning in verifier_warnings(task) + followup_warnings(task):
             warnings.append(f"tasks/{index}: task {task.id!r} {warning}")
-        if task.followups:
-            # Accepted by the schema, but no backend sends them yet: the task runs on its first
-            # prompt only, and a reader of its results must not think the turns happened.
-            warnings.append(
-                f"tasks/{index}: task {task.id!r} declares {len(task.followups)} follow-up "
-                "turn(s), which are not sent: no evaluation backend sends them yet, so the task "
-                "runs on its first prompt only"
-            )
         certain, suspected = prompt_leaks(task)
         for term in certain:
             problems.append(
